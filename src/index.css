@@ -1,0 +1,191 @@
+/* src/index.css */
+
+@import "tailwindcss";
+
+/* ─── Base ─────────────────────────────────────────────────────────────────── */
+
+@layer base {
+    html,
+    body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        /* scroll-behavior removed — ScrollToTop in App.jsx handles smooth scrolling */
+        @apply bg-slate-100;
+    }
+
+    button {
+        cursor: pointer;
+    }
+
+    /* Light card shadow — used across hotel/destination cards */
+    .custom-shadow {
+        box-shadow:
+                rgba(0, 0, 0, 0.4) 0px 2px 4px,
+                rgba(0, 0, 0, 0.3) 0px 7px 13px -3px,
+                rgba(0, 0, 0, 0.2) 0px -3px 0px inset;
+    }
+
+    /* ── Scrollbar: carousel hide ─────────────────────────────────────────── */
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
+    .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    /* ── Scrollbar: filter panels (scoped — was .overflow-y-auto, too broad) */
+    .filter-scroll::-webkit-scrollbar {
+        width: 6px;
+    }
+    .filter-scroll::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 10px;
+    }
+    .filter-scroll::-webkit-scrollbar-thumb {
+        background: #0284c7;
+        border-radius: 10px;
+    }
+    .filter-scroll::-webkit-scrollbar-thumb:hover {
+        background: #0369a1;
+    }
+
+    /* ── Animations ───────────────────────────────────────────────────────── */
+
+    @keyframes fade-in {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Canonical slide-up — merged from two conflicting definitions.
+       Animates both opacity and translateY (the more complete version). */
+    @keyframes slide-up {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .animate-fade-in {
+        animation: fade-in 0.8s ease-out forwards;
+    }
+
+    /* Unified .animate-slide-up — one definition, one behavior */
+    .animate-slide-up {
+        animation: slide-up 1s ease-out 0.3s forwards;
+        opacity: 0;
+    }
+
+    .animate-slideDown {
+        animation: slideDown 0.3s ease-out;
+    }
+
+    /* ── Shadows ──────────────────────────────────────────────────────────── */
+
+    /* Heavy card shadow — merged from two conflicting definitions.
+       Kept the multi-layer rgba version (stronger, used in components layer). */
+    .custom-shadow-heavy {
+        box-shadow:
+                rgba(0, 0, 0, 0.4) 0px 2px 4px,
+                rgba(0, 0, 0, 0.3) 0px 7px 13px -3px,
+                rgba(0, 0, 0, 0.2) 0px -3px 0px inset;
+    }
+}
+
+/* ─── Components ────────────────────────────────────────────────────────────── */
+
+@layer components {
+
+    /* ── Gradient buttons ─────────────────────────────────────────────────── */
+
+    .gradient-shared {
+        background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+        box-shadow: 0 6px 20px rgba(249, 115, 22, 0.4), inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-gradient-shared {
+        @apply relative font-semibold text-white rounded-lg cursor-pointer;
+        @apply transition-all active:scale-95;
+        @apply focus:outline-none focus:ring-4 focus:ring-yellow-300;
+        @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none;
+        background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+        box-shadow: 0 6px 20px rgba(249, 115, 22, 0.4), inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    /* CTA Button — desktop only, scale on hover */
+    .btn-cta {
+        @apply hidden md:block px-6 py-2.5;
+        @apply duration-300 hover:scale-105;
+    }
+
+    /* More Button — always visible, gradient shift on hover */
+    .btn-more {
+        @apply overflow-hidden shadow-lg;
+        @apply duration-200 hover:shadow-xl;
+    }
+    .btn-more:hover:not(:disabled) {
+        background: linear-gradient(135deg, #eab308 0%, #ea580c 100%);
+    }
+
+    /* ── Scrollbar: hotel list / search results (8px, sky blue) ──────────── */
+    .scrollbar-thin::-webkit-scrollbar {
+        width: 8px;
+    }
+    .scrollbar-thin::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 4px;
+    }
+    .scrollbar-thin::-webkit-scrollbar-thumb {
+        background: #7dd3fc;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+    .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+        background: #38bdf8;
+    }
+    /* Firefox */
+    .scrollbar-thin {
+        scrollbar-width: thin;
+        scrollbar-color: #7dd3fc #f1f5f9;
+    }
+
+    /* ── Scrollbar: city dropdown (6px, slate) ───────────────────────────── */
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 10px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 10px;
+        transition: background 0.3s;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
+}
