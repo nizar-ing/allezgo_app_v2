@@ -494,16 +494,6 @@ class ApiClient {
             if (!searchParams.rooms || !Array.isArray(searchParams.rooms) || searchParams.rooms.length === 0)
                 throw new ApiError(this.messages.ROOMS_REQUIRED, 400);
 
-            const limitedHotels = searchParams.hotels.slice(0, CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH);
-            const limitApplied  = searchParams.hotels.length > CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH;
-            if (limitApplied) {
-                console.warn(
-                    `⚠️ [ApiClient.searchHotel] Search limited to ${CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH} hotels ` +
-                    `(${searchParams.hotels.length} requested, ` +
-                    `${searchParams.hotels.length - CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH} dropped). `
-                );
-            }
-
             const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
             if (!dateRegex.test(searchParams.checkIn)) {
                 throw new ApiError(this.messages.INVALID_DATE_FORMAT('checkIn'), 400);
@@ -514,17 +504,15 @@ class ApiClient {
 
             const roomsForRequest = searchParams.rooms.map(room => {
                 const roomObj = { Adult: room.adult || room.adults || room.Adult || 2 };
-                // Ensure we capture children correctly whether passed as child, children, or childAges
                 const childAges = room.child || room.children || room.childAges;
                 if (Array.isArray(childAges) && childAges.length > 0) {
                     roomObj.Child = childAges;
                 } else if (typeof childAges === 'number' && childAges > 0) {
-                     roomObj.Child = Array(childAges).fill(5); // fallback if it was just a count
+                    roomObj.Child = Array(childAges).fill(5); // fallback if it was just a count
                 }
                 return roomObj;
             });
 
-            // FIX: Sanitize the incoming filters object to match API expectations
             const defaultFilters = { Keywords: "", Category: [], OnlyAvailable: false, Tags: [] };
             const incomingFilters = searchParams.filters || {};
             const finalFilters = {
@@ -533,7 +521,7 @@ class ApiClient {
                 OnlyAvailable: incomingFilters.onlyAvailable ?? incomingFilters.OnlyAvailable ?? defaultFilters.OnlyAvailable,
                 Tags: incomingFilters.tags ?? incomingFilters.Tags ?? defaultFilters.Tags,
             };
-    
+
             if (typeof finalFilters.Category === 'string') {
                 finalFilters.Category = finalFilters.Category ? [finalFilters.Category] : [];
             }
@@ -541,49 +529,80 @@ class ApiClient {
                 finalFilters.Tags = finalFilters.Tags ? [finalFilters.Tags] : [];
             }
 
-            const requestBody = this.createRequestBody({
-                SearchDetails: {
-                    BookingDetails: {
-                        CheckIn:  searchParams.checkIn,
-                        CheckOut: searchParams.checkOut,
-                        Hotels:   limitedHotels,
-                    },
-                    Filters: finalFilters,
-                    Rooms: roomsForRequest,
-                },
-            });
+            // --- THE FIX: Split hotels into chunks of 200 to bypass the hard limit ---
+            const hotelChunks = [];
+            const MAX_HOTELS = CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH;
 
-            if (import.meta.env.DEV) {
-                console.log(`🔍 Searching ${limitedHotels.length} hotels...`);
-                console.log(`📦 Request size: ${(JSON.stringify(requestBody).length / 1024).toFixed(2)} KB`);
+            for (let i = 0; i < searchParams.hotels.length; i += MAX_HOTELS) {
+                hotelChunks.push(searchParams.hotels.slice(i, i + MAX_HOTELS));
             }
 
-            const response = await this.retryRequest(async () => {
-                return await this.client.post('/HotelSearch', requestBody, {
-                    timeout:     CONFIG.TIMEOUT.SEARCH,
-                    cancelToken: cancelToken.token,
+            if (import.meta.env.DEV) {
+                console.log(`🔍 Searching ${searchParams.hotels.length} hotels in ${hotelChunks.length} batch(es)...`);
+            }
+
+            // Create an array of Promises for each chunk
+            const searchPromises = hotelChunks.map(chunk => {
+                const requestBody = this.createRequestBody({
+                    SearchDetails: {
+                        BookingDetails: {
+                            CheckIn:  searchParams.checkIn,
+                            CheckOut: searchParams.checkOut,
+                            Hotels:   chunk,
+                        },
+                        Filters: finalFilters,
+                        Rooms: roomsForRequest,
+                    },
+                });
+
+                return this.retryRequest(async () => {
+                    return await this.client.post('/HotelSearch', requestBody, {
+                        timeout:     CONFIG.TIMEOUT.SEARCH,
+                        cancelToken: cancelToken.token,
+                    });
                 });
             });
 
+            // Execute all chunks concurrently
+            const responses = await Promise.all(searchPromises);
+
             this.cancelTokens.delete('hotelSearch');
 
-            const transformedData = this._transformHotelSearchResponse(response.data, roomsForRequest);
+            // Aggregate data from all chunks
+            let aggregatedHotelSearch = [];
+            let aggregatedTransformed = [];
+            let totalCount = 0;
+            let lastSearchId = null;
+            let lastTiming = null;
+            let errorMessage = null;
+
+            responses.forEach(response => {
+                const data = response.data;
+                const rawHotels = data.HotelSearch || [];
+                aggregatedHotelSearch = aggregatedHotelSearch.concat(rawHotels);
+                totalCount += data.CountResults || 0;
+
+                if (data.SearchId) lastSearchId = data.SearchId;
+                if (data.Timing) lastTiming = data.Timing;
+                if (data.ErrorMessage && data.ErrorMessage.length > 0) errorMessage = data.ErrorMessage;
+
+                const transformedData = this._transformHotelSearchResponse(data, roomsForRequest);
+                aggregatedTransformed = aggregatedTransformed.concat(transformedData);
+            });
 
             if (import.meta.env.DEV)
-                console.log(`✅ Search returned and transformed ${transformedData.length} results`);
+                console.log(`✅ Search returned and transformed ${aggregatedTransformed.length} results`);
 
             return {
-                // Keep original structure for backward compatibility if needed elsewhere
-                hotelSearch:       response.data.HotelSearch || [],
-                // Add the new transformed data
-                transformedHotels: transformedData,
-                countResults:      response.data.CountResults || 0,
-                errorMessage:      response.data.ErrorMessage || null,
-                searchId:          response.data.SearchId || null,
-                timing:            response.data.Timing || null,
-                _limitApplied:     limitApplied,
+                hotelSearch:       aggregatedHotelSearch,
+                transformedHotels: aggregatedTransformed,
+                countResults:      totalCount,
+                errorMessage:      errorMessage,
+                searchId:          lastSearchId,
+                timing:            lastTiming,
+                _limitApplied:     false,
                 _requestedHotels:  searchParams.hotels.length,
-                _searchedHotels:   limitedHotels.length,
+                _searchedHotels:   searchParams.hotels.length,
             };
         } catch (error) {
             this.cancelTokens.delete('hotelSearch');

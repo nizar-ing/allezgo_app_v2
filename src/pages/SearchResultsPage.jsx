@@ -117,18 +117,24 @@ function SearchResultsPage() {
         queryKey: ["hotelSearch", hotelIds, checkIn, checkOut, rooms],
         queryFn:  async () => {
             if (!hotelIds.length) throw new Error("Aucun hôtel à rechercher");
+
+            // FIX: Map rooms correctly to include Child Ages array instead of just count
             const result = await apiClient.searchHotel({
                 checkIn,
                 checkOut,
                 hotels: hotelIds,
                 rooms:  rooms.map((room) => ({
-                    adult:     room.adults,
-                    child:     Array.isArray(room.children) ? room.children.length : (room.children ?? 0),
-                    childAges: Array.isArray(room.children) && room.children.length > 0
-                        ? room.children : undefined,
+                    adult: room.adults,
+                    // Pass the actual age array. If children is an array of objects/numbers,
+                    // ensure we extract only the age value as expected by the API.
+                    child: Array.isArray(room.children)
+                        ? room.children.map(c => typeof c === 'object' ? (c.age ?? 5) : c)
+                        : []
                 })),
-                filters: { keywords: "", category: "", onlyAvailable: true, tags: "" },
+                // Relax OnlyAvailable to false to ensure we get "On Request" hotels
+                filters: { keywords: "", category: "", onlyAvailable: false, tags: "" },
             });
+
             if (result.errorMessage?.Code)
                 throw new Error(result.errorMessage.Description ?? "Erreur de recherche");
             return result;
@@ -226,7 +232,8 @@ function SearchResultsPage() {
                 Recommended:      sr.Recommended,
                 FreeChild:        sr.FreeChild,
                 Source:           sr.Source,
-                IsAvailable:      true,
+                // FIX: Ensure IsAvailable is true if we have prices OR if the hotel allows "On Request"
+                IsAvailable:      minPrice !== null || fromSearch.OnRequest === true,
                 searchResult:     true,
                 hasFullDetails:   !!full,
                 dataSource:       full ? "merged" : "search-only",
@@ -243,7 +250,8 @@ function SearchResultsPage() {
 
     // ── Filter ─────────────────────────────────────────────────────────────────
     const filteredHotels = useMemo(() => {
-        let result = [...processedHotels];
+        // Only show available hotels in the results list
+        let result = processedHotels.filter(h => h.IsAvailable);
         if (filters.categories?.length)
             result = result.filter((h) => filters.categories.includes(h.Category?.Star));
         if (filters.services?.length)
@@ -264,7 +272,7 @@ function SearchResultsPage() {
     const sortedHotels = useMemo(() => {
         const sorted = [...filteredHotels];
         switch (sortBy) {
-            case "price-asc":  return sorted.sort((a, b) => (a.MinPrice ?? 0) - (b.MinPrice ?? 0));
+            case "price-asc":  return sorted.sort((a, b) => (a.MinPrice ?? 999999) - (b.MinPrice ?? 999999));
             case "price-desc": return sorted.sort((a, b) => (b.MinPrice ?? 0) - (a.MinPrice ?? 0));
             case "rating":     return sorted.sort((a, b) => (b.Category?.Star ?? 0) - (a.Category?.Star ?? 0));
             case "name-asc":   return sorted.sort((a, b) => (a.Name ?? "").localeCompare(b.Name ?? ""));
@@ -325,12 +333,7 @@ function SearchResultsPage() {
             try {
                 const normalized = rooms.map((room) => ({
                     adults:    room.adults ?? 2,
-                    children:  Array.isArray(room.children)
-                        ? room.children.length
-                        : (room.children ?? 0),
-                    childAges: Array.isArray(room.children)
-                        ? room.children.map((c) => (typeof c === "object" ? c.age ?? 5 : c))
-                        : [],
+                    children:  Array.isArray(room.children) ? room.children : [],
                 }));
                 p.set("rooms", encodeURIComponent(JSON.stringify(normalized)));
             } catch {}
@@ -345,13 +348,7 @@ function SearchResultsPage() {
 
     const handleBookHotel = useCallback((hotel, selectedRooms) => {
         const preloadedRooms = hotel.preloadedRooms ?? [];
-
-        // ── Path 1: user explicitly selected rooms inside the card ──────────────
-        const roomsList = Array.isArray(selectedRooms)
-            ? selectedRooms
-            : selectedRooms
-                ? [selectedRooms]
-                : [];
+        const roomsList = Array.isArray(selectedRooms) ? selectedRooms : selectedRooms ? [selectedRooms] : [];
 
         if (roomsList.length > 0) {
             const totalPrice = roomsList.reduce((acc, r) => acc + (r.price ?? 0) * nights, 0);
@@ -374,7 +371,6 @@ function SearchResultsPage() {
             return;
         }
 
-        // ── Path 2: fallback auto-select (no room chosen yet) ───────────────────
         if (!preloadedRooms.length || !checkIn || !checkOut) {
             navigate(buildHotelUrl(hotel.Id));
             return;
@@ -395,12 +391,8 @@ function SearchResultsPage() {
                 roomType:  bestRoom?.name  ?? null,
                 roomId:    bestRoom?.id    ?? null,
                 adults:    adultCount,
-                children:  Array.isArray(room.children)
-                    ? room.children.length
-                    : (room.children ?? 0),
-                childAges: Array.isArray(room.children)
-                    ? room.children.map((c) => c.age ?? c)
-                    : [],
+                children:  Array.isArray(room.children) ? room.children.length : 0,
+                childAges: Array.isArray(room.children) ? room.children : [],
                 price: bestRoom?.price ?? 0,
                 total: bestRoom ? (bestRoom.price ?? 0) * nights : 0,
             };
@@ -455,17 +447,14 @@ function SearchResultsPage() {
     const isError   = isErrorHotels   || isErrorSearch;
     const error     = errorHotels     || errorSearch;
 
-    // ── Loading ─────────────────────────────────────────────────────────────────
     if (isLoading) return (
         <div className="min-h-screen w-full bg-gradient-to-br from-sky-50 via-blue-50 to-sky-100">
             <Loader message="Recherche des hôtels disponibles..." fullHeight={true} />
         </div>
     );
 
-    // ── Render ──────────────────────────────────────────────────────────────────
     return (
         <div className="min-h-screen w-full bg-gradient-to-br from-sky-50 via-blue-50 to-sky-100">
-
             {/* ── Hero Banner ─────────────────────────────────────────────────────── */}
             <div className="relative h-48 sm:h-56 md:h-64 lg:h-80 overflow-hidden mx-2 sm:mx-4 lg:mx-8 mt-2 sm:mt-4 rounded-xl sm:rounded-2xl">
                 <img
@@ -493,72 +482,42 @@ function SearchResultsPage() {
             {/* ── Search Summary Banner ────────────────────────────────────────────── */}
             <div className="bg-white shadow-md border-b border-gray-200 mx-2 sm:mx-4 lg:mx-8 mt-2 sm:mt-4 rounded-xl sm:rounded-2xl overflow-hidden">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
-                    <Link
-                        to="/"
-                        className="inline-flex items-center gap-2 text-sky-600 hover:text-sky-700 font-semibold mb-4 transition-colors"
-                    >
+                    <Link to="/" className="inline-flex items-center gap-2 text-sky-600 hover:text-sky-700 font-semibold mb-4 transition-colors">
                         <ArrowLeft size={20} />
                         <span>Modifier la recherche</span>
                     </Link>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {/* Destination */}
                         <div className="flex items-start gap-3">
-                            <div className="p-2 bg-sky-100 rounded-lg flex-shrink-0">
-                                <MapPin className="text-sky-600" size={20} />
-                            </div>
+                            <div className="p-2 bg-sky-100 rounded-lg flex-shrink-0"><MapPin className="text-sky-600" size={20} /></div>
                             <div className="min-w-0 flex-1">
                                 <p className="text-xs text-gray-500 mb-1">Destination</p>
-                                <p className="font-bold text-gray-800 truncate">
-                                    {selectionType === "city" ? cityName : hotelName}
-                                </p>
-                                {selectionType === "hotel" && cityName && (
-                                    <p className="text-xs text-gray-500">{cityName}</p>
-                                )}
-                                {countryName && (
-                                    <p className="text-xs text-gray-500">{countryName}</p>
-                                )}
+                                <p className="font-bold text-gray-800 truncate">{selectionType === "city" ? cityName : hotelName}</p>
+                                {selectionType === "hotel" && cityName && <p className="text-xs text-gray-500">{cityName}</p>}
+                                {countryName && <p className="text-xs text-gray-500">{countryName}</p>}
                             </div>
                         </div>
-                        {/* Dates */}
                         <div className="flex items-start gap-3">
-                            <div className="p-2 bg-green-100 rounded-lg flex-shrink-0">
-                                <Calendar className="text-green-600" size={20} />
-                            </div>
+                            <div className="p-2 bg-green-100 rounded-lg flex-shrink-0"><Calendar className="text-green-600" size={20} /></div>
                             <div className="min-w-0 flex-1">
                                 <p className="text-xs text-gray-500 mb-1">Dates</p>
-                                <p className="font-semibold text-gray-800 text-sm">
-                                    {formatDisplayDate(checkIn)} → {formatDisplayDate(checkOut)}
-                                </p>
+                                <p className="font-semibold text-gray-800 text-sm">{formatDisplayDate(checkIn)} → {formatDisplayDate(checkOut)}</p>
                                 <p className="text-xs text-gray-500">{nights} nuit{nights > 1 ? "s" : ""}</p>
                             </div>
                         </div>
-                        {/* Voyageurs */}
                         <div className="flex items-start gap-3">
-                            <div className="p-2 bg-purple-100 rounded-lg flex-shrink-0">
-                                <Users className="text-purple-600" size={20} />
-                            </div>
+                            <div className="p-2 bg-purple-100 rounded-lg flex-shrink-0"><Users className="text-purple-600" size={20} /></div>
                             <div className="min-w-0 flex-1">
                                 <p className="text-xs text-gray-500 mb-1">Voyageurs</p>
-                                <p className="font-semibold text-gray-800 text-sm">
-                                    {totalGuests.adults} adulte{totalGuests.adults > 1 ? "s" : ""}
-                                    {totalGuests.children > 0 && `, ${totalGuests.children} enfant${totalGuests.children > 1 ? "s" : ""}`}
-                                </p>
+                                <p className="font-semibold text-gray-800 text-sm">{totalGuests.adults} adulte{totalGuests.adults > 1 ? "s" : ""}{totalGuests.children > 0 && `, ${totalGuests.children} enfant${totalGuests.children > 1 ? "s" : ""}`}</p>
                                 <p className="text-xs text-gray-500">{rooms.length} chambre{rooms.length > 1 ? "s" : ""}</p>
                             </div>
                         </div>
-                        {/* Type de recherche */}
                         <div className="flex items-start gap-3">
-                            <div className="p-2 bg-amber-100 rounded-lg flex-shrink-0">
-                                <Search className="text-amber-600" size={20} />
-                            </div>
+                            <div className="p-2 bg-amber-100 rounded-lg flex-shrink-0"><Search className="text-amber-600" size={20} /></div>
                             <div className="min-w-0 flex-1">
                                 <p className="text-xs text-gray-500 mb-1">Type de recherche</p>
-                                <p className="font-semibold text-gray-800 text-sm">
-                                    {selectionType === "city" ? "Tous les hôtels" : "Hôtel spécifique"}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                    {hotelIds?.length ?? 0} hôtel{(hotelIds?.length ?? 0) > 1 ? "s" : ""} recherché{(hotelIds?.length ?? 0) > 1 ? "s" : ""}
-                                </p>
+                                <p className="font-semibold text-gray-800 text-sm">{selectionType === "city" ? "Tous les hôtels" : "Hôtel spécifique"}</p>
+                                <p className="text-xs text-gray-500">{hotelIds?.length ?? 0} hôtel{(hotelIds?.length ?? 0) > 1 ? "s" : ""} recherché{(hotelIds?.length ?? 0) > 1 ? "s" : ""}</p>
                             </div>
                         </div>
                     </div>
@@ -567,76 +526,45 @@ function SearchResultsPage() {
 
             {/* ── Main Content ─────────────────────────────────────────────────────── */}
             <div className="w-full max-w-[1800px] mx-auto px-2 sm:px-4 lg:px-6 xl:px-8 py-4 sm:py-6 lg:py-8">
-
-                {/* Top Bar */}
                 <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-3 sm:p-4 mb-4 sm:mb-6">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
                         <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
-                            <div className="p-1.5 sm:p-2 bg-sky-100 rounded-lg flex-shrink-0">
-                                <Hotel className="text-sky-600" size={20} />
-                            </div>
+                            <div className="p-1.5 sm:p-2 bg-sky-100 rounded-lg flex-shrink-0"><Hotel className="text-sky-600" size={20} /></div>
                             <div className="min-w-0 flex-1">
                                 <p className="text-xs sm:text-sm text-gray-500">Hôtels disponibles</p>
                                 <p className="text-base sm:text-lg lg:text-xl font-bold text-gray-800 truncate">
                                     {sortedHotels.length} résultat{sortedHotels.length > 1 ? "s" : ""}
-                                    {displayedHotels.length < sortedHotels.length && (
-                                        <span className="text-xs sm:text-sm text-gray-500 font-normal ml-1 sm:ml-2">
-                                            {displayedHotels.length} affichés
-                                        </span>
-                                    )}
+                                    {displayedHotels.length < sortedHotels.length && <span className="text-xs sm:text-sm text-gray-500 font-normal ml-1 sm:ml-2">{displayedHotels.length} affichés</span>}
                                 </p>
                             </div>
                         </div>
                         <div className="relative flex-1 sm:flex-initial min-w-[140px] sm:min-w-[160px]">
-                            <select
-                                value={sortBy}
-                                onChange={(e) => setSortBy(e.target.value)}
-                                className="appearance-none w-full pl-3 sm:pl-4 pr-8 sm:pr-10 py-2 sm:py-2.5 bg-white border-2 border-gray-200 rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold text-gray-700 hover:border-sky-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 transition-all cursor-pointer"
-                            >
-                                {sortOptions.map((o) => (
-                                    <option key={o.value} value={o.value}>{o.label}</option>
-                                ))}
+                            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="appearance-none w-full pl-3 sm:pl-4 pr-8 sm:pr-10 py-2 sm:py-2.5 bg-white border-2 border-gray-200 rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold text-gray-700 hover:border-sky-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 transition-all cursor-pointer">
+                                {sortOptions.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
                             </select>
                             <ArrowUpDown size={16} className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                         </div>
                     </div>
                 </div>
 
-                {/* Error */}
                 {isError && (
                     <div className="bg-white rounded-xl sm:rounded-2xl shadow-xl p-6 sm:p-8 lg:p-12 text-center">
                         <AlertCircle size={48} className="sm:w-16 sm:h-16 mx-auto text-red-500 mb-3 sm:mb-4" />
                         <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2 sm:mb-3">Erreur de recherche</h3>
-                        <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 px-4">
-                            {error?.message ?? "Impossible de rechercher les hôtels disponibles."}
-                        </p>
-                        <button
-                            onClick={() => navigate("/")}
-                            className="px-5 sm:px-6 py-2.5 sm:py-3 bg-sky-600 hover:bg-sky-700 text-white text-sm sm:text-base font-semibold rounded-lg sm:rounded-xl transition-all shadow-lg active:scale-95"
-                        >
-                            Retour à la recherche
-                        </button>
+                        <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 px-4">{error?.message ?? "Impossible de rechercher les hôtels disponibles."}</p>
+                        <button onClick={() => navigate("/")} className="px-5 sm:px-6 py-2.5 sm:py-3 bg-sky-600 hover:bg-sky-700 text-white text-sm sm:text-base font-semibold rounded-lg sm:rounded-xl transition-all shadow-lg active:scale-95">Retour à la recherche</button>
                     </div>
                 )}
 
-                {/* Empty */}
                 {!isLoading && !isError && sortedHotels.length === 0 && (
                     <div className="bg-white rounded-xl sm:rounded-2xl shadow-xl p-6 sm:p-8 lg:p-12 text-center">
                         <Search size={48} className="sm:w-16 sm:h-16 mx-auto text-gray-300 mb-3 sm:mb-4" />
                         <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2 sm:mb-3">Aucun hôtel disponible</h3>
-                        <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 px-4">
-                            Aucun hôtel ne correspond à vos critères pour ces dates.
-                        </p>
-                        <button
-                            onClick={() => navigate("/")}
-                            className="px-5 sm:px-6 py-2.5 sm:py-3 bg-orange-500 hover:bg-orange-600 text-white text-sm sm:text-base font-semibold rounded-lg sm:rounded-xl transition-all shadow-lg active:scale-95"
-                        >
-                            Nouvelle recherche
-                        </button>
+                        <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 px-4">Aucun hôtel ne correspond à vos critères pour ces dates.</p>
+                        <button onClick={() => navigate("/")} className="px-5 sm:px-6 py-2.5 sm:py-3 bg-orange-500 hover:bg-orange-600 text-white text-sm sm:text-base font-semibold rounded-lg sm:rounded-xl transition-all shadow-lg active:scale-95">Nouvelle recherche</button>
                     </div>
                 )}
 
-                {/* Hotel cards */}
                 {!isLoading && !isError && displayedHotels.length > 0 && (
                     <div className="space-y-3 sm:space-y-4 lg:space-y-6">
                         {displayedHotels.map((hotel) => (
@@ -657,37 +585,25 @@ function SearchResultsPage() {
                     </div>
                 )}
 
-                {/* Load more */}
                 {hasNextPage && (
                     <div ref={loadMoreRef} className="mt-6 sm:mt-8">
-                        {isFetchingNextPage ? (
-                            <Loader message="Chargement de plus d'hôtels..." fullHeight={false} />
-                        ) : (
+                        {isFetchingNextPage ? <Loader message="Chargement de plus d'hôtels..." fullHeight={false} /> : (
                             <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg flex justify-center p-4">
-                                <button
-                                    onClick={() => fetchNextPage()}
-                                    className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-sky-600 hover:bg-sky-700 text-white font-bold text-base sm:text-lg rounded-lg sm:rounded-xl transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 active:scale-95"
-                                >
-                                    <ChevronDown size={20} className="sm:w-6 sm:h-6" />
-                                    Charger plus d'hôtels
+                                <button onClick={() => fetchNextPage()} className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-sky-600 hover:bg-sky-700 text-white font-bold text-base sm:text-lg rounded-lg sm:rounded-xl transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 active:scale-95">
+                                    <ChevronDown size={20} className="sm:w-6 sm:h-6" />Charger plus d'hôtels
                                 </button>
                             </div>
                         )}
                     </div>
                 )}
 
-                {/* End of results */}
                 {!hasNextPage && displayedHotels.length > 0 && (
                     <div className="text-center py-6 sm:py-8 mt-4 sm:mt-6">
                         <div className="inline-flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-lg sm:rounded-xl shadow-md max-w-full mx-2">
                             <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 flex-shrink-0" />
                             <div className="text-left">
-                                <p className="text-gray-800 font-bold text-sm sm:text-base lg:text-lg">
-                                    Tous les résultats affichés !
-                                </p>
-                                <p className="text-gray-600 text-xs sm:text-sm">
-                                    {sortedHotels.length} hôtel{sortedHotels.length > 1 ? "s" : ""} disponible{sortedHotels.length > 1 ? "s" : ""}
-                                </p>
+                                <p className="text-gray-800 font-bold text-sm sm:text-base lg:text-lg">Tous les résultats affichés !</p>
+                                <p className="text-gray-600 text-xs sm:text-sm">{sortedHotels.length} hôtel{sortedHotels.length > 1 ? "s" : ""} disponible{sortedHotels.length > 1 ? "s" : ""}</p>
                             </div>
                         </div>
                     </div>
