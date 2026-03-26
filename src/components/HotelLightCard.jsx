@@ -49,7 +49,7 @@ const buildBoardingFromRooms = (rooms) => {
     if (!rooms?.length) return [];
     const map = new Map();
     rooms.forEach(room => {
-        if (!map.has(room.boardingCode))
+        if (room?.boardingCode && !map.has(room.boardingCode))
             map.set(room.boardingCode, { code: room.boardingCode, label: room.boardingName });
     });
     return Array.from(map.values());
@@ -84,7 +84,7 @@ function HotelLightCard({
                             hotel,
                             onFavoriteToggle,
                             pricing             = null,
-                            preloadedAvailability = null,
+                            paxGroups: preloadedPaxGroups = null,
                             onBook              = null,
                             onViewDetail        = null,
                             showBookButton      = false,
@@ -106,32 +106,35 @@ function HotelLightCard({
     const [imageLoaded,       setImageLoaded]       = useState(false);
     const [showTarifs,        setShowTarifs]        = useState(false);
     const [isLoading,         setIsLoading]         = useState(false);
-    const [allRooms,          setAllRooms]          = useState(() => preloadedAvailability ?? []);
-    const [availableBoarding, setAvailableBoarding] = useState(() => buildBoardingFromRooms(preloadedAvailability));
-    const [selectedBoarding,  setSelectedBoarding]  = useState(() => preloadedAvailability?.[0]?.boardingCode ?? null);
+    const [paxGroups,         setPaxGroups]         = useState(preloadedPaxGroups);
     const [noAvailability,    setNoAvailability]    = useState(false);
-    const [hasFetched,        setHasFetched]        = useState(() => preloadedAvailability !== null && preloadedAvailability.length > 0);
-    const [roomsByPax,        setRoomsByPax]        = useState([]);
+    const [hasFetched,        setHasFetched]        = useState(() => preloadedPaxGroups !== null);
+    const [selectedBoarding,  setSelectedBoarding]  = useState(null);
     const [selectedRooms,     setSelectedRooms]     = useState({});
 
     useEffect(() => {
-        if (preloadedAvailability === null) return;
+        if (preloadedPaxGroups === null) return;
         if (hasRealFetchRef.current) return;
-        const boarding = buildBoardingFromRooms(preloadedAvailability);
-        setAllRooms(preloadedAvailability);
-        setAvailableBoarding(boarding);
-        setSelectedBoarding(boarding[0]?.code ?? null);
+        setPaxGroups(preloadedPaxGroups);
         setNoAvailability(false);
-        setHasFetched(preloadedAvailability.length > 0);
-        setRoomsByPax([]);
+        setHasFetched(true);
         setSelectedRooms({});
-    }, [preloadedAvailability]);
+    }, [preloadedPaxGroups]);
 
     const {
         Id, Name, Category, City,
         ShortDescription, Description,
         Image, Album = [], Facilities = [], FreeChild,
     } = hotel;
+
+    const allRooms = useMemo(() => (paxGroups ?? []).flatMap(pg => pg.availableRooms), [paxGroups]);
+    const availableBoarding = useMemo(() => buildBoardingFromRooms(allRooms), [allRooms]);
+
+    useEffect(() => {
+        if (availableBoarding.length > 0 && !selectedBoarding) {
+            setSelectedBoarding(availableBoarding[0].code);
+        }
+    }, [availableBoarding, selectedBoarding]);
 
     const hotelImage = useMemo(() => {
         if (Album.length > 0) return Album[0];
@@ -151,10 +154,7 @@ function HotelLightCard({
         return prices.length > 0 ? Math.min(...prices) : null;
     }, [pricing?.minPrice, allRooms]);
 
-    const totalPrice = useMemo(() => {
-        if (!derivedMinPrice || !nights) return null;
-        return derivedMinPrice * nights;
-    }, [derivedMinPrice, nights]);
+    const totalPrice = derivedMinPrice;
 
     const cardAvailabilityStatus = useMemo(() => {
         if (noAvailability) return 'full';
@@ -165,48 +165,38 @@ function HotelLightCard({
     }, [hasFetched, allRooms, noAvailability]);
 
     const effectiveRoomsByPax = useMemo(() => {
-        if (roomsByPax.length > 0) return roomsByPax;
-        const requestedRooms = searchParams?.rooms ?? [];
-        if (requestedRooms.length === 0 || allRooms.length === 0) return [];
-        const adultCountToRooms = new Map();
-        allRooms.forEach(room => {
-            const key = room.adults ?? 2;
-            if (!adultCountToRooms.has(key)) adultCountToRooms.set(key, []);
-            adultCountToRooms.get(key).push(room);
-        });
-        const availableCounts = Array.from(adultCountToRooms.keys()).sort((a, b) => a - b);
-        return requestedRooms.map((room, idx) => {
-            const requestedAdults = room.adults ?? 2;
-            let matchedRooms = adultCountToRooms.get(requestedAdults) ?? [];
-            if (matchedRooms.length === 0 && availableCounts.length > 0) {
-                const closest = availableCounts.reduce((prev, curr) =>
-                    Math.abs(curr - requestedAdults) < Math.abs(prev - requestedAdults) ? curr : prev
-                );
-                matchedRooms = adultCountToRooms.get(closest) ?? [];
-            }
-            return {
-                paxIndex:  idx,
-                adults:    requestedAdults,
-                children:  room.children  ?? 0,
-                childAges: Array.isArray(room.children) ? room.children : (room.childAges ?? []),
-                rooms:     [...matchedRooms].sort((a, b) => a.price - b.price),
-            };
-        });
-    }, [roomsByPax, allRooms, searchParams?.rooms]);
+        if (!paxGroups) return [];
+        return paxGroups.map(pg => ({
+            ...pg,
+            rooms: pg.availableRooms,
+            // pg.children is an array of ages like [5, 8] from ApiClient
+            children: Array.isArray(pg.children) ? pg.children.length : (pg.children || 0),
+            childAges: Array.isArray(pg.children) ? pg.children : (pg.childAges || []),
+        }));
+    }, [paxGroups]);
 
     const computedTotalPrice = useMemo(() => {
-        if (!effectiveRoomsByPax.length || !selectedBoarding) return null;
+        if (!effectiveRoomsByPax?.length || !selectedBoarding) return null;
         let total = 0;
+        let allRoomsSelected = true;
         for (let i = 0; i < effectiveRoomsByPax.length; i++) {
+            const paxSlot = effectiveRoomsByPax[i];
             const roomId = selectedRooms[i];
-            const room   = effectiveRoomsByPax[i]?.rooms.find(
+            if (!roomId) {
+                allRoomsSelected = false;
+                break;
+            }
+            const room = paxSlot.rooms.find(
                 r => r.id === roomId && r.boardingCode === selectedBoarding
             );
-            if (!room?.price) return null;
-            total += room.price * nights;
+            if (!room?.price) {
+                allRoomsSelected = false;
+                break;
+            }
+            total += room.price;
         }
-        return total;
-    }, [effectiveRoomsByPax, selectedRooms, selectedBoarding, nights]);
+        return allRoomsSelected ? total : null;
+    }, [effectiveRoomsByPax, selectedRooms, selectedBoarding]);
 
     const filteredRooms = useMemo(() => {
         if (!selectedBoarding) return allRooms;
@@ -220,10 +210,8 @@ function HotelLightCard({
         isFetchingRef.current = true;
         setIsLoading(true);
         setNoAvailability(false);
-        setAllRooms([]);
-        setAvailableBoarding([]);
+        setPaxGroups(null);
         setSelectedBoarding(null);
-        setRoomsByPax([]);
         setSelectedRooms({});
         try {
             const response = await apiClient.searchRoomAvailability({
@@ -232,29 +220,36 @@ function HotelLightCard({
                 checkOut: sp.checkOut,
                 rooms: sp.rooms?.map(r => ({
                     adults:    r.adults    ?? 2,
-                    children:  Array.isArray(r.children) ? r.children.length : 0,
-                    childAges: Array.isArray(r.children) ? r.children : [],
+                    children:  Array.isArray(r.children) ? r.children.length : (r.children ?? 0),
+                    childAges: Array.isArray(r.children) ? r.children : (r.childAges ?? []),
                 })) ?? [{ adults: 2, children: 0, childAges: [] }],
             });
-            if (!response.rooms?.length) {
+
+            if (!response.roomsByPax?.length || response.roomsByPax.every(p => p.rooms.length === 0)) {
                 setNoAvailability(true);
+                setPaxGroups([]);
                 return;
             }
-            const boarding  = buildBoardingFromRooms(response.rooms);
-            const firstCode = boarding[0]?.code ?? null;
-            const paxData   = response.roomsByPax ?? [];
+
+            const newPaxGroups = response.roomsByPax.map(pax => ({
+                ...pax,
+                availableRooms: pax.rooms,
+            }));
+
             hasRealFetchRef.current = true;
-            setAllRooms(response.rooms);
-            setAvailableBoarding(boarding);
-            setSelectedBoarding(firstCode);
-            setRoomsByPax(paxData);
+            setPaxGroups(newPaxGroups);
             setHasFetched(true);
+            setNoAvailability(false);
             setSelectedRooms({});
+
+            const allNewRooms = newPaxGroups.flatMap(pg => pg.availableRooms);
+            const newBoardings = buildBoardingFromRooms(allNewRooms);
+            setSelectedBoarding(newBoardings[0]?.code ?? null);
         } catch (err) {
             if (!err.isCancelled) {
                 if (showTarifsRef.current) toast.error('Erreur lors de la recherche de disponibilités.');
                 setNoAvailability(true);
-                setAvailableBoarding([]);
+                setPaxGroups([]);
             }
         } finally {
             setIsLoading(false);
@@ -311,21 +306,32 @@ function HotelLightCard({
         navigate(detailUrl);
     }, [onBook, hotel, navigate, detailUrl]);
 
-    // ✅ FIX: merge pax-level children + childAges into each room object
     const handleBookAll = useCallback(() => {
+        if (!effectiveRoomsByPax || effectiveRoomsByPax.length === 0) return;
+
         const selectedRoomsList = effectiveRoomsByPax
             .map((pax, idx) => {
+                const roomId = selectedRooms[idx];
+                if (!roomId) return null;
                 const room = pax.rooms.find(
-                    r => r.id === selectedRooms[idx] && r.boardingCode === selectedBoarding
-                ) ?? null;
+                    r => r.id === roomId && r.boardingCode === selectedBoarding
+                );
                 if (!room) return null;
+
                 return {
                     ...room,
-                    children:  pax.children  ?? 0,
-                    childAges: Array.isArray(pax.childAges) ? pax.childAges : [],
+                    adults: pax.adults,
+                    children: pax.children,
+                    childAges: pax.childAges,
                 };
             })
             .filter(Boolean);
+
+        if (selectedRoomsList.length !== effectiveRoomsByPax.length) {
+            toast.error("Veuillez sélectionner une chambre pour chaque groupe.");
+            return;
+        }
+
         if (onBook) { onBook(hotel, selectedRoomsList); return; }
         navigate(detailUrl);
     }, [effectiveRoomsByPax, selectedRooms, selectedBoarding, onBook, hotel, navigate, detailUrl]);
@@ -394,7 +400,7 @@ function HotelLightCard({
                                 <span className="font-normal opacity-80 text-[11px]">DZD</span>
                             </div>
                             {nights > 1 && (
-                                <div className="text-[10px] font-normal opacity-75">{formatPrice(derivedMinPrice)} / nuit</div>
+                                <div className="text-[10px] font-normal opacity-75">{formatPrice(Math.round(derivedMinPrice / nights))} / nuit</div>
                             )}
                         </div>
                     )}
@@ -472,6 +478,12 @@ function HotelLightCard({
                             <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 text-[11px] font-medium px-2.5 py-1 rounded-full">
                                 👤 {searchParams.rooms?.reduce((s, r) => s + (r.adults || 0), 0)} adulte(s)
                             </span>
+                            {/* FIX: Ensure searchParams children are accurately counted even if they are passed as an array of ages */}
+                            {searchParams.rooms?.some(r => Array.isArray(r.children) ? r.children.length > 0 : r.children > 0) && (
+                                <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 text-[11px] font-medium px-2.5 py-1 rounded-full">
+                                    🧒 {searchParams.rooms?.reduce((s, r) => s + (Array.isArray(r.children) ? r.children.length : (r.children || 0)), 0)} enfant(s)
+                                </span>
+                            )}
                             {searchParams.rooms?.length > 1 && (
                                 <span className="inline-flex items-center gap-1 bg-sky-100 text-sky-700 text-[11px] font-medium px-2.5 py-1 rounded-full">
                                     🛏 {searchParams.rooms.length} chambres
@@ -499,7 +511,7 @@ function HotelLightCard({
                                     <span className="text-sm font-semibold text-sky-400 ml-1">DZD</span>
                                 </p>
                                 {nights > 1 && (
-                                    <p className="text-[11px] text-gray-400 mt-0.5">{formatPrice(derivedMinPrice)} / nuit</p>
+                                    <p className="text-[11px] text-gray-400 mt-0.5">{formatPrice(Math.round(derivedMinPrice / nights))} / nuit</p>
                                 )}
                             </div>
                         ) : (
@@ -604,7 +616,7 @@ function HotelLightCard({
                                                 Chambre {idx + 1}
                                             </span>
                                             👤 {paxSlot.adults} adulte{paxSlot.adults > 1 ? 's' : ''}
-                                            {paxSlot.children > 0 && ` · ${paxSlot.children} enfant${paxSlot.children > 1 ? 's' : ''}`}
+                                            {paxSlot.children > 0 && ` · 🧒 ${paxSlot.children} enfant${paxSlot.children > 1 ? 's' : ''}`}
                                         </p>
 
                                         {displayRooms.length === 0 ? (
@@ -624,7 +636,7 @@ function HotelLightCard({
                                                             return (
                                                                 <option key={room.id} value={room.id}>
                                                                     {room.stopReservation ? '🔴 ' : room.onRequest ? '🔔 ' : ''}
-                                                                    {room.name} — {formatPrice(room.price * nights)} DZD
+                                                                    {room.name} — {formatPrice(room.price)} DZD
                                                                     {d ? ` (−${d.pct}%)` : ''}
                                                                 </option>
                                                             );
@@ -640,12 +652,12 @@ function HotelLightCard({
                                                             <span className="text-[11px] text-sky-600 font-semibold">{selectedRoom.boardingName}</span>
                                                             <div className="flex items-baseline gap-1.5">
                                                                 <span className="text-sm font-extrabold text-sky-700">
-                                                                    {formatPrice(selectedRoom.price * nights)}
+                                                                    {formatPrice(selectedRoom.price)}
                                                                 </span>
                                                                 <span className="text-[11px] font-semibold text-sky-500">DZD</span>
                                                                 {nights > 1 && (
                                                                     <span className="text-[10px] text-gray-400 ml-1">
-                                                                        · {formatPrice(selectedRoom.price)} / nuit
+                                                                        · {formatPrice(Math.round(selectedRoom.price / nights))} / nuit
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -748,11 +760,11 @@ function HotelLightCard({
                                         <div className="flex items-center gap-3 shrink-0">
                                             <div className="text-right">
                                                 <p className="text-sm font-extrabold text-sky-700 leading-none">
-                                                    {formatPrice(room.price * nights)}
+                                                    {formatPrice(room.price)}
                                                     <span className="text-[11px] font-semibold text-sky-400 ml-1">DZD</span>
                                                 </p>
                                                 {nights > 1 && (
-                                                    <p className="text-[10px] text-gray-400 mt-0.5">{formatPrice(room.price)} / nuit</p>
+                                                    <p className="text-[10px] text-gray-400 mt-0.5">{formatPrice(Math.round(room.price / nights))} / nuit</p>
                                                 )}
                                             </div>
                                             <button

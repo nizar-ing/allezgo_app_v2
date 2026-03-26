@@ -1,0 +1,2409 @@
+/*Request Example:*/
+{
+  "Credential": {
+    "Login": "fEGaXEei4E2A6vb3Nfs",
+    "Password": "LheK+ChFpVQc25ExP4f3"
+  },
+  "SearchDetails": {
+    "BookingDetails": {
+      "CheckIn": "2026-03-24",
+      "CheckOut": "2026-03-25",
+      "Hotels": [
+        47,57,58,89,93,107,150,157,158,159,160,180,186,202
+      ]
+    },
+    "Filters": {
+      "Keywords": "",
+      "Category": [],
+      "OnlyAvailable": false,
+      "Tags": []
+    },
+    "Rooms": [
+      {
+        "Adult": 2
+      },
+      {
+        "Adult": 1,
+        "Child": [
+          3,
+          8
+        ]
+      }
+    ]
+  }
+}
+
+
+  /*Response example:*/
+
+{
+  "HotelSearch": [
+    {
+      "Hotel": {
+        "Id": 202,
+        "Name": "Delphin  Hotels & Resorts",
+        "Category": {
+          "Title": "4 étoiles",
+          "Star": 4
+        },
+        "City": {
+          "Id": 37,
+          "Name": "Monastir"
+        },
+        "Adress": "BP327 Avenue Habib Bourguiba, 5000 Monastir",
+        "Localization": {
+          "Longitude": "",
+          "Latitude": ""
+        },
+        "Image": "https://admin.goldenindigo.com.tn/file_manager/source/Delphin 1.jpg",
+        "Theme": [
+          "Famille",
+          "bord de mer"
+        ]
+      },
+      "Token": "eyJzZWFyY2hfYnlfaG90ZWwiOnRydWUsIm1hcHBpbmdfYXJyYW5nZW1lbnQiOnsiNCI6NCwiNSI6NSwiMTYiOjE2fSwiQ2xpZW50SWQiOm51bGwsImNhY2hlUmVzcG9uc2UiOiJMb2dXZWJTZXJ2aWNlXC9YTUxPVVRcL1Jlc3BvbnNlLTEwMi4yMTEuMjEwLjE2NTY5YzE4YTdiMGIyN2E0Ljg1MjgxNjk4IiwiaWItMDAzIjoiZXlKelpXRnlZMmhmWW5sZmFHOTBaV3dpT25SeWRXVXNJbTFoY0hCcGJtZGZZWEp5WVc1blpXMWxiblFpT2x0ZExDSkRiR2xsYm5SSlpDSTZiblZzYkN3aVkyRmphR1ZTWlhOd2IyNXpaU0k2SWt4dloxZGxZbE5sY25acFkyVmNMMWhOVEU5VlZGd3ZVbVZ6Y0c5dWMyVXRNVEF5TGpJeE1TNHlNVEF1TVRZMU5qbGpNVGhoTjJRNU5HSXpNVFF1T1RneU1qZ3hPVGNpZlE9PSJ9",
+      "Price": {
+        "Boarding": [
+          {
+            "Id": 4,
+            "Code": "LPD",
+            "Name": "Logement Petit Déjeuner",
+            "Description": "",
+            "Pax": [
+              {
+                "Adult": 2,
+                "Rooms": [
+                  {
+                    "Id": "6",
+                    "Name": "Chambre Double",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 4,
+                    "Price": "11534.06",
+                    "BasePrice": "18124.95",
+                    "PriceWithAffiliateMarkup": "11534.06",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "100.00",
+                        "FromDate": "22-03-2026 00:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  },
+                  {
+                    "Id": "342",
+                    "Name": "Chambre Double Vue Mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 1,
+                    "View": [
+                      {
+                        "Id": 2,
+                        "Name": "Vue Mer",
+                        "Price": "823.86",
+                        "Required": true,
+                        "PriceIncludedInTotal": false,
+                        "StopReservation": false,
+                        "PriceWithAffiliateMarkup": "823.86"
+                      }
+                    ],
+                    "Price": "12357.92",
+                    "BasePrice": "18948.81",
+                    "PriceWithAffiliateMarkup": "12357.92",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "100.00",
+                        "FromDate": "22-03-2026 00:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Adult": 1,
+                "Child": [
+                  3,
+                  8
+                ],
+                "Rooms": [
+                  {
+                    "Id": "7",
+                    "Name": "Chambre triple",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 1,
+                    "Price": "13840.87",
+                    "BasePrice": "21749.94",
+                    "PriceWithAffiliateMarkup": "13840.87",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "100.00",
+                        "FromDate": "22-03-2026 00:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  },
+                  {
+                    "Id": "343",
+                    "Name": "Chambre Triple Vue Mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 0,
+                    "View": [
+                      {
+                        "Id": 2,
+                        "Name": "Vue Mer",
+                        "Price": "988.64",
+                        "Required": true,
+                        "PriceIncludedInTotal": false,
+                        "StopReservation": false,
+                        "PriceWithAffiliateMarkup": "988.64"
+                      }
+                    ],
+                    "Price": "14829.51",
+                    "BasePrice": "22738.58",
+                    "PriceWithAffiliateMarkup": "14829.51",
+                    "StopReservation": false,
+                    "OnRequest": true,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "100.00",
+                        "FromDate": "22-03-2026 00:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Id": 5,
+            "Code": "DP",
+            "Name": "Demi Pension",
+            "Description": "",
+            "Pax": [
+              {
+                "Adult": 2,
+                "Rooms": [
+                  {
+                    "Id": "6",
+                    "Name": "Chambre Double",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 4,
+                    "Price": "14005.65",
+                    "BasePrice": "21420.40",
+                    "PriceWithAffiliateMarkup": "14005.65",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "100.00",
+                        "FromDate": "22-03-2026 00:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  },
+                  {
+                    "Id": "342",
+                    "Name": "Chambre Double Vue Mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 1,
+                    "View": [
+                      {
+                        "Id": 2,
+                        "Name": "Vue Mer",
+                        "Price": "823.86",
+                        "Required": true,
+                        "PriceIncludedInTotal": false,
+                        "StopReservation": false,
+                        "PriceWithAffiliateMarkup": "823.86"
+                      }
+                    ],
+                    "Price": "14829.51",
+                    "BasePrice": "22244.26",
+                    "PriceWithAffiliateMarkup": "14829.51",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "100.00",
+                        "FromDate": "22-03-2026 00:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Adult": 1,
+                "Child": [
+                  3,
+                  8
+                ],
+                "Rooms": [
+                  {
+                    "Id": "7",
+                    "Name": "Chambre triple",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 1,
+                    "Price": "16806.77",
+                    "BasePrice": "25704.48",
+                    "PriceWithAffiliateMarkup": "16806.77",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "100.00",
+                        "FromDate": "22-03-2026 00:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  },
+                  {
+                    "Id": "343",
+                    "Name": "Chambre Triple Vue Mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 0,
+                    "View": [
+                      {
+                        "Id": 2,
+                        "Name": "Vue Mer",
+                        "Price": "988.64",
+                        "Required": true,
+                        "PriceIncludedInTotal": false,
+                        "StopReservation": false,
+                        "PriceWithAffiliateMarkup": "988.64"
+                      }
+                    ],
+                    "Price": "17795.41",
+                    "BasePrice": "26693.11",
+                    "PriceWithAffiliateMarkup": "17795.41",
+                    "StopReservation": false,
+                    "OnRequest": true,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "100.00",
+                        "FromDate": "22-03-2026 00:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Id": 16,
+            "Code": "SALL",
+            "Name": "Soft All Inclusive",
+            "Description": "",
+            "Pax": [
+              {
+                "Adult": 2,
+                "Rooms": [
+                  {
+                    "Id": "6",
+                    "Name": "Chambre Double",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 4,
+                    "Price": "19772.68",
+                    "BasePrice": "29659.01",
+                    "PriceWithAffiliateMarkup": "19772.68",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "100.00",
+                        "FromDate": "22-03-2026 00:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  },
+                  {
+                    "Id": "342",
+                    "Name": "Chambre Double Vue Mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 1,
+                    "View": [
+                      {
+                        "Id": 2,
+                        "Name": "Vue Mer",
+                        "Price": "823.86",
+                        "Required": true,
+                        "PriceIncludedInTotal": false,
+                        "StopReservation": false,
+                        "PriceWithAffiliateMarkup": "823.86"
+                      }
+                    ],
+                    "Price": "20596.54",
+                    "BasePrice": "30482.88",
+                    "PriceWithAffiliateMarkup": "20596.54",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "100.00",
+                        "FromDate": "22-03-2026 00:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Adult": 1,
+                "Child": [
+                  3,
+                  8
+                ],
+                "Rooms": [
+                  {
+                    "Id": "7",
+                    "Name": "Chambre triple",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 1,
+                    "Price": "23727.21",
+                    "BasePrice": "35590.82",
+                    "PriceWithAffiliateMarkup": "23727.21",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "100.00",
+                        "FromDate": "22-03-2026 00:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  },
+                  {
+                    "Id": "343",
+                    "Name": "Chambre Triple Vue Mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 0,
+                    "View": [
+                      {
+                        "Id": 2,
+                        "Name": "Vue Mer",
+                        "Price": "988.64",
+                        "Required": true,
+                        "PriceIncludedInTotal": false,
+                        "StopReservation": false,
+                        "PriceWithAffiliateMarkup": "988.64"
+                      }
+                    ],
+                    "Price": "24715.85",
+                    "BasePrice": "36579.45",
+                    "PriceWithAffiliateMarkup": "24715.85",
+                    "StopReservation": false,
+                    "OnRequest": true,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "100.00",
+                        "FromDate": "22-03-2026 00:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "FreeChild": [
+        {
+          "Order": 1,
+          "Age": 6
+        }
+      ],
+      "Source": "ib-003_ost_local-2",
+      "Currency": "DZD",
+      "Recommended": 0
+    },
+    {
+      "Hotel": {
+        "Id": 93,
+        "Name": "El Mouradi Skanes",
+        "Category": {
+          "Title": "4 étoiles",
+          "Star": 4
+        },
+        "City": {
+          "Id": 37,
+          "Name": "Monastir"
+        },
+        "Adress": "Zone Touristique - Dkhila 5000 Monastir - Tunisie",
+        "Localization": {
+          "Longitude": "",
+          "Latitude": ""
+        },
+        "Image": "https://api.elmouradihotels.net/file_manager/source/hotesl/elmouradi skanes/el-mouradi-skanes.png"
+      },
+      "Token": "eyJzZWFyY2hfYnlfaG90ZWwiOnRydWUsIm1hcHBpbmdfYXJyYW5nZW1lbnQiOnsiMTYiOjE2fSwiQ2xpZW50SWQiOm51bGwsImNhY2hlUmVzcG9uc2UiOiJMb2dXZWJTZXJ2aWNlXC9YTUxPVVRcL1Jlc3BvbnNlLTEwMi4yMTEuMjEwLjE2NTY5YzE4YTdiMGIyN2E0Ljg1MjgxNjk4IiwiaWItMDAzIjoiZXlKelpXRnlZMmhmWW5sZmFHOTBaV3dpT25SeWRXVXNJbTFoY0hCcGJtZGZZWEp5WVc1blpXMWxiblFpT25zaU1UWWlPakUyZlN3aVEyeHBaVzUwU1dRaU9tNTFiR3dzSW1OaFkyaGxVbVZ6Y0c5dWMyVWlPaUpNYjJkWFpXSlRaWEoyYVdObFhDOVlUVXhQVlZSY0wxSmxjM0J2Ym5ObExURXdNaTR5TVRFdU1qRXdMakUyTlRZNVl6RTRZVGRrT1RSaU16RTBMams0TWpJNE1UazNJaXdpYlc5MWNtRmthUzF2WTNRaU9pSmxlVXA2V2xkR2VWa3lhR1paYm14bVlVYzVNRnBYZDJsUGJsSjVaRmRWYzBsdE1XaGpTRUp3WW0xa1psbFlTbmxaVnpWdVdsY3hiR0p1VVdsUGJIUmtURU5LUkdKSGJHeGlibEpLV2tOSk5tSnVWbk5pU0RBOUluMD0ifQ==",
+      "Price": {
+        "Boarding": [
+          {
+            "Id": 16,
+            "Code": "SALL",
+            "Name": "Soft All Inclusive",
+            "Description": "",
+            "Pax": [
+              {
+                "Adult": 2,
+                "Rooms": [
+                  {
+                    "Id": "392",
+                    "Name": "Chambre Double Non remboursable",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 199,
+                    "Price": "12213.68",
+                    "BasePrice": "14369.07",
+                    "PriceWithAffiliateMarkup": "12213.68",
+                    "StopReservation": false,
+                    "NotRefundable": true,
+                    "OnRequest": true
+                  },
+                  {
+                    "Id": "364",
+                    "Name": "Chambre Double",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 200,
+                    "Price": "12337.06",
+                    "BasePrice": "14514.19",
+                    "PriceWithAffiliateMarkup": "12337.06",
+                    "StopReservation": false,
+                    "OnRequest": true,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "NIGHT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "1",
+                        "FromDate": "23-03-2026 12:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  },
+                  {
+                    "Id": "398",
+                    "Name": "Chambre Double vue mer Non remboursable",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 200,
+                    "Price": "14573.13",
+                    "BasePrice": "17144.89",
+                    "PriceWithAffiliateMarkup": "14573.13",
+                    "StopReservation": false,
+                    "NotRefundable": true,
+                    "OnRequest": true
+                  },
+                  {
+                    "Id": "381",
+                    "Name": "Chambre Double vue mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 200,
+                    "Price": "14720.36",
+                    "BasePrice": "17318.07",
+                    "PriceWithAffiliateMarkup": "14720.36",
+                    "StopReservation": false,
+                    "OnRequest": true,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "NIGHT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "1",
+                        "FromDate": "23-03-2026 12:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  },
+                  {
+                    "Id": "395",
+                    "Name": "Suite Non remboursable",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 200,
+                    "Price": "21929.10",
+                    "BasePrice": "25798.99",
+                    "PriceWithAffiliateMarkup": "21929.10",
+                    "StopReservation": false,
+                    "NotRefundable": true,
+                    "OnRequest": true
+                  },
+                  {
+                    "Id": "376",
+                    "Name": "Suite",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 200,
+                    "Price": "22150.63",
+                    "BasePrice": "26059.57",
+                    "PriceWithAffiliateMarkup": "22150.63",
+                    "StopReservation": false,
+                    "OnRequest": true,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "NIGHT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "1",
+                        "FromDate": "23-03-2026 12:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Adult": 1,
+                "Child": [
+                  3,
+                  8
+                ],
+                "Rooms": [
+                  {
+                    "Id": "393",
+                    "Name": "Chambre Triple Non remboursable",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 199,
+                    "Price": "14656.49",
+                    "BasePrice": "17242.88",
+                    "PriceWithAffiliateMarkup": "14656.49",
+                    "StopReservation": false,
+                    "NotRefundable": true,
+                    "OnRequest": true
+                  },
+                  {
+                    "Id": "365",
+                    "Name": "Chambre Triple",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 200,
+                    "Price": "14804.44",
+                    "BasePrice": "17417.03",
+                    "PriceWithAffiliateMarkup": "14804.44",
+                    "StopReservation": false,
+                    "OnRequest": true,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "NIGHT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "1",
+                        "FromDate": "23-03-2026 12:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  },
+                  {
+                    "Id": "399",
+                    "Name": "Chambre Triple vue mer Non remboursable",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 200,
+                    "Price": "17487.77",
+                    "BasePrice": "20573.90",
+                    "PriceWithAffiliateMarkup": "17487.77",
+                    "StopReservation": false,
+                    "NotRefundable": true,
+                    "OnRequest": true
+                  },
+                  {
+                    "Id": "382",
+                    "Name": "Chambre Triple vue mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 200,
+                    "Price": "17664.43",
+                    "BasePrice": "20781.68",
+                    "PriceWithAffiliateMarkup": "17664.43",
+                    "StopReservation": false,
+                    "OnRequest": true,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "NIGHT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "1",
+                        "FromDate": "23-03-2026 12:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  },
+                  {
+                    "Id": "395",
+                    "Name": "Suite Non remboursable",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 200,
+                    "Price": "24371.91",
+                    "BasePrice": "28672.80",
+                    "PriceWithAffiliateMarkup": "24371.91",
+                    "StopReservation": false,
+                    "NotRefundable": true,
+                    "OnRequest": true
+                  },
+                  {
+                    "Id": "376",
+                    "Name": "Suite",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 200,
+                    "Price": "24618.02",
+                    "BasePrice": "28962.41",
+                    "PriceWithAffiliateMarkup": "24618.02",
+                    "StopReservation": false,
+                    "OnRequest": true,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "NIGHT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "1",
+                        "FromDate": "23-03-2026 12:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "Source": "ib-003_ost_mouradi-oct_ost_local-2",
+      "Currency": "DZD",
+      "Recommended": 1
+    },
+    {
+      "Hotel": {
+        "Id": 57,
+        "Name": "Skanes Serail & Aquapark",
+        "Category": {
+          "Title": "4 étoiles",
+          "Star": 4
+        },
+        "City": {
+          "Id": 37,
+          "Name": "Monastir"
+        },
+        "ShortDescription": "L&#39;h&ocirc;tel Skanes S&eacute;rail se trouve &agrave; c&ocirc;t&eacute; de la plage, dans le quartier tr&egrave;s appr&eacute;ci&eacute; de Skanes Monastir. Il dispose d&#39;un spa, de 2 piscines, de plusieurs bars et de 3 restaurants. ANNULATION ET NO SHOW No show : la facturation de la 1&egrave;re nuit par chambre r&eacute;serv&eacute;e Annulation : moins de 24 avant l&#39;arriv&eacute;e : facturation de la 1&egrave;re nuit par chambre r&eacute;serv&eacute;",
+        "Adress": "Zone Touristique Skanes - Bp 23, 5065 Monastir, Tunisie",
+        "Localization": {
+          "Longitude": "",
+          "Latitude": ""
+        },
+        "Image": "https://admin.mygo.co/file_manager/source/photos/tunisie/Monastir/skanes%20serail/SKANESSERAIL1.jpg",
+        "Theme": [
+          "Affaires",
+          "Voyages de Noces",
+          "Famille",
+          "Week-end",
+          "Promo",
+          "Charme",
+          "Sport & Loisirs",
+          "Tourisme"
+        ],
+        "Note": "L&#39;h&ocirc;tel Skanes S&eacute;rail se trouve &agrave; c&ocirc;t&eacute; de la plage, dans le quartier tr&egrave;s appr&eacute;ci&eacute; de Skanes Monastir. Il dispose d&#39;un spa, de 2 piscines, de plusieurs bars et de 3 restaurants. ANNULATION ET NO SHOW No show : la facturation de la 1&egrave;re nuit par chambre r&eacute;serv&eacute;e Annulation : moins de 24 avant l&#39;arriv&eacute;e : facturation de la 1&egrave;re nuit par chambre r&eacute;serv&eacute;\r\nL&#39;h&ocirc;tel Skanes S&eacute;rail se trouve &agrave; c&ocirc;t&eacute; de la plage, dans le quartier tr&egrave;s appr&eacute;ci&eacute; de Skanes Monastir. Il dispose d&#39;un spa, de 2 piscines, de plusieurs bars et de 3 restaurants. ANNULATION ET NO SHOW No show : la facturation de la 1&egrave;re nuit par chambre r&eacute;serv&eacute;e Annulation : moins de 24 avant l&#39;arriv&eacute;e : facturation de la 1&egrave;re nuit par chambre r&eacute;serv&eacute;\r\n<p><span style=\"color: rgb(34, 34, 34); font-family: Montserrat, sans-serif; font-size: 14px;\">- Nous vous informons que nous n&rsquo;acceptons que les r&eacute;servations pour les couples et les familles, et que les r&eacute;servations des c&eacute;libataires ne seront pas accept&eacute;es.</span><br />\r\n- Une taxe de s&eacute;jour est &agrave; payer &agrave; l&#39;h&ocirc;tel pour tous les clients quelques soit leurs nationalit&eacute;s (&acirc;g&eacute;s plus de 12 ans). Le montant est calcul&eacute; en fonction de la loi en vigueur.</p>\r\n"
+      },
+      "Token": "eyJzZWFyY2hfYnlfaG90ZWwiOnRydWUsIm1hcHBpbmdfYXJyYW5nZW1lbnQiOnsiNSI6NSwiMTYiOjE2fSwiQ2xpZW50SWQiOm51bGwsImNhY2hlUmVzcG9uc2UiOiJMb2dXZWJTZXJ2aWNlXC9YTUxPVVRcL1Jlc3BvbnNlLTEwMi4yMTEuMjEwLjE2NTY5YzE4YTdiMGIyN2E0Ljg1MjgxNjk4IiwiaWItMDAzIjoiZXlKelpXRnlZMmhmWW5sZmFHOTBaV3dpT25SeWRXVXNJbTFoY0hCcGJtZGZZWEp5WVc1blpXMWxiblFpT25zaU5TSTZOU3dpTVRZaU9qRTJmU3dpUTJ4cFpXNTBTV1FpT201MWJHd3NJbU5oWTJobFVtVnpjRzl1YzJVaU9pSk1iMmRYWldKVFpYSjJhV05sWEM5WVRVeFBWVlJjTDFKbGMzQnZibk5sTFRFd01pNHlNVEV1TWpFd0xqRTJOVFk1WXpFNFlUZGtPVFJpTXpFMExqazRNakk0TVRrM0lpd2liWGt0WjI4aU9pSmxlVXA2V2xkR2VWa3lhR1paYm14bVlVYzVNRnBYZDJsUGJsSjVaRmRWYzBsdE1XaGpTRUp3WW0xa1psbFlTbmxaVnpWdVdsY3hiR0p1VVdsUGJIUmtURU5LUkdKSGJHeGlibEpLV2tOSk5tSnVWbk5pU0RBOUluMD0ifQ==",
+      "Price": {
+        "Boarding": [
+          {
+            "Id": 5,
+            "Code": "DP",
+            "Name": "Demi Pension",
+            "Description": "",
+            "Pax": [
+              {
+                "Adult": 2,
+                "Rooms": [
+                  {
+                    "Id": "97",
+                    "Name": "Chambre Standard",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 10,
+                    "Price": "14720.36",
+                    "BasePrice": "19049.88",
+                    "PriceWithAffiliateMarkup": "14720.36",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "NIGHT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "1",
+                        "FromDate": "23-03-2026 00:00"
+                      },
+                      {
+                        "Type": "NIGHT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "1"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  },
+                  {
+                    "Id": "253",
+                    "Name": "Chambre Vue Mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 5,
+                    "Price": "15586.26",
+                    "BasePrice": "20262.14",
+                    "PriceWithAffiliateMarkup": "15586.26",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "NIGHT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "1",
+                        "FromDate": "23-03-2026 00:00"
+                      },
+                      {
+                        "Type": "NIGHT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "1"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Adult": 1,
+                "Child": [
+                  3,
+                  8
+                ],
+                "Rooms": [
+                  {
+                    "Id": "97",
+                    "Name": "Chambre Standard",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 10,
+                    "Price": "17664.43",
+                    "BasePrice": "23812.35",
+                    "PriceWithAffiliateMarkup": "17664.43",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "NIGHT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "1",
+                        "FromDate": "23-03-2026 00:00"
+                      },
+                      {
+                        "Type": "NIGHT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "1"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  },
+                  {
+                    "Id": "253",
+                    "Name": "Chambre Vue Mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 5,
+                    "Price": "18703.51",
+                    "BasePrice": "25327.72",
+                    "PriceWithAffiliateMarkup": "18703.51",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "NIGHT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "1",
+                        "FromDate": "23-03-2026 00:00"
+                      },
+                      {
+                        "Type": "NIGHT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "1"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Id": 16,
+            "Code": "SALL",
+            "Name": "Soft All Inclusive",
+            "Description": "",
+            "Pax": [
+              {
+                "Adult": 2,
+                "Rooms": [
+                  {
+                    "Id": "97",
+                    "Name": "Chambre Standard",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 10,
+                    "Price": "18183.97",
+                    "BasePrice": "22513.49",
+                    "PriceWithAffiliateMarkup": "18183.97",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "NIGHT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "1",
+                        "FromDate": "23-03-2026 00:00"
+                      },
+                      {
+                        "Type": "NIGHT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "1"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  },
+                  {
+                    "Id": "253",
+                    "Name": "Chambre Vue Mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 5,
+                    "Price": "19049.88",
+                    "BasePrice": "23725.76",
+                    "PriceWithAffiliateMarkup": "19049.88",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "NIGHT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "1",
+                        "FromDate": "23-03-2026 00:00"
+                      },
+                      {
+                        "Type": "NIGHT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "1"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Adult": 1,
+                "Child": [
+                  3,
+                  8
+                ],
+                "Rooms": [
+                  {
+                    "Id": "97",
+                    "Name": "Chambre Standard",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 10,
+                    "Price": "21820.76",
+                    "BasePrice": "28141.87",
+                    "PriceWithAffiliateMarkup": "21820.76",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "NIGHT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "1",
+                        "FromDate": "23-03-2026 00:00"
+                      },
+                      {
+                        "Type": "NIGHT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "1"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  },
+                  {
+                    "Id": "253",
+                    "Name": "Chambre Vue Mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 5,
+                    "Price": "22859.85",
+                    "BasePrice": "29657.24",
+                    "PriceWithAffiliateMarkup": "22859.85",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "NIGHT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "1",
+                        "FromDate": "23-03-2026 00:00"
+                      },
+                      {
+                        "Type": "NIGHT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "1"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "FreeChild": [
+        {
+          "Order": 1,
+          "Age": 12
+        }
+      ],
+      "Source": "ib-003_ost_my-go_ost_local-2",
+      "Currency": "DZD",
+      "Recommended": 4
+    },
+    {
+      "Hotel": {
+        "Id": 57,
+        "Name": "Skanes Sérail Aquapark",
+        "Category": {
+          "Title": "4 étoiles",
+          "Star": 4
+        },
+        "City": {
+          "Id": 37,
+          "Name": "Monastir"
+        },
+        "ShortDescription": "L&#39;h&ocirc;tel Skanes S&eacute;rail se trouve &agrave; c&ocirc;t&eacute; de la plage, dans le quartier tr&egrave;s appr&eacute;ci&eacute; de Skanes Monastir. Il dispose d&#39;un spa, de 2 piscines, de plusieurs bars et de 3 restaurants. ANNULATION ET NO SHOW No show : la facturation de la 1&egrave;re nuit par chambre r&eacute;serv&eacute;e Annulation : moins de 24 avant l&#39;arriv&eacute;e : facturation de la 1&egrave;re nuit par chambre r&eacute;serv&eacute;",
+        "Adress": "aucune donnees",
+        "Localization": {
+          "Longitude": "",
+          "Latitude": ""
+        },
+        "Image": "https://admin.goldenindigo.com.tn/file_manager/source/Skanes s 1.jpg",
+        "Theme": [
+          "Famille",
+          "Week-end",
+          "Bien être ",
+          "Balnéaire ",
+          "Sport & Loisirs"
+        ]
+      },
+      "Token": "eyJzZWFyY2hfYnlfaG90ZWwiOnRydWUsIm1hcHBpbmdfYXJyYW5nZW1lbnQiOnsiNSI6NSwiMTYiOjE2fSwiQ2xpZW50SWQiOm51bGwsImNhY2hlUmVzcG9uc2UiOiJMb2dXZWJTZXJ2aWNlXC9YTUxPVVRcL1Jlc3BvbnNlLTEwMi4yMTEuMjEwLjE2NTY5YzE4YTdiMGIyN2E0Ljg1MjgxNjk4IiwiaWItMDAzIjoiZXlKelpXRnlZMmhmWW5sZmFHOTBaV3dpT25SeWRXVXNJbTFoY0hCcGJtZGZZWEp5WVc1blpXMWxiblFpT2x0ZExDSkRiR2xsYm5SSlpDSTZiblZzYkN3aVkyRmphR1ZTWlhOd2IyNXpaU0k2SWt4dloxZGxZbE5sY25acFkyVmNMMWhOVEU5VlZGd3ZVbVZ6Y0c5dWMyVXRNVEF5TGpJeE1TNHlNVEF1TVRZMU5qbGpNVGhoTjJRNU5HSXpNVFF1T1RneU1qZ3hPVGNpZlE9PSJ9",
+      "Price": {
+        "Boarding": [
+          {
+            "Id": 5,
+            "Code": "DP",
+            "Name": "Demi Pension",
+            "Description": "",
+            "Pax": [
+              {
+                "Adult": 2,
+                "Rooms": [
+                  {
+                    "Id": "6",
+                    "Name": "Chambre Double",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 5,
+                    "Price": "18142.74",
+                    "BasePrice": "18142.74",
+                    "PriceWithAffiliateMarkup": "18142.74",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "100.00",
+                        "FromDate": "21-03-2026 12:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  },
+                  {
+                    "Id": "342",
+                    "Name": "Chambre Double Vue Mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "View": [
+                      {
+                        "Id": 2,
+                        "Name": "Vue Mer",
+                        "Price": "1154.54",
+                        "Required": true,
+                        "PriceIncludedInTotal": false,
+                        "StopReservation": false,
+                        "PriceWithAffiliateMarkup": "1154.54"
+                      }
+                    ],
+                    "Price": "19297.28",
+                    "BasePrice": "19297.28",
+                    "PriceWithAffiliateMarkup": "19297.28",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "100.00",
+                        "FromDate": "21-03-2026 12:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Adult": 1,
+                "Child": [
+                  3,
+                  8
+                ],
+                "Rooms": [
+                  {
+                    "Id": "7",
+                    "Name": "Chambre triple",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 5,
+                    "Price": "22678.43",
+                    "BasePrice": "22678.43",
+                    "PriceWithAffiliateMarkup": "22678.43",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "100.00",
+                        "FromDate": "21-03-2026 12:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  },
+                  {
+                    "Id": "343",
+                    "Name": "Chambre Triple Vue Mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "View": [
+                      {
+                        "Id": 2,
+                        "Name": "Vue Mer",
+                        "Price": "1443.17",
+                        "Required": true,
+                        "PriceIncludedInTotal": false,
+                        "StopReservation": false,
+                        "PriceWithAffiliateMarkup": "1443.17"
+                      }
+                    ],
+                    "Price": "24121.60",
+                    "BasePrice": "24121.60",
+                    "PriceWithAffiliateMarkup": "24121.60",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "100.00",
+                        "FromDate": "21-03-2026 12:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Id": 16,
+            "Code": "SALL",
+            "Name": "Soft All Inclusive",
+            "Description": "",
+            "Pax": [
+              {
+                "Adult": 2,
+                "Rooms": [
+                  {
+                    "Id": "6",
+                    "Name": "Chambre Double",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 5,
+                    "Price": "21441.42",
+                    "BasePrice": "21441.42",
+                    "PriceWithAffiliateMarkup": "21441.42",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "100.00",
+                        "FromDate": "21-03-2026 12:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  },
+                  {
+                    "Id": "342",
+                    "Name": "Chambre Double Vue Mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "View": [
+                      {
+                        "Id": 2,
+                        "Name": "Vue Mer",
+                        "Price": "1154.54",
+                        "Required": true,
+                        "PriceIncludedInTotal": false,
+                        "StopReservation": false,
+                        "PriceWithAffiliateMarkup": "1154.54"
+                      }
+                    ],
+                    "Price": "22595.96",
+                    "BasePrice": "22595.96",
+                    "PriceWithAffiliateMarkup": "22595.96",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "100.00",
+                        "FromDate": "21-03-2026 12:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Adult": 1,
+                "Child": [
+                  3,
+                  8
+                ],
+                "Rooms": [
+                  {
+                    "Id": "7",
+                    "Name": "Chambre triple",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 5,
+                    "Price": "26801.78",
+                    "BasePrice": "26801.78",
+                    "PriceWithAffiliateMarkup": "26801.78",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "100.00",
+                        "FromDate": "21-03-2026 12:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  },
+                  {
+                    "Id": "343",
+                    "Name": "Chambre Triple Vue Mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "View": [
+                      {
+                        "Id": 2,
+                        "Name": "Vue Mer",
+                        "Price": "1443.17",
+                        "Required": true,
+                        "PriceIncludedInTotal": false,
+                        "StopReservation": false,
+                        "PriceWithAffiliateMarkup": "1443.17"
+                      }
+                    ],
+                    "Price": "28244.95",
+                    "BasePrice": "28244.95",
+                    "PriceWithAffiliateMarkup": "28244.95",
+                    "StopReservation": false,
+                    "CancellationPolicy": [
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "BEFORE_ARRIVAL",
+                        "Fees": "100.00",
+                        "FromDate": "21-03-2026 12:00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "NO_SHOW",
+                        "Fees": "100.00"
+                      },
+                      {
+                        "Type": "PERCENT",
+                        "Nature": "PREMATURE_DEPARTURE",
+                        "Fees": "100.00"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "Source": "ib-003_ost_local-2",
+      "Currency": "DZD",
+      "Recommended": 4
+    },
+    {
+      "Hotel": {
+        "Id": 58,
+        "Name": "Royal Thalassa Monastir",
+        "Category": {
+          "Title": "5 étoiles",
+          "Star": null
+        },
+        "City": {
+          "Id": 37,
+          "Name": "Monastir"
+        },
+        "Adress": "Route Touristique Skanes - BP 75 / Monastir Rep. / CP 5060 / Tunisie",
+        "Localization": {
+          "Longitude": "",
+          "Latitude": ""
+        },
+        "Image": "https://booking.thalassa-hotels.com/cr.fwk/images/hotels/Hotel-663-20201003-101114.jpg"
+      },
+      "Token": "eyJzZWFyY2hfYnlfaG90ZWwiOnRydWUsIm1hcHBpbmdfYXJyYW5nZW1lbnQiOnsiNCI6MTcsIjUiOjUsIjYiOjZ9LCJDbGllbnRJZCI6bnVsbCwiY2FjaGVSZXNwb25zZSI6IkxvZ1dlYlNlcnZpY2VcL1hNTE9VVFwvUmVzcG9uc2UtMTAyLjIxMS4yMTAuMTY1NjljMThhN2IwYjI3YTQuODUyODE2OTgiLCJpYi0wMDMiOiJleUp6WldGeVkyaGZZbmxmYUc5MFpXd2lPblJ5ZFdVc0ltMWhjSEJwYm1kZllYSnlZVzVuWlcxbGJuUWlPbnNpTVRjaU9pSXlJaXdpTlNJNklqTWlMQ0kySWpvaU5DSjlMQ0pEYkdsbGJuUkpaQ0k2Ym5Wc2JDd2lZMkZqYUdWU1pYTndiMjV6WlNJNklreHZaMWRsWWxObGNuWnBZMlZjTDFoTlRFOVZWRnd2VW1WemNHOXVjMlV0TVRBeUxqSXhNUzR5TVRBdU1UWTFOamxqTVRoaE4yUTVOR0l6TVRRdU9UZ3lNamd4T1RjaUxDSm5hUzB3TVRJaU9pSmhPak02ZTNNNk9EcGNJbU4xY25KbGJtTjVYQ0k3Y3pveE9sd2lNVndpTzNNNk1URTZYQ0p0WVhKblpWZGxZa0l5UWx3aU8ySTZNRHR6T2pFMU9sd2ljMlZoY21Ob1gySjVYMmh2ZEdWc1hDSTdZam94TzMwaWZRPT0ifQ==",
+      "Price": {
+        "Boarding": [
+          {
+            "Id": 4,
+            "Code": "LPD",
+            "Name": "Logement Petit Déjeuner",
+            "Description": "",
+            "Pax": [
+              {
+                "Adult": 2,
+                "Rooms": [
+                  {
+                    "Id": "48",
+                    "Name": "chambre double vue jardin «Non remboursable+ NON ANNULABLE + NON MODIFIABLE, NON ECHANGEABLE »",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "18941.06",
+                    "BasePrice": "23915.43",
+                    "PriceWithAffiliateMarkup": "18941.06",
+                    "StopReservation": false,
+                    "NotRefundable": true
+                  },
+                  {
+                    "Id": "1",
+                    "Name": "Chambre Double Vue jardin",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "19132.34",
+                    "BasePrice": "23915.43",
+                    "PriceWithAffiliateMarkup": "19132.34",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "51",
+                    "Name": "chambre double vue mer Non remboursable « NON ANNULABLE + NON MODIFIABLE, NON ECHANGEABLE »",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "19594.16",
+                    "BasePrice": "24740.10",
+                    "PriceWithAffiliateMarkup": "19594.16",
+                    "StopReservation": false,
+                    "NotRefundable": true
+                  },
+                  {
+                    "Id": "6",
+                    "Name": "Chambre double vue mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "19792.08",
+                    "BasePrice": "24740.10",
+                    "PriceWithAffiliateMarkup": "19792.08",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "52",
+                    "Name": "chambre double vue mer & vue piscine Non remboursable « NON ANNULABLE + NON MODIFIABLE, NON ECHANGEABLE »",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "20247.27",
+                    "BasePrice": "25564.77",
+                    "PriceWithAffiliateMarkup": "20247.27",
+                    "StopReservation": false,
+                    "NotRefundable": true
+                  },
+                  {
+                    "Id": "25",
+                    "Name": "Chambre double vue mer & vue piscine",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "20451.82",
+                    "BasePrice": "25564.77",
+                    "PriceWithAffiliateMarkup": "20451.82",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "33",
+                    "Name": "Chambre supérieure vue jardin",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "25729.70",
+                    "BasePrice": "32162.13",
+                    "PriceWithAffiliateMarkup": "25729.70",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "35",
+                    "Name": "Chambre supérieure vue mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "26389.44",
+                    "BasePrice": "32986.80",
+                    "PriceWithAffiliateMarkup": "26389.44",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "34",
+                    "Name": "Chambre supérieure vue mer & vue piscine",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "27049.18",
+                    "BasePrice": "33811.47",
+                    "PriceWithAffiliateMarkup": "27049.18",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "8",
+                    "Name": "Suite junior vue jardin",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "27840.86",
+                    "BasePrice": "34801.07",
+                    "PriceWithAffiliateMarkup": "27840.86",
+                    "StopReservation": false,
+                    "OnRequest": true
+                  },
+                  {
+                    "Id": "9",
+                    "Name": "Suite junior vue mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "28500.59",
+                    "BasePrice": "35625.74",
+                    "PriceWithAffiliateMarkup": "28500.59",
+                    "StopReservation": false,
+                    "OnRequest": true
+                  },
+                  {
+                    "Id": "37",
+                    "Name": "The Prestige Suite ‘Sans Jacuzzi’  'adult Only'(+18 ans)",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "29791.21",
+                    "BasePrice": "35048.48",
+                    "PriceWithAffiliateMarkup": "29791.21",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "10",
+                    "Name": "Suite exécutive vue mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "33646.54",
+                    "BasePrice": "42058.17",
+                    "PriceWithAffiliateMarkup": "33646.54",
+                    "StopReservation": false,
+                    "OnRequest": true
+                  },
+                  {
+                    "Id": "36",
+                    "Name": "The Prestige Suite ‘Avec Jacuzzi’  'adult Only'(+18 ans)",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "36450.41",
+                    "BasePrice": "42882.84",
+                    "PriceWithAffiliateMarkup": "36450.41",
+                    "StopReservation": false
+                  }
+                ]
+              },
+              {
+                "Adult": 1,
+                "Child": [
+                  3,
+                  8
+                ],
+                "Rooms": [
+                  {
+                    "Id": "49",
+                    "Name": "chambre triple vue jardin au rez-de-chaussée Non remboursable « NON ANNULABLE + NON MODIFIABLE, NON ECHANGEABLE »",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "22729.20",
+                    "BasePrice": "28698.52",
+                    "PriceWithAffiliateMarkup": "22729.20",
+                    "StopReservation": false,
+                    "NotRefundable": true
+                  },
+                  {
+                    "Id": "3",
+                    "Name": "Chambre Triple Vue jardin au rez-de-chaussée",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "22958.82",
+                    "BasePrice": "28698.52",
+                    "PriceWithAffiliateMarkup": "22958.82",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "23",
+                    "Name": "Chambre Triple vue piscine au rez-de-chaussée",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "23750.50",
+                    "BasePrice": "29688.12",
+                    "PriceWithAffiliateMarkup": "23750.50",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "8",
+                    "Name": "Suite junior vue jardin",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "33408.99",
+                    "BasePrice": "41761.29",
+                    "PriceWithAffiliateMarkup": "33408.99",
+                    "StopReservation": false,
+                    "OnRequest": true
+                  },
+                  {
+                    "Id": "9",
+                    "Name": "Suite junior vue mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "34200.68",
+                    "BasePrice": "42750.90",
+                    "PriceWithAffiliateMarkup": "34200.68",
+                    "StopReservation": false,
+                    "OnRequest": true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Id": 5,
+            "Code": "DP",
+            "Name": "Demi Pension",
+            "Description": "",
+            "Pax": [
+              {
+                "Adult": 2,
+                "Rooms": [
+                  {
+                    "Id": "48",
+                    "Name": "chambre double vue jardin «Non remboursable+ NON ANNULABLE + NON MODIFIABLE, NON ECHANGEABLE »",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "20769.80",
+                    "BasePrice": "26224.51",
+                    "PriceWithAffiliateMarkup": "20769.80",
+                    "StopReservation": false,
+                    "NotRefundable": true
+                  },
+                  {
+                    "Id": "1",
+                    "Name": "Chambre Double Vue jardin",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "20979.61",
+                    "BasePrice": "26224.51",
+                    "PriceWithAffiliateMarkup": "20979.61",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "51",
+                    "Name": "chambre double vue mer Non remboursable « NON ANNULABLE + NON MODIFIABLE, NON ECHANGEABLE »",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "21422.98",
+                    "BasePrice": "27049.18",
+                    "PriceWithAffiliateMarkup": "21422.98",
+                    "StopReservation": false,
+                    "NotRefundable": true
+                  },
+                  {
+                    "Id": "6",
+                    "Name": "Chambre double vue mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "21639.35",
+                    "BasePrice": "27049.18",
+                    "PriceWithAffiliateMarkup": "21639.35",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "52",
+                    "Name": "chambre double vue mer & vue piscine Non remboursable « NON ANNULABLE + NON MODIFIABLE, NON ECHANGEABLE »",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "22076.09",
+                    "BasePrice": "27873.85",
+                    "PriceWithAffiliateMarkup": "22076.09",
+                    "StopReservation": false,
+                    "NotRefundable": true
+                  },
+                  {
+                    "Id": "25",
+                    "Name": "Chambre double vue mer & vue piscine",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "22299.08",
+                    "BasePrice": "27873.85",
+                    "PriceWithAffiliateMarkup": "22299.08",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "33",
+                    "Name": "Chambre supérieure vue jardin",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "27576.97",
+                    "BasePrice": "34471.21",
+                    "PriceWithAffiliateMarkup": "27576.97",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "35",
+                    "Name": "Chambre supérieure vue mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "28236.71",
+                    "BasePrice": "35295.88",
+                    "PriceWithAffiliateMarkup": "28236.71",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "34",
+                    "Name": "Chambre supérieure vue mer & vue piscine",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "28896.44",
+                    "BasePrice": "36120.55",
+                    "PriceWithAffiliateMarkup": "28896.44",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "8",
+                    "Name": "Suite junior vue jardin",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "29688.12",
+                    "BasePrice": "37110.15",
+                    "PriceWithAffiliateMarkup": "29688.12",
+                    "StopReservation": false,
+                    "OnRequest": true
+                  },
+                  {
+                    "Id": "9",
+                    "Name": "Suite junior vue mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "30347.86",
+                    "BasePrice": "37934.82",
+                    "PriceWithAffiliateMarkup": "30347.86",
+                    "StopReservation": false,
+                    "OnRequest": true
+                  },
+                  {
+                    "Id": "37",
+                    "Name": "The Prestige Suite ‘Sans Jacuzzi’  'adult Only'(+18 ans)",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "31753.92",
+                    "BasePrice": "37357.55",
+                    "PriceWithAffiliateMarkup": "31753.92",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "10",
+                    "Name": "Suite exécutive vue mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "35493.80",
+                    "BasePrice": "44367.25",
+                    "PriceWithAffiliateMarkup": "35493.80",
+                    "StopReservation": false,
+                    "OnRequest": true
+                  },
+                  {
+                    "Id": "36",
+                    "Name": "The Prestige Suite ‘Avec Jacuzzi’  'adult Only'(+18 ans)",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "38413.13",
+                    "BasePrice": "45191.92",
+                    "PriceWithAffiliateMarkup": "38413.13",
+                    "StopReservation": false
+                  }
+                ]
+              },
+              {
+                "Adult": 1,
+                "Child": [
+                  3,
+                  8
+                ],
+                "Rooms": [
+                  {
+                    "Id": "49",
+                    "Name": "chambre triple vue jardin au rez-de-chaussée Non remboursable « NON ANNULABLE + NON MODIFIABLE, NON ECHANGEABLE »",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "24923.87",
+                    "BasePrice": "31469.40",
+                    "PriceWithAffiliateMarkup": "24923.87",
+                    "StopReservation": false,
+                    "NotRefundable": true
+                  },
+                  {
+                    "Id": "3",
+                    "Name": "Chambre Triple Vue jardin au rez-de-chaussée",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "25175.56",
+                    "BasePrice": "31469.40",
+                    "PriceWithAffiliateMarkup": "25175.56",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "23",
+                    "Name": "Chambre Triple vue piscine au rez-de-chaussée",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "25967.25",
+                    "BasePrice": "32459.01",
+                    "PriceWithAffiliateMarkup": "25967.25",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "8",
+                    "Name": "Suite junior vue jardin",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "35625.74",
+                    "BasePrice": "44532.18",
+                    "PriceWithAffiliateMarkup": "35625.74",
+                    "StopReservation": false,
+                    "OnRequest": true
+                  },
+                  {
+                    "Id": "9",
+                    "Name": "Suite junior vue mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "36417.42",
+                    "BasePrice": "45521.78",
+                    "PriceWithAffiliateMarkup": "36417.42",
+                    "StopReservation": false,
+                    "OnRequest": true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Id": 6,
+            "Code": "PC",
+            "Name": "Pension Complète",
+            "Description": "",
+            "Pax": [
+              {
+                "Adult": 2,
+                "Rooms": [
+                  {
+                    "Id": "48",
+                    "Name": "chambre double vue jardin «Non remboursable+ NON ANNULABLE + NON MODIFIABLE, NON ECHANGEABLE »",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "27039.96",
+                    "BasePrice": "34141.34",
+                    "PriceWithAffiliateMarkup": "27039.96",
+                    "StopReservation": false,
+                    "NotRefundable": true
+                  },
+                  {
+                    "Id": "1",
+                    "Name": "Chambre Double Vue jardin",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "27313.07",
+                    "BasePrice": "34141.34",
+                    "PriceWithAffiliateMarkup": "27313.07",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "51",
+                    "Name": "chambre double vue mer Non remboursable « NON ANNULABLE + NON MODIFIABLE, NON ECHANGEABLE »",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "27693.07",
+                    "BasePrice": "34966.01",
+                    "PriceWithAffiliateMarkup": "27693.07",
+                    "StopReservation": false,
+                    "NotRefundable": true
+                  },
+                  {
+                    "Id": "6",
+                    "Name": "Chambre double vue mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "27972.81",
+                    "BasePrice": "34966.01",
+                    "PriceWithAffiliateMarkup": "27972.81",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "52",
+                    "Name": "chambre double vue mer & vue piscine Non remboursable « NON ANNULABLE + NON MODIFIABLE, NON ECHANGEABLE »",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "28346.25",
+                    "BasePrice": "35790.68",
+                    "PriceWithAffiliateMarkup": "28346.25",
+                    "StopReservation": false,
+                    "NotRefundable": true
+                  },
+                  {
+                    "Id": "25",
+                    "Name": "Chambre double vue mer & vue piscine",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "28632.54",
+                    "BasePrice": "35790.68",
+                    "PriceWithAffiliateMarkup": "28632.54",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "33",
+                    "Name": "Chambre supérieure vue jardin",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "33910.43",
+                    "BasePrice": "42388.04",
+                    "PriceWithAffiliateMarkup": "33910.43",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "35",
+                    "Name": "Chambre supérieure vue mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "34570.17",
+                    "BasePrice": "43212.71",
+                    "PriceWithAffiliateMarkup": "34570.17",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "34",
+                    "Name": "Chambre supérieure vue mer & vue piscine",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "35229.90",
+                    "BasePrice": "44037.38",
+                    "PriceWithAffiliateMarkup": "35229.90",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "8",
+                    "Name": "Suite junior vue jardin",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "36021.58",
+                    "BasePrice": "45026.98",
+                    "PriceWithAffiliateMarkup": "36021.58",
+                    "StopReservation": false,
+                    "OnRequest": true
+                  },
+                  {
+                    "Id": "9",
+                    "Name": "Suite junior vue mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "36681.32",
+                    "BasePrice": "45851.65",
+                    "PriceWithAffiliateMarkup": "36681.32",
+                    "StopReservation": false,
+                    "OnRequest": true
+                  },
+                  {
+                    "Id": "37",
+                    "Name": "The Prestige Suite ‘Sans Jacuzzi’  'adult Only'(+18 ans)",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "38483.22",
+                    "BasePrice": "45274.38",
+                    "PriceWithAffiliateMarkup": "38483.22",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "10",
+                    "Name": "Suite exécutive vue mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "41827.26",
+                    "BasePrice": "52284.08",
+                    "PriceWithAffiliateMarkup": "41827.26",
+                    "StopReservation": false,
+                    "OnRequest": true
+                  },
+                  {
+                    "Id": "36",
+                    "Name": "The Prestige Suite ‘Avec Jacuzzi’  'adult Only'(+18 ans)",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "45142.44",
+                    "BasePrice": "53108.75",
+                    "PriceWithAffiliateMarkup": "45142.44",
+                    "StopReservation": false
+                  }
+                ]
+              },
+              {
+                "Adult": 1,
+                "Child": [
+                  3,
+                  8
+                ],
+                "Rooms": [
+                  {
+                    "Id": "49",
+                    "Name": "chambre triple vue jardin au rez-de-chaussée Non remboursable « NON ANNULABLE + NON MODIFIABLE, NON ECHANGEABLE »",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "32447.94",
+                    "BasePrice": "40969.60",
+                    "PriceWithAffiliateMarkup": "32447.94",
+                    "StopReservation": false,
+                    "NotRefundable": true
+                  },
+                  {
+                    "Id": "3",
+                    "Name": "Chambre Triple Vue jardin au rez-de-chaussée",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "32775.70",
+                    "BasePrice": "40969.60",
+                    "PriceWithAffiliateMarkup": "32775.70",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "23",
+                    "Name": "Chambre Triple vue piscine au rez-de-chaussée",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "33567.39",
+                    "BasePrice": "41959.21",
+                    "PriceWithAffiliateMarkup": "33567.39",
+                    "StopReservation": false
+                  },
+                  {
+                    "Id": "8",
+                    "Name": "Suite junior vue jardin",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "43225.89",
+                    "BasePrice": "54032.38",
+                    "PriceWithAffiliateMarkup": "43225.89",
+                    "StopReservation": false,
+                    "OnRequest": true
+                  },
+                  {
+                    "Id": "9",
+                    "Name": "Suite junior vue mer",
+                    "Photo": null,
+                    "Description": "",
+                    "Icones": [],
+                    "Quantity": 2,
+                    "Price": "44017.58",
+                    "BasePrice": "55021.98",
+                    "PriceWithAffiliateMarkup": "44017.58",
+                    "StopReservation": false,
+                    "OnRequest": true
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "Source": "ib-003_ost_gi-012",
+      "Currency": "DZD",
+      "Recommended": 0
+    }
+  ],
+  "CountResults": 5,
+  "ErrorMessage": [],
+  "SearchId": "102.211.210.16569c18a7b0b27a4.85281698",
+  "Timing": {
+    "Begin": "23/03/2026 19:46:19",
+    "End": "23/03/2026 19:46:29",
+    "Duration": "10635 ms",
+    "Details": {
+      "before": 77,
+      "call0": 179,
+      "call": 10417,
+      "after": 140
+    }
+  },
+  "Ip": "102.211.210.165"
+}

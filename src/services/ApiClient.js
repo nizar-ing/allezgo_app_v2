@@ -6,22 +6,35 @@ const CONFIG = {
     BASE_URL: 'https://admin.ipro-booking.com/api/hotel',
     TIMEOUT: { DEFAULT: 60000, SEARCH: 120000 },
     BATCH:   { DEFAULT_SIZE: 5, DEFAULT_DELAY: 100 },
-    LIMITS:  { MAX_HOTELS_PER_SEARCH: 120 },
+    LIMITS:  { MAX_HOTELS_PER_SEARCH: 200 },
     RETRY:   { MAX_ATTEMPTS: 3, BASE_DELAY: 1000, MAX_DELAY: 5000 },
     CACHE:   { TTL: 5 * 60 * 1000, ENABLED: true },
 };
 
 // ==================== CREDENTIALS ====================
 const CREDENTIALS = {
-    Login:    import.meta.env.VITE_API_LOGIN    ?? 'fEGaXEei4E2A6vb3Nfs',
-    Password: import.meta.env.VITE_API_PASSWORD ?? 'LheK+ChFpVQc25ExP4f3',
+    Login:    import.meta.env.VITE_API_LOGIN,
+    Password: import.meta.env.VITE_API_PASSWORD,
 };
 
-if (import.meta.env.DEV && !import.meta.env.VITE_API_LOGIN) {
-    console.warn(
-        '⚠️ [ApiClient] VITE_API_LOGIN is not set in .env — using fallback credentials.\n' +
-        ' Add VITE_API_LOGIN and VITE_API_PASSWORD to your .env file to suppress this warning.'
+if (!CREDENTIALS.Login || !CREDENTIALS.Password) {
+    throw new Error(
+        'FATAL: API credentials (VITE_API_LOGIN, VITE_API_PASSWORD) are not configured in .env file.'
     );
+}
+
+// ==================== CUSTOM ERROR ====================
+class ApiError extends Error {
+    constructor(message, status, originalError = null) {
+        super(message);
+        this.name = 'ApiError';
+        this.status = status;
+        this.isApiError = true;
+        this.isNetworkError = !status;
+        this.isTimeout = message.toLowerCase().includes('timeout');
+        this.originalError = originalError;
+        this.timestamp = new Date().toISOString();
+    }
 }
 
 // ==================== ERROR MESSAGES ====================
@@ -124,34 +137,32 @@ class ApiClient {
             (error) => {
                 if (axios.isCancel(error)) {
                     if (import.meta.env.DEV) console.log('Request cancelled:', error.message);
-                    return Promise.reject({ message: 'Request cancelled', isCancelled: true, timestamp: new Date().toISOString() });
+                    return Promise.reject(new ApiError('Request cancelled', null, error));
                 }
-                const apiError = {
-                    message:        error.message,
-                    status:         error.response?.status,
-                    data:           error.response?.data,
-                    isNetworkError: !error.response,
-                    isTimeout:      error.code === 'ECONNABORTED',
-                    timestamp:      new Date().toISOString(),
-                };
-                if (import.meta.env.DEV) {
-                    if (error.code === 'ECONNABORTED') {
-                        console.error('⏱️ Request timeout - server took too long to respond');
-                    } else if (error.response) {
-                        console.error('API Error:', error.response.status, error.response.data);
-                        switch (error.response.status) {
-                            case 401: console.error(this.messages.UNAUTHORIZED); break;
-                            case 404: console.error(this.messages.NOT_FOUND);    break;
-                            case 500: console.error(this.messages.SERVER_ERROR); break;
-                            default:  console.error(this.messages.REQUEST_FAILED);
-                        }
-                    } else if (error.request) {
-                        console.error('Network error: No response from server');
-                    } else {
-                        console.error('Error:', error.message);
+
+                let status = error.response?.status;
+                let message;
+
+                if (error.code === 'ECONNABORTED') {
+                    message = this.messages.TIMEOUT(0);
+                    status = 408; // Request Timeout
+                } else if (!error.response) {
+                    message = this.messages.NETWORK;
+                    status = null; // Network Error
+                } else {
+                    switch (status) {
+                        case 401: message = this.messages.UNAUTHORIZED; break;
+                        case 404: message = this.messages.NOT_FOUND; break;
+                        case 500: message = this.messages.SERVER_ERROR; break;
+                        default:  message = this.messages.REQUEST_FAILED;
                     }
                 }
-                return Promise.reject(apiError);
+
+                if (import.meta.env.DEV) {
+                    console.error(`API Error: ${status || 'Network Error'} - ${message}`, error);
+                }
+
+                return Promise.reject(new ApiError(message, status, error));
             }
         );
     }
@@ -164,13 +175,11 @@ class ApiClient {
                 return await requestFn();
             } catch (error) {
                 lastError = error;
-                if (error.isCancelled) throw error;
-                const shouldNotRetry =
-                    error.status >= 400 && error.status < 500 &&
-                    error.status !== 408 && error.status !== 429;
-                if (shouldNotRetry) throw error;
+                if (error.isCancelled || (error instanceof ApiError && !this.isRetryableError(error))) {
+                    throw error;
+                }
                 if (attempt === maxAttempts) break;
-                if (!this.isRetryableError(error)) throw error;
+
                 const delay = Math.min(
                     CONFIG.RETRY.BASE_DELAY * Math.pow(2, attempt - 1),
                     CONFIG.RETRY.MAX_DELAY
@@ -185,8 +194,8 @@ class ApiClient {
 
     isRetryableError(error) {
         if (error.isNetworkError) return true;
-        if (error.isTimeout)      return true;
-        if (error.status >= 500)  return true;
+        if (error.isTimeout) return true;
+        if (error.status >= 500) return true;
         if (error.status === 408 || error.status === 429) return true;
         return false;
     }
@@ -215,9 +224,9 @@ class ApiClient {
     // ==================== CACHED LIST ENDPOINTS ====================
     async listCountry() {
         const cacheKey = 'countries';
-        if (CONFIG.CACHE.ENABLED) {
-            const cached = this.cache.get(cacheKey);
-            if (cached) { if (import.meta.env.DEV) console.log('✅ Using cached countries'); return cached; }
+        if (CONFIG.CACHE.ENABLED && this.cache.has(cacheKey)) {
+            if (import.meta.env.DEV) console.log('✅ Using cached countries');
+            return this.cache.get(cacheKey);
         }
         const data = await this.retryRequest(async () => {
             const response = await this.client.post('/ListCountry', this.createRequestBody());
@@ -229,9 +238,9 @@ class ApiClient {
 
     async listCity() {
         const cacheKey = 'cities';
-        if (CONFIG.CACHE.ENABLED) {
-            const cached = this.cache.get(cacheKey);
-            if (cached) { if (import.meta.env.DEV) console.log('✅ Using cached cities'); return cached; }
+        if (CONFIG.CACHE.ENABLED && this.cache.has(cacheKey)) {
+            if (import.meta.env.DEV) console.log('✅ Using cached cities');
+            return this.cache.get(cacheKey);
         }
         const data = await this.retryRequest(async () => {
             const response = await this.client.post('/ListCity', this.createRequestBody());
@@ -243,9 +252,9 @@ class ApiClient {
 
     async listCategorie() {
         const cacheKey = 'categories';
-        if (CONFIG.CACHE.ENABLED) {
-            const cached = this.cache.get(cacheKey);
-            if (cached) { if (import.meta.env.DEV) console.log('✅ Using cached categories'); return cached; }
+        if (CONFIG.CACHE.ENABLED && this.cache.has(cacheKey)) {
+            if (import.meta.env.DEV) console.log('✅ Using cached categories');
+            return this.cache.get(cacheKey);
         }
         const data = await this.retryRequest(async () => {
             const response = await this.client.post('/ListCategorie', this.createRequestBody());
@@ -257,9 +266,9 @@ class ApiClient {
 
     async listTag() {
         const cacheKey = 'tags';
-        if (CONFIG.CACHE.ENABLED) {
-            const cached = this.cache.get(cacheKey);
-            if (cached) { if (import.meta.env.DEV) console.log('✅ Using cached tags'); return cached; }
+        if (CONFIG.CACHE.ENABLED && this.cache.has(cacheKey)) {
+            if (import.meta.env.DEV) console.log('✅ Using cached tags');
+            return this.cache.get(cacheKey);
         }
         const data = await this.retryRequest(async () => {
             const response = await this.client.post('/ListTag', this.createRequestBody());
@@ -271,9 +280,9 @@ class ApiClient {
 
     async listBoarding() {
         const cacheKey = 'boarding';
-        if (CONFIG.CACHE.ENABLED) {
-            const cached = this.cache.get(cacheKey);
-            if (cached) { if (import.meta.env.DEV) console.log('✅ Using cached boarding options'); return cached; }
+        if (CONFIG.CACHE.ENABLED && this.cache.has(cacheKey)) {
+            if (import.meta.env.DEV) console.log('✅ Using cached boarding options');
+            return this.cache.get(cacheKey);
         }
         const data = await this.retryRequest(async () => {
             const response = await this.client.post('/ListBoarding', this.createRequestBody());
@@ -285,9 +294,9 @@ class ApiClient {
 
     async listCurrency() {
         const cacheKey = 'currencies';
-        if (CONFIG.CACHE.ENABLED) {
-            const cached = this.cache.get(cacheKey);
-            if (cached) { if (import.meta.env.DEV) console.log('✅ Using cached currencies'); return cached; }
+        if (CONFIG.CACHE.ENABLED && this.cache.has(cacheKey)) {
+            if (import.meta.env.DEV) console.log('✅ Using cached currencies');
+            return this.cache.get(cacheKey);
         }
         const data = await this.retryRequest(async () => {
             const response = await this.client.post('/ListCurrency', this.createRequestBody());
@@ -305,9 +314,9 @@ class ApiClient {
     // ==================== HOTEL ENDPOINTS ====================
     async listHotel(cityId = null) {
         const cacheKey = cityId ? `hotels_city_${cityId}` : 'hotels_all';
-        if (CONFIG.CACHE.ENABLED) {
-            const cached = this.cache.get(cacheKey);
-            if (cached) { if (import.meta.env.DEV) console.log(`✅ Using cached hotel list (${cacheKey})`); return cached; }
+        if (CONFIG.CACHE.ENABLED && this.cache.has(cacheKey)) {
+            if (import.meta.env.DEV) console.log(`✅ Using cached hotel list (${cacheKey})`);
+            return this.cache.get(cacheKey);
         }
         const data = await this.retryRequest(async () => {
             const requestBody = cityId
@@ -321,21 +330,17 @@ class ApiClient {
     }
 
     async getHotel(hotelId) {
-        if (!hotelId) throw new Error(this.messages.HOTEL_ID_REQUIRED);
+        if (!hotelId) throw new ApiError(this.messages.HOTEL_ID_REQUIRED, 400);
         const cacheKey = `hotel_${hotelId}`;
-        if (CONFIG.CACHE.ENABLED) {
-            const cached = this.cache.get(cacheKey);
-            if (cached) { if (import.meta.env.DEV) console.log(`✅ Using cached hotel detail (${hotelId})`); return cached; }
+        if (CONFIG.CACHE.ENABLED && this.cache.has(cacheKey)) {
+            if (import.meta.env.DEV) console.log(`✅ Using cached hotel detail (${hotelId})`);
+            return this.cache.get(cacheKey);
         }
         const data = await this.retryRequest(async () => {
             const response = await this.client.post('/HotelDetail', this.createRequestBody({ Hotel: hotelId }));
             const hotelDetail = response.data.HotelDetail || null;
             if (!hotelDetail) {
-                throw new Error(
-                    typeof this.messages.HOTEL_NOT_FOUND === 'function'
-                        ? this.messages.HOTEL_NOT_FOUND(hotelId)
-                        : `Hotel with ID ${hotelId} not found`
-                );
+                throw new ApiError(this.messages.HOTEL_NOT_FOUND(hotelId), 404);
             }
             return hotelDetail;
         });
@@ -344,13 +349,8 @@ class ApiClient {
     }
 
     async getHotelDetail(hotelId) {
-        if (!hotelId) throw new Error(this.messages.HOTEL_ID_REQUIRED);
-        try {
-            const hotelDetail = await this.getHotel(hotelId);
-            return { hotelDetail, errorMessage: [], timing: null };
-        } catch (error) {
-            throw error;
-        }
+        const hotelDetail = await this.getHotel(hotelId);
+        return { hotelDetail, errorMessage: [], timing: null };
     }
 
     async getHotelsBatch(hotelIds = [], options = {}) {
@@ -387,15 +387,112 @@ class ApiClient {
         return hotelsMap;
     }
 
+    /**
+     * @private
+     * Transforms the raw API response from /HotelSearch into a UI-friendly format,
+     * preserving the per-pax-group pricing structure.
+     */
+    _transformHotelSearchResponse(response, requestedRooms) {
+        if (!response?.HotelSearch) return [];
+
+        const getPaxKey = (pax) => {
+            const adults = pax.Adult ?? 0;
+            const children = pax.Child ?? [];
+            const childAges = [...children].sort((a, b) => a - b).join(',');
+            return `A${adults}-C${childAges}`;
+        };
+
+        return response.HotelSearch.map(hotelData => {
+            const { Hotel, Token, Price, FreeChild, Currency, Recommended } = hotelData;
+
+            const roomsByPaxKey = new Map();
+            const allPrices = [];
+
+            if (Price?.Boarding) {
+                Price.Boarding.forEach(boarding => {
+                    boarding.Pax?.forEach(pax => {
+                        const paxKey = getPaxKey(pax);
+                        if (!roomsByPaxKey.has(paxKey)) {
+                            roomsByPaxKey.set(paxKey, []);
+                        }
+
+                        pax.Rooms?.forEach(room => {
+                            const price = parseFloat(room.Price);
+                            if (!isNaN(price)) {
+                                allPrices.push(price);
+
+                                roomsByPaxKey.get(paxKey).push({
+                                    id: room.Id ?? `${boarding.Code}-${paxKey}-${room.Name}`,
+                                    name: room.Name,
+                                    boardingCode: boarding.Code,
+                                    boardingName: boarding.Name,
+                                    price: price,
+                                    basePrice: parseFloat(room.BasePrice) || price,
+                                    stopReservation: room.StopReservation || false,
+                                    onRequest: room.OnRequest || false,
+                                    _raw: room,
+                                });
+                            }
+                        });
+                    });
+                });
+            }
+
+            const paxGroups = requestedRooms.map((reqRoom, index) => {
+                const reqPaxKey = getPaxKey(reqRoom);
+                const availableRooms = roomsByPaxKey.get(reqPaxKey) || [];
+                return {
+                    paxIndex: index,
+                    adults: reqRoom.Adult || 2,
+                    children: reqRoom.Child || [], // this is an array of ages like [5, 8]
+                    availableRooms: availableRooms.sort((a, b) => a.price - b.price),
+                };
+            });
+
+            const minPrice = allPrices.length > 0 ? Math.min(...allPrices) : null;
+            const hasChildrenInRequest = requestedRooms.some(r => r.Child?.length > 0);
+
+            const isFreeChild = hasChildrenInRequest && FreeChild?.some(fc =>
+                requestedRooms.some(rr =>
+                    rr.Child?.some(age => age < fc.Age)
+                )
+            );
+
+            const allRoomsFlat = Array.from(roomsByPaxKey.values()).flat();
+            const discounts = allRoomsFlat
+                .filter(r => r.basePrice && r.price && r.basePrice > r.price)
+                .map(r => Math.round(((r.basePrice - r.price) / r.basePrice) * 100));
+
+            return {
+                id: Hotel.Id,
+                name: Hotel.Name,
+                token: Token,
+                image: Hotel.Image,
+                category: Hotel.Category,
+                city: Hotel.City,
+                address: Hotel.Adress,
+                themes: Hotel.Theme || [],
+                isAvailable: allPrices.length > 0,
+                currency: Currency,
+                minPrice: minPrice,
+                maxDiscount: discounts.length > 0 ? Math.max(...discounts) : null,
+                hasChildrenInRequest,
+                isFreeChild,
+                paxGroups,
+                _raw: hotelData,
+            };
+        });
+    }
+
     async searchHotel(searchParams = {}) {
         const cancelToken = this.createCancelToken('hotelSearch');
         try {
-            if (!searchParams.checkIn)  throw new Error(this.messages.CHECKIN_REQUIRED);
-            if (!searchParams.checkOut) throw new Error(this.messages.CHECKOUT_REQUIRED);
+            if (!searchParams.checkIn)  throw new ApiError(this.messages.CHECKIN_REQUIRED, 400);
+            if (!searchParams.checkOut) throw new ApiError(this.messages.CHECKOUT_REQUIRED, 400);
             if (!searchParams.hotels || !Array.isArray(searchParams.hotels) || searchParams.hotels.length === 0)
-                throw new Error(this.messages.HOTELS_REQUIRED);
+                throw new ApiError(this.messages.HOTELS_REQUIRED, 400);
             if (!searchParams.rooms || !Array.isArray(searchParams.rooms) || searchParams.rooms.length === 0)
-                throw new Error(this.messages.ROOMS_REQUIRED);
+                throw new ApiError(this.messages.ROOMS_REQUIRED, 400);
 
             const limitedHotels = searchParams.hotels.slice(0, CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH);
             const limitApplied  = searchParams.hotels.length > CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH;
@@ -403,44 +500,57 @@ class ApiClient {
                 console.warn(
                     `⚠️ [ApiClient.searchHotel] Search limited to ${CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH} hotels ` +
                     `(${searchParams.hotels.length} requested, ` +
-                    `${searchParams.hotels.length - CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH} dropped). ` +
-                    `Use getHotelsBatch() + multiple searchHotel() calls for larger sets.`
+                    `${searchParams.hotels.length - CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH} dropped). `
                 );
             }
 
             const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
             if (!dateRegex.test(searchParams.checkIn)) {
-                throw new Error(typeof this.messages.INVALID_DATE_FORMAT === 'function'
-                    ? this.messages.INVALID_DATE_FORMAT('checkIn')
-                    : 'checkIn must be in YYYY-MM-DD format');
+                throw new ApiError(this.messages.INVALID_DATE_FORMAT('checkIn'), 400);
             }
             if (!dateRegex.test(searchParams.checkOut)) {
-                throw new Error(typeof this.messages.INVALID_DATE_FORMAT === 'function'
-                    ? this.messages.INVALID_DATE_FORMAT('checkOut')
-                    : 'checkOut must be in YYYY-MM-DD format');
+                throw new ApiError(this.messages.INVALID_DATE_FORMAT('checkOut'), 400);
             }
 
-            const bookingDetails = {
-                CheckIn:  searchParams.checkIn,
-                CheckOut: searchParams.checkOut,
-                Hotels:   limitedHotels,
-            };
-            const filters       = searchParams.filters || {};
-            const searchFilters = {
-                Keywords:      filters.keywords      || '',
-                Category:      filters.category      || [],
-                OnlyAvailable: filters.onlyAvailable !== undefined ? filters.onlyAvailable : true,
-                Tags:          filters.tags          || [],
-            };
-            const rooms = searchParams.rooms.map(room => {
-                const roomObj = { Adult: room.adult || room.Adult || 2 };
-                if (room.child  && Array.isArray(room.child)  && room.child.length  > 0) roomObj.Child = room.child;
-                else if (room.Child && Array.isArray(room.Child) && room.Child.length > 0) roomObj.Child = room.Child;
+            const roomsForRequest = searchParams.rooms.map(room => {
+                const roomObj = { Adult: room.adult || room.adults || room.Adult || 2 };
+                // Ensure we capture children correctly whether passed as child, children, or childAges
+                const childAges = room.child || room.children || room.childAges;
+                if (Array.isArray(childAges) && childAges.length > 0) {
+                    roomObj.Child = childAges;
+                } else if (typeof childAges === 'number' && childAges > 0) {
+                     roomObj.Child = Array(childAges).fill(5); // fallback if it was just a count
+                }
                 return roomObj;
             });
 
+            // FIX: Sanitize the incoming filters object to match API expectations
+            const defaultFilters = { Keywords: "", Category: [], OnlyAvailable: false, Tags: [] };
+            const incomingFilters = searchParams.filters || {};
+            const finalFilters = {
+                Keywords: incomingFilters.keywords ?? incomingFilters.Keywords ?? defaultFilters.Keywords,
+                Category: incomingFilters.category ?? incomingFilters.Category ?? defaultFilters.Category,
+                OnlyAvailable: incomingFilters.onlyAvailable ?? incomingFilters.OnlyAvailable ?? defaultFilters.OnlyAvailable,
+                Tags: incomingFilters.tags ?? incomingFilters.Tags ?? defaultFilters.Tags,
+            };
+    
+            if (typeof finalFilters.Category === 'string') {
+                finalFilters.Category = finalFilters.Category ? [finalFilters.Category] : [];
+            }
+            if (typeof finalFilters.Tags === 'string') {
+                finalFilters.Tags = finalFilters.Tags ? [finalFilters.Tags] : [];
+            }
+
             const requestBody = this.createRequestBody({
-                SearchDetails: { BookingDetails: bookingDetails, Filters: searchFilters, Rooms: rooms },
+                SearchDetails: {
+                    BookingDetails: {
+                        CheckIn:  searchParams.checkIn,
+                        CheckOut: searchParams.checkOut,
+                        Hotels:   limitedHotels,
+                    },
+                    Filters: finalFilters,
+                    Rooms: roomsForRequest,
+                },
             });
 
             if (import.meta.env.DEV) {
@@ -455,12 +565,18 @@ class ApiClient {
                 });
             });
 
-            if (import.meta.env.DEV)
-                console.log(`✅ Search returned ${response.data.HotelSearch?.length || 0} results`);
             this.cancelTokens.delete('hotelSearch');
 
+            const transformedData = this._transformHotelSearchResponse(response.data, roomsForRequest);
+
+            if (import.meta.env.DEV)
+                console.log(`✅ Search returned and transformed ${transformedData.length} results`);
+
             return {
+                // Keep original structure for backward compatibility if needed elsewhere
                 hotelSearch:       response.data.HotelSearch || [],
+                // Add the new transformed data
+                transformedHotels: transformedData,
                 countResults:      response.data.CountResults || 0,
                 errorMessage:      response.data.ErrorMessage || null,
                 searchId:          response.data.SearchId || null,
@@ -471,14 +587,9 @@ class ApiClient {
             };
         } catch (error) {
             this.cancelTokens.delete('hotelSearch');
-            if (error.isCancelled) throw error;
             if (error.isTimeout) {
-                const message = typeof this.messages.TIMEOUT === 'function'
-                    ? this.messages.TIMEOUT(searchParams.hotels?.length || 0)
-                    : `Search timeout for ${searchParams.hotels?.length || 0} hotels`;
-                throw new Error(message);
+                throw new ApiError(this.messages.TIMEOUT(searchParams.hotels?.length || 0), 408, error);
             }
-            if (error.isNetworkError) throw new Error(this.messages.NETWORK);
             throw error;
         }
     }
@@ -486,27 +597,23 @@ class ApiClient {
     async searchRoomAvailability(params = {}) {
         const cancelToken = this.createCancelToken('roomAvailability');
         try {
-            if (!params.hotelId)  throw new Error(this.messages.HOTEL_ID_REQUIRED);
-            if (!params.checkIn)  throw new Error(this.messages.CHECKIN_REQUIRED);
-            if (!params.checkOut) throw new Error(this.messages.CHECKOUT_REQUIRED);
+            if (!params.hotelId)  throw new ApiError(this.messages.HOTEL_ID_REQUIRED, 400);
+            if (!params.checkIn)  throw new ApiError(this.messages.CHECKIN_REQUIRED, 400);
+            if (!params.checkOut) throw new ApiError(this.messages.CHECKOUT_REQUIRED, 400);
             if (!params.rooms || !Array.isArray(params.rooms) || params.rooms.length === 0)
-                throw new Error(this.messages.ROOMS_REQUIRED);
+                throw new ApiError(this.messages.ROOMS_REQUIRED, 400);
 
             const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
             if (!dateRegex.test(params.checkIn)) {
-                throw new Error(typeof this.messages.INVALID_DATE_FORMAT === 'function'
-                    ? this.messages.INVALID_DATE_FORMAT('checkIn')
-                    : 'checkIn must be in YYYY-MM-DD format');
+                throw new ApiError(this.messages.INVALID_DATE_FORMAT('checkIn'), 400);
             }
             if (!dateRegex.test(params.checkOut)) {
-                throw new Error(typeof this.messages.INVALID_DATE_FORMAT === 'function'
-                    ? this.messages.INVALID_DATE_FORMAT('checkOut')
-                    : 'checkOut must be in YYYY-MM-DD format');
+                throw new ApiError(this.messages.INVALID_DATE_FORMAT('checkOut'), 400);
             }
 
             const checkInDate  = new Date(params.checkIn);
             const checkOutDate = new Date(params.checkOut);
-            if (checkOutDate <= checkInDate) throw new Error(this.messages.INVALID_DATE_RANGE);
+            if (checkOutDate <= checkInDate) throw new ApiError(this.messages.INVALID_DATE_RANGE, 400);
 
             const bookingDetails = {
                 CheckIn:  params.checkIn,
@@ -515,7 +622,11 @@ class ApiClient {
             };
             const rooms = params.rooms.map(room => {
                 const roomObj = { Adult: room.adults ?? 2 };
-                if (room.children && room.children > 0) {
+                if (Array.isArray(room.childAges) && room.childAges.length > 0) {
+                    roomObj.Child = room.childAges;
+                } else if (Array.isArray(room.children) && room.children.length > 0) {
+                     roomObj.Child = room.children;
+                } else if (typeof room.children === 'number' && room.children > 0) {
                     roomObj.Child = room.childAges ?? Array(room.children).fill(5);
                 }
                 return roomObj;
@@ -584,15 +695,13 @@ class ApiClient {
             };
         } catch (error) {
             this.cancelTokens.delete('roomAvailability');
-            if (error.isCancelled)   throw error;
-            if (error.isTimeout)     throw new Error('Room availability search timed out. Please try again.');
-            if (error.isNetworkError) throw new Error(this.messages.NETWORK);
-            if (import.meta.env.DEV) console.error('❌ Room availability error:', error.message);
+            if (error.isTimeout) {
+                throw new ApiError('Room availability search timed out. Please try again.', 408, error);
+            }
             throw error;
         }
     }
 
-    // ✅ UPDATED — added basePrice + stopReservation to each room object
     /** @private */
     _processRoomResults(hotelResult, boardingType = null) {
         const rooms = [];
@@ -604,7 +713,7 @@ class ApiClient {
                 pax.Rooms?.forEach((room, roomIndex) => {
                     const roomCode  = room.RoomCode || room.Code || `room_${roomIndex}`;
                     const price     = parseFloat(room.Price)     || 0;
-                    const basePrice = parseFloat(room.BasePrice) || price; // fallback to price if no BasePrice
+                    const basePrice = parseFloat(room.BasePrice) || price;
                     rooms.push({
                         id:                 `${hotelResult.Hotel?.Id}_${boardingIndex}_${paxIndex}_${roomIndex}_${roomCode}_${boardingCode}`,
                         roomCode,
@@ -612,8 +721,8 @@ class ApiClient {
                         boardingCode,
                         boardingName,
                         price,
-                        basePrice,                           // ← NEW
-                        stopReservation:    room.StopReservation ?? false,  // ← NEW
+                        basePrice,
+                        stopReservation:    room.StopReservation ?? false,
                         currency:           hotelResult.Currency || 'DZD',
                         available:          !room.StopReservation,
                         onRequest:          room.OnRequest ?? false,
@@ -628,10 +737,16 @@ class ApiClient {
         return rooms;
     }
 
-    // ✅ UPDATED — added basePrice + stopReservation to each room object
     /** @private */
     _processRoomsByPax(hotelResult, requestedRooms = [], boardingType = null) {
-        const adultCountToRooms = new Map();
+        const getPaxKey = (adults, childAges) => {
+            const a = adults ?? 0;
+            const c = childAges ?? [];
+            const sortedC = [...c].sort((x, y) => x - y).join(',');
+            return `A${a}-C${sortedC}`;
+        };
+
+        const roomsByPaxKey = new Map();
 
         hotelResult.Price?.Boarding?.forEach((boarding, boardingIndex) => {
             const boardingCode = boarding.Code || boarding.BoardingCode;
@@ -639,23 +754,25 @@ class ApiClient {
             if (boardingType && boardingCode !== boardingType) return;
 
             boarding.Pax?.forEach((pax) => {
-                const adultCount = pax.Adult ?? 2;
-                if (!adultCountToRooms.has(adultCount)) adultCountToRooms.set(adultCount, []);
+                const paxKey = getPaxKey(pax.Adult, pax.Child);
+                if (!roomsByPaxKey.has(paxKey)) roomsByPaxKey.set(paxKey, []);
+
                 pax.Rooms?.forEach((room, roomIndex) => {
                     const roomCode  = room.RoomCode || room.Code || `room_${roomIndex}`;
                     const price     = parseFloat(room.Price)     || 0;
                     const basePrice = parseFloat(room.BasePrice) || price;
-                    adultCountToRooms.get(adultCount).push({
-                        id:                 `${hotelResult.Hotel?.Id}_${adultCount}_${boardingIndex}_${roomIndex}_${roomCode}_${boardingCode}`,
+                    
+                    roomsByPaxKey.get(paxKey).push({
+                        id:                 `${hotelResult.Hotel?.Id}_${paxKey}_${boardingIndex}_${roomIndex}_${roomCode}_${boardingCode}`,
                         roomCode,
                         name:               room.RoomName || room.Name || 'Chambre Standard',
                         boardingCode,
                         boardingName,
                         price,
-                        basePrice,                           // ← NEW
-                        stopReservation:    room.StopReservation ?? false,  // ← NEW
+                        basePrice,
+                        stopReservation:    room.StopReservation ?? false,
                         currency:           hotelResult.Currency || 'DZD',
-                        adults:             adultCount,
+                        adults:             pax.Adult ?? 2,
                         available:          !room.StopReservation,
                         onRequest:          room.OnRequest ?? false,
                         quantity:           room.Quantity  ?? null,
@@ -667,32 +784,33 @@ class ApiClient {
         });
 
         if (import.meta.env.DEV)
-            console.log('📊 Available adult counts from API:', Array.from(adultCountToRooms.keys()));
-
-        const availableCounts = Array.from(adultCountToRooms.keys()).sort((a, b) => a - b);
+            console.log('📊 Available pax keys from API:', Array.from(roomsByPaxKey.keys()));
 
         return requestedRooms.map((requestedRoom, paxIndex) => {
-            const requestedAdults = requestedRoom.adults ?? 2;
-            let matchedRooms = adultCountToRooms.get(requestedAdults) ?? [];
+            let childAgesArray = [];
+            if (Array.isArray(requestedRoom.childAges) && requestedRoom.childAges.length > 0) {
+                childAgesArray = requestedRoom.childAges;
+            } else if (Array.isArray(requestedRoom.children) && requestedRoom.children.length > 0) {
+                childAgesArray = requestedRoom.children;
+            } else if (typeof requestedRoom.children === 'number' && requestedRoom.children > 0) {
+                childAgesArray = Array(requestedRoom.children).fill(5);
+            }
 
-            if (matchedRooms.length === 0 && availableCounts.length > 0) {
-                const closest = availableCounts.reduce((prev, curr) =>
-                    Math.abs(curr - requestedAdults) < Math.abs(prev - requestedAdults) ? curr : prev
-                );
-                matchedRooms = adultCountToRooms.get(closest) ?? [];
+            const requestedAdults = requestedRoom.adults ?? 2;
+            const reqPaxKey = getPaxKey(requestedAdults, childAgesArray);
+            let matchedRooms = roomsByPaxKey.get(reqPaxKey) ?? [];
+
+            if (matchedRooms.length === 0 && roomsByPaxKey.size > 0) {
                 if (import.meta.env.DEV) {
-                    console.warn(
-                        `⚠️ Slot ${paxIndex + 1}: No exact match for ${requestedAdults} adult(s). ` +
-                        `Falling back to ${closest}-adult rooms.`
-                    );
+                    console.warn(`⚠️ Slot ${paxIndex + 1}: No exact match for pax key ${reqPaxKey}.`);
                 }
             }
 
             return {
                 paxIndex,
                 adults:    requestedAdults,
-                children:  requestedRoom.children  ?? 0,
-                childAges: requestedRoom.childAges ?? [],
+                children:  childAgesArray.length,
+                childAges: childAgesArray,
                 rooms:     [...matchedRooms].sort((a, b) => a.price - b.price),
             };
         });
@@ -822,5 +940,5 @@ class ApiClient {
 // ==================== SINGLETON EXPORT ====================
 const apiClient = new ApiClient('fr');
 export default apiClient;
-export { ApiClient, CONFIG, ERROR_MESSAGES };
+export { ApiClient, ApiError, CONFIG, ERROR_MESSAGES };
 export const cancelAllRequests = () => apiClient.cancelAllRequests();
