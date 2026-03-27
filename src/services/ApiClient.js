@@ -6,7 +6,7 @@ const CONFIG = {
     BASE_URL: 'https://admin.ipro-booking.com/api/hotel',
     TIMEOUT: { DEFAULT: 60000, SEARCH: 120000 },
     BATCH:   { DEFAULT_SIZE: 5, DEFAULT_DELAY: 100 },
-    LIMITS:  { MAX_HOTELS_PER_SEARCH: 200 },
+    LIMITS:  { MAX_HOTELS_PER_SEARCH: 300 },
     RETRY:   { MAX_ATTEMPTS: 3, BASE_DELAY: 1000, MAX_DELAY: 5000 },
     CACHE:   { TTL: 5 * 60 * 1000, ENABLED: true },
 };
@@ -396,14 +396,14 @@ class ApiClient {
         if (!response?.HotelSearch) return [];
 
         const getPaxKey = (pax) => {
-            const adults = pax.Adult ?? 0;
-            const children = pax.Child ?? [];
+            const adults = pax.Adult ?? pax.adults ?? 0;
+            const children = Array.isArray(pax.Child) ? pax.Child : (Array.isArray(pax.children) ? pax.children : []);
             const childAges = [...children].sort((a, b) => a - b).join(',');
             return `A${adults}-C${childAges}`;
         };
 
         return response.HotelSearch.map(hotelData => {
-            const { Hotel, Token, Price, FreeChild, Currency, Recommended } = hotelData;
+            const { Hotel, Token, Price, FreeChild, Currency } = hotelData;
 
             const roomsByPaxKey = new Map();
             const allPrices = [];
@@ -422,14 +422,14 @@ class ApiClient {
                                 allPrices.push(price);
 
                                 roomsByPaxKey.get(paxKey).push({
-                                    id: room.Id ?? `${boarding.Code}-${paxKey}-${room.Name}`,
-                                    name: room.Name,
+                                    id: room.Id ?? room.Code ?? `${boarding.Code}-${paxKey}-${room.Name}`,
+                                    name: room.Name || room.RoomName,
                                     boardingCode: boarding.Code,
                                     boardingName: boarding.Name,
                                     price: price,
                                     basePrice: parseFloat(room.BasePrice) || price,
-                                    stopReservation: room.StopReservation || false,
-                                    onRequest: room.OnRequest || false,
+                                    stopReservation: room.StopReservation === true || room.StopReservation === "true",
+                                    onRequest: room.OnRequest === true || room.OnRequest === "true",
                                     _raw: room,
                                 });
                             }
@@ -438,7 +438,7 @@ class ApiClient {
                 });
             }
 
-            const paxGroups = requestedRooms.map((reqRoom, index) => {
+            const paxGroups = (requestedRooms || []).map((reqRoom, index) => {
                 const reqPaxKey = getPaxKey(reqRoom);
                 const availableRooms = roomsByPaxKey.get(reqPaxKey) || [];
                 return {
@@ -449,7 +449,11 @@ class ApiClient {
                 };
             });
 
-            const minPrice = allPrices.length > 0 ? Math.min(...allPrices) : null;
+            const hasPrices = allPrices.length > 0;
+            // A hotel is available if it has prices AND all requested pax groups have at least one room available
+            const isAvailable = hasPrices && paxGroups.every(pg => pg.availableRooms.length > 0);
+            
+            const minPrice = hasPrices ? Math.min(...allPrices) : null;
             const hasChildrenInRequest = requestedRooms.some(r => r.Child?.length > 0);
 
             const isFreeChild = hasChildrenInRequest && FreeChild?.some(fc =>
@@ -472,7 +476,7 @@ class ApiClient {
                 city: Hotel.City,
                 address: Hotel.Adress,
                 themes: Hotel.Theme || [],
-                isAvailable: allPrices.length > 0,
+                isAvailable: isAvailable,
                 currency: Currency,
                 minPrice: minPrice,
                 maxDiscount: discounts.length > 0 ? Math.max(...discounts) : null,
@@ -494,6 +498,16 @@ class ApiClient {
             if (!searchParams.rooms || !Array.isArray(searchParams.rooms) || searchParams.rooms.length === 0)
                 throw new ApiError(this.messages.ROOMS_REQUIRED, 400);
 
+            const limitedHotels = searchParams.hotels.slice(0, CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH);
+            const limitApplied  = searchParams.hotels.length > CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH;
+            if (limitApplied) {
+                console.warn(
+                    `⚠️ [ApiClient.searchHotel] Search limited to ${CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH} hotels ` +
+                    `(${searchParams.hotels.length} requested, ` +
+                    `${searchParams.hotels.length - CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH} dropped). `
+                );
+            }
+
             const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
             if (!dateRegex.test(searchParams.checkIn)) {
                 throw new ApiError(this.messages.INVALID_DATE_FORMAT('checkIn'), 400);
@@ -504,6 +518,7 @@ class ApiClient {
 
             const roomsForRequest = searchParams.rooms.map(room => {
                 const roomObj = { Adult: room.adult || room.adults || room.Adult || 2 };
+                // Ensure we capture children correctly whether passed as child, children, or childAges
                 const childAges = room.child || room.children || room.childAges;
                 if (Array.isArray(childAges) && childAges.length > 0) {
                     roomObj.Child = childAges;
@@ -513,6 +528,10 @@ class ApiClient {
                 return roomObj;
             });
 
+            // FIX: Sanitize the incoming filters object to match API expectations.
+            // OnlyAvailable defaults to FALSE so the API returns all hotels (available + unavailable).
+            // Hotels without pricing will have isAvailable: false in the transformed output,
+            // allowing the UI to differentiate them without losing the full result set.
             const defaultFilters = { Keywords: "", Category: [], OnlyAvailable: false, Tags: [] };
             const incomingFilters = searchParams.filters || {};
             const finalFilters = {
@@ -529,80 +548,49 @@ class ApiClient {
                 finalFilters.Tags = finalFilters.Tags ? [finalFilters.Tags] : [];
             }
 
-            // --- THE FIX: Split hotels into chunks of 200 to bypass the hard limit ---
-            const hotelChunks = [];
-            const MAX_HOTELS = CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH;
-
-            for (let i = 0; i < searchParams.hotels.length; i += MAX_HOTELS) {
-                hotelChunks.push(searchParams.hotels.slice(i, i + MAX_HOTELS));
-            }
-
-            if (import.meta.env.DEV) {
-                console.log(`🔍 Searching ${searchParams.hotels.length} hotels in ${hotelChunks.length} batch(es)...`);
-            }
-
-            // Create an array of Promises for each chunk
-            const searchPromises = hotelChunks.map(chunk => {
-                const requestBody = this.createRequestBody({
-                    SearchDetails: {
-                        BookingDetails: {
-                            CheckIn:  searchParams.checkIn,
-                            CheckOut: searchParams.checkOut,
-                            Hotels:   chunk,
-                        },
-                        Filters: finalFilters,
-                        Rooms: roomsForRequest,
+            const requestBody = this.createRequestBody({
+                SearchDetails: {
+                    BookingDetails: {
+                        CheckIn:  searchParams.checkIn,
+                        CheckOut: searchParams.checkOut,
+                        Hotels:   limitedHotels,
                     },
-                });
-
-                return this.retryRequest(async () => {
-                    return await this.client.post('/HotelSearch', requestBody, {
-                        timeout:     CONFIG.TIMEOUT.SEARCH,
-                        cancelToken: cancelToken.token,
-                    });
-                });
+                    Filters: finalFilters,
+                    Rooms: roomsForRequest,
+                },
             });
 
-            // Execute all chunks concurrently
-            const responses = await Promise.all(searchPromises);
+            if (import.meta.env.DEV) {
+                console.log(`🔍 Searching ${limitedHotels.length} hotels...`);
+                console.log(`📦 Request size: ${(JSON.stringify(requestBody).length / 1024).toFixed(2)} KB`);
+            }
+
+            const response = await this.retryRequest(async () => {
+                return await this.client.post('/HotelSearch', requestBody, {
+                    timeout:     CONFIG.TIMEOUT.SEARCH,
+                    cancelToken: cancelToken.token,
+                });
+            });
 
             this.cancelTokens.delete('hotelSearch');
 
-            // Aggregate data from all chunks
-            let aggregatedHotelSearch = [];
-            let aggregatedTransformed = [];
-            let totalCount = 0;
-            let lastSearchId = null;
-            let lastTiming = null;
-            let errorMessage = null;
-
-            responses.forEach(response => {
-                const data = response.data;
-                const rawHotels = data.HotelSearch || [];
-                aggregatedHotelSearch = aggregatedHotelSearch.concat(rawHotels);
-                totalCount += data.CountResults || 0;
-
-                if (data.SearchId) lastSearchId = data.SearchId;
-                if (data.Timing) lastTiming = data.Timing;
-                if (data.ErrorMessage && data.ErrorMessage.length > 0) errorMessage = data.ErrorMessage;
-
-                const transformedData = this._transformHotelSearchResponse(data, roomsForRequest);
-                aggregatedTransformed = aggregatedTransformed.concat(transformedData);
-            });
+            const transformedData = this._transformHotelSearchResponse(response.data, roomsForRequest);
 
             if (import.meta.env.DEV)
-                console.log(`✅ Search returned and transformed ${aggregatedTransformed.length} results`);
+                console.log(`✅ Search returned and transformed ${transformedData.length} results`);
 
             return {
-                hotelSearch:       aggregatedHotelSearch,
-                transformedHotels: aggregatedTransformed,
-                countResults:      totalCount,
-                errorMessage:      errorMessage,
-                searchId:          lastSearchId,
-                timing:            lastTiming,
-                _limitApplied:     false,
+                // Keep original structure for backward compatibility if needed elsewhere
+                hotelSearch:       response.data.HotelSearch || [],
+                // Add the new transformed data
+                transformedHotels: transformedData,
+                countResults:      response.data.CountResults || 0,
+                errorMessage:      response.data.ErrorMessage || null,
+                searchId:          response.data.SearchId || null,
+                timing:            response.data.Timing || null,
+                _limitApplied:     limitApplied,
                 _requestedHotels:  searchParams.hotels.length,
-                _searchedHotels:   searchParams.hotels.length,
+                _searchedHotels:   limitedHotels.length,
             };
         } catch (error) {
             this.cancelTokens.delete('hotelSearch');
@@ -644,7 +632,7 @@ class ApiClient {
                 if (Array.isArray(room.childAges) && room.childAges.length > 0) {
                     roomObj.Child = room.childAges;
                 } else if (Array.isArray(room.children) && room.children.length > 0) {
-                     roomObj.Child = room.children;
+                    roomObj.Child = room.children;
                 } else if (typeof room.children === 'number' && room.children > 0) {
                     roomObj.Child = room.childAges ?? Array(room.children).fill(5);
                 }
@@ -709,6 +697,7 @@ class ApiClient {
                     available:  true,
                     totalRooms: processedRooms.length,
                 },
+                token:    hotelResult.Token || null,
                 searchId: response.data.SearchId || null,
                 timing:   response.data.Timing   || null,
             };
@@ -741,10 +730,10 @@ class ApiClient {
                         boardingName,
                         price,
                         basePrice,
-                        stopReservation:    room.StopReservation ?? false,
+                        stopReservation:    room.StopReservation === true || room.StopReservation === "true",
                         currency:           hotelResult.Currency || 'DZD',
-                        available:          !room.StopReservation,
-                        onRequest:          room.OnRequest ?? false,
+                        available:          !(room.StopReservation === true || room.StopReservation === "true"),
+                        onRequest:          room.OnRequest === true || room.OnRequest === "true",
                         quantity:           room.Quantity  ?? null,
                         cancellationPolicy: room.CancellationPolicy ?? [],
                         _raw: room,
@@ -780,7 +769,7 @@ class ApiClient {
                     const roomCode  = room.RoomCode || room.Code || `room_${roomIndex}`;
                     const price     = parseFloat(room.Price)     || 0;
                     const basePrice = parseFloat(room.BasePrice) || price;
-                    
+
                     roomsByPaxKey.get(paxKey).push({
                         id:                 `${hotelResult.Hotel?.Id}_${paxKey}_${boardingIndex}_${roomIndex}_${roomCode}_${boardingCode}`,
                         roomCode,
@@ -789,11 +778,11 @@ class ApiClient {
                         boardingName,
                         price,
                         basePrice,
-                        stopReservation:    room.StopReservation ?? false,
+                        stopReservation:    room.StopReservation === true || room.StopReservation === "true",
                         currency:           hotelResult.Currency || 'DZD',
                         adults:             pax.Adult ?? 2,
-                        available:          !room.StopReservation,
-                        onRequest:          room.OnRequest ?? false,
+                        available:          !(room.StopReservation === true || room.StopReservation === "true"),
+                        onRequest:          room.OnRequest === true || room.OnRequest === "true",
                         quantity:           room.Quantity  ?? null,
                         cancellationPolicy: room.CancellationPolicy ?? [],
                         _raw: room,
@@ -857,7 +846,7 @@ class ApiClient {
             delayBetweenBatches = CONFIG.BATCH.DEFAULT_DELAY,
             onProgress          = null,
             onBatchComplete     = null,
-        } = options;
+        } =options;
 
         if (import.meta.env.DEV) console.log('📋 Fetching hotel list...');
         const hotelsList = await this.listHotel(cityId);

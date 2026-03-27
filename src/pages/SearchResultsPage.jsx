@@ -129,7 +129,7 @@ function SearchResultsPage() {
                     // ensure we extract only the age value as expected by the API.
                     child: Array.isArray(room.children)
                         ? room.children.map(c => typeof c === 'object' ? (c.age ?? 5) : c)
-                        : []
+                        : (typeof room.children === 'number' && room.children > 0 ? Array(room.children).fill(5) : [])
                 })),
                 // Relax OnlyAvailable to false to ensure we get "On Request" hotels
                 filters: { keywords: "", category: "", onlyAvailable: false, tags: "" },
@@ -146,10 +146,19 @@ function SearchResultsPage() {
 
     // ── Step 3: Merge + preloaded rooms ────────────────────────────────────────
     const processedHotels = useMemo(() => {
-        if (!searchResults?.hotelSearch) return [];
+        if (!searchResults?.transformedHotels) return [];
+        
+        // Build a map of transformed hotels for quick access
+        const transformedMap = {};
+        searchResults.transformedHotels.forEach(th => {
+            transformedMap[th.id] = th;
+        });
+
         return searchResults.hotelSearch.map((sr) => {
             const fromSearch = sr.Hotel;
             const full       = hotelsDetailsMap[fromSearch.Id];
+            const transformed = transformedMap[fromSearch.Id];
+            
             const allPrices  = [];
             const roomMap    = new Map();
 
@@ -190,16 +199,14 @@ function SearchResultsPage() {
                 .map(r => Math.round(((r.basePrice - r.price) / r.basePrice) * 100));
             const maxDiscount = discounts.length > 0 ? Math.max(...discounts) : null;
 
-            const pricing = minPrice
-                ? {
-                    minPrice,
-                    maxPrice,
-                    currency:        sr.Currency,
-                    available:       true,
-                    token:           sr.Token,
-                    discountPercent: maxDiscount,
-                }
-                : null;
+            const pricing = {
+                minPrice: transformed?.minPrice ?? minPrice,
+                maxPrice: maxPrice,
+                currency: sr.Currency,
+                isAvailable: transformed?.isAvailable ?? (minPrice !== null),
+                token: sr.Token,
+                discountPercent: transformed?.maxDiscount ?? maxDiscount,
+            };
 
             return {
                 Id:               fromSearch.Id,
@@ -224,7 +231,7 @@ function SearchResultsPage() {
                 Type:             full?.Type,
                 Boarding:         full?.Boarding         ?? [],
                 pricing,
-                MinPrice:         minPrice,
+                MinPrice:         pricing.minPrice,
                 MaxPrice:         maxPrice,
                 Currency:         sr.Currency,
                 PriceDetails:     sr.Price,
@@ -232,12 +239,12 @@ function SearchResultsPage() {
                 Recommended:      sr.Recommended,
                 FreeChild:        sr.FreeChild,
                 Source:           sr.Source,
-                // FIX: Ensure IsAvailable is true if we have prices OR if the hotel allows "On Request"
-                IsAvailable:      minPrice !== null || fromSearch.OnRequest === true,
+                IsAvailable:      pricing.isAvailable,
                 searchResult:     true,
                 hasFullDetails:   !!full,
                 dataSource:       full ? "merged" : "search-only",
                 preloadedRooms,
+                paxGroups:        transformed?.paxGroups ?? [],
             };
         });
     }, [searchResults, hotelsDetailsMap]);
@@ -572,7 +579,7 @@ function SearchResultsPage() {
                                 key={hotel.Id}
                                 hotel={hotel}
                                 pricing={hotel.pricing}
-                                preloadedAvailability={hotel.preloadedRooms ?? null}
+                                paxGroups={hotel.paxGroups}
                                 onFavoriteToggle={handleFavoriteToggle}
                                 onBook={handleBookHotel}
                                 onViewDetail={handleViewHotelDetail}

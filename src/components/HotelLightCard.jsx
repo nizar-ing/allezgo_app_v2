@@ -111,12 +111,15 @@ function HotelLightCard({
     const [hasFetched,        setHasFetched]        = useState(() => preloadedPaxGroups !== null);
     const [selectedBoarding,  setSelectedBoarding]  = useState(null);
     const [selectedRooms,     setSelectedRooms]     = useState({});
+    const [currentToken,      setCurrentToken]      = useState(hotel?.token || pricing?.token || null);
 
+    // When preloaded data changes, update state
     useEffect(() => {
         if (preloadedPaxGroups === null) return;
         if (hasRealFetchRef.current) return;
+        
         setPaxGroups(preloadedPaxGroups);
-        setNoAvailability(false);
+        setNoAvailability(preloadedPaxGroups.length === 0);
         setHasFetched(true);
         setSelectedRooms({});
     }, [preloadedPaxGroups]);
@@ -157,12 +160,19 @@ function HotelLightCard({
     const totalPrice = derivedMinPrice;
 
     const cardAvailabilityStatus = useMemo(() => {
+        // If we have pricing info from parent, use its isAvailable flag
+        if (pricing?.isAvailable === false) return 'full';
+        if (pricing?.isAvailable === true) return 'available';
+
+        // Fallback to local state logic
         if (noAvailability) return 'full';
         if (!hasFetched || !allRooms.length) return null;
+        
+        // Check room-level stopReservation
         if (allRooms.every(r => r.stopReservation)) return 'full';
         if (allRooms.some(r => r.stopReservation))  return 'last';
         return 'available';
-    }, [hasFetched, allRooms, noAvailability]);
+    }, [hasFetched, allRooms, noAvailability, pricing?.isAvailable]);
 
     const effectiveRoomsByPax = useMemo(() => {
         if (!paxGroups) return [];
@@ -207,12 +217,11 @@ function HotelLightCard({
         const sp = searchParamsRef.current;
         if (!sp?.checkIn || !sp?.checkOut) return;
         if (isFetchingRef.current) return;
+        
+        // If we already have data (preloaded), don't show loader unless we are refreshing
+        if (!hasFetched) setIsLoading(true);
+        
         isFetchingRef.current = true;
-        setIsLoading(true);
-        setNoAvailability(false);
-        setPaxGroups(null);
-        setSelectedBoarding(null);
-        setSelectedRooms({});
         try {
             const response = await apiClient.searchRoomAvailability({
                 hotelId:  Id,
@@ -241,25 +250,35 @@ function HotelLightCard({
             setHasFetched(true);
             setNoAvailability(false);
             setSelectedRooms({});
+            setCurrentToken(response.token || null);
 
             const allNewRooms = newPaxGroups.flatMap(pg => pg.availableRooms);
             const newBoardings = buildBoardingFromRooms(allNewRooms);
-            setSelectedBoarding(newBoardings[0]?.code ?? null);
+            if (!selectedBoarding) {
+                setSelectedBoarding(newBoardings[0]?.code ?? null);
+            }
         } catch (err) {
             if (!err.isCancelled) {
                 if (showTarifsRef.current) toast.error('Erreur lors de la recherche de disponibilités.');
-                setNoAvailability(true);
-                setPaxGroups([]);
+                // Don't wipe data on error if we had preloaded data
+                if (!paxGroups) {
+                    setNoAvailability(true);
+                    setPaxGroups([]);
+                }
             }
         } finally {
             setIsLoading(false);
             isFetchingRef.current = false;
         }
-    }, [Id]);
+    }, [Id, hasFetched, paxGroups, selectedBoarding]);
 
     useEffect(() => {
         if (!searchParamsRef.current?.checkIn || !searchParamsRef.current?.checkOut) return;
+        // Optimization: if we already have preloaded paxGroups, we don't NEED to fetch immediately.
+        // But the original code used IntersectionObserver to fetch when visible.
+        // Let's only fetch if we DON'T have data.
         if (hasFetched) return;
+
         const el = cardRef.current;
         if (!el) return;
         const observer = new IntersectionObserver(
@@ -279,7 +298,10 @@ function HotelLightCard({
         const next = !showTarifs;
         showTarifsRef.current = next;
         setShowTarifs(next);
-        if (next && !hasFetched && !isFetchingRef.current) void fetchAvailability();
+        // If we don't have data yet, fetch it.
+        if (next && !hasFetched && !isFetchingRef.current) {
+             void fetchAvailability();
+        }
     }, [showTarifs, hasFetched, fetchAvailability]);
 
     const handleRefresh = useCallback(() => {
@@ -303,8 +325,31 @@ function HotelLightCard({
 
     const handleBook = useCallback((room) => {
         if (onBook) { onBook(hotel, room); return; }
-        navigate(detailUrl);
-    }, [onBook, hotel, navigate, detailUrl]);
+        
+        // Default navigation to booking if no onBook handler
+        const bookingData = {
+            hotelId:      Number(Id),
+            hotelName:    Name,
+            checkIn:      searchParams?.checkIn,
+            checkOut:     searchParams?.checkOut,
+            nights,
+            boardingType: room.boardingCode,
+            rooms:        [{
+                roomType:  room.name,
+                roomId:    room.id,
+                adults:    room.adults || 2,
+                children:  Array.isArray(room.childAges) ? room.childAges.length : (room.children || 0),
+                childAges: Array.isArray(room.childAges) ? room.childAges : [],
+                price:     room.price,
+                total:     room.price,
+            }],
+            totalPrice:   room.price,
+            currency:     room.currency || "DZD",
+            token:        currentToken,
+            hotel:        { ...hotel, paxGroups, token: currentToken }
+        };
+        navigate(`/booking/${Id}`, { state: bookingData });
+    }, [onBook, hotel, navigate, Id, Name, searchParams, nights, currentToken, paxGroups]);
 
     const handleBookAll = useCallback(() => {
         if (!effectiveRoomsByPax || effectiveRoomsByPax.length === 0) return;
@@ -319,10 +364,15 @@ function HotelLightCard({
                 if (!room) return null;
 
                 return {
-                    ...room,
-                    adults: pax.adults,
-                    children: pax.children,
+                    roomType:  room.name,
+                    roomId:    room.id,
+                    boardingCode: room.boardingCode,
+                    boardingName: room.boardingName,
+                    adults:    pax.adults,
+                    children:  pax.children,
                     childAges: pax.childAges,
+                    price:     room.price,
+                    total:     room.price,
                 };
             })
             .filter(Boolean);
@@ -333,13 +383,27 @@ function HotelLightCard({
         }
 
         if (onBook) { onBook(hotel, selectedRoomsList); return; }
-        navigate(detailUrl);
-    }, [effectiveRoomsByPax, selectedRooms, selectedBoarding, onBook, hotel, navigate, detailUrl]);
+        
+        const bookingData = {
+            hotelId:      Number(Id),
+            hotelName:    Name,
+            checkIn:      searchParams?.checkIn,
+            checkOut:     searchParams?.checkOut,
+            nights,
+            boardingType: selectedBoarding,
+            rooms:        selectedRoomsList,
+            totalPrice:   computedTotalPrice,
+            currency:     hotel.currency || "DZD",
+            token:        currentToken,
+            hotel:        { ...hotel, paxGroups, token: currentToken }
+        };
+        navigate(`/booking/${Id}`, { state: bookingData });
+    }, [effectiveRoomsByPax, selectedRooms, selectedBoarding, onBook, hotel, navigate, Id, Name, searchParams, nights, computedTotalPrice, currentToken, paxGroups]);
 
     const handleViewDetail = useCallback(() => {
         if (onViewDetail) { onViewDetail(Id); return; }
-        navigate(detailUrl);
-    }, [onViewDetail, navigate, Id, detailUrl]);
+        navigate(detailUrl, { state: { hotel: { ...hotel, paxGroups, token: currentToken }, searchParams } });
+    }, [onViewDetail, navigate, Id, detailUrl, hotel, paxGroups, currentToken, searchParams]);
 
     // ── Render ─────────────────────────────────────────────────────────────────
     return (
@@ -478,7 +542,6 @@ function HotelLightCard({
                             <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 text-[11px] font-medium px-2.5 py-1 rounded-full">
                                 👤 {searchParams.rooms?.reduce((s, r) => s + (r.adults || 0), 0)} adulte(s)
                             </span>
-                            {/* FIX: Ensure searchParams children are accurately counted even if they are passed as an array of ages */}
                             {searchParams.rooms?.some(r => Array.isArray(r.children) ? r.children.length > 0 : r.children > 0) && (
                                 <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 text-[11px] font-medium px-2.5 py-1 rounded-full">
                                     🧒 {searchParams.rooms?.reduce((s, r) => s + (Array.isArray(r.children) ? r.children.length : (r.children || 0)), 0)} enfant(s)
@@ -562,7 +625,7 @@ function HotelLightCard({
                     </div>
 
                     {/* Loading skeleton */}
-                    {isLoading && (
+                    {isLoading && !allRooms.length && (
                         <div className="flex flex-col gap-3">
                             {[1, 2, 3].map(i => (
                                 <div key={i} className="h-14 bg-gray-100 rounded-2xl animate-pulse" />
@@ -579,7 +642,7 @@ function HotelLightCard({
                     )}
 
                     {/* Boarding tabs */}
-                    {!isLoading && !noAvailability && availableBoarding.length > 1 && (
+                    {!noAvailability && availableBoarding.length > 1 && (
                         <div className="flex gap-2 flex-wrap mb-4">
                             {availableBoarding.map(b => (
                                 <button
@@ -598,7 +661,7 @@ function HotelLightCard({
                     )}
 
                     {/* ── Per-pax room selectors ── */}
-                    {!isLoading && !noAvailability && effectiveRoomsByPax.length > 0 && (
+                    {!noAvailability && effectiveRoomsByPax.length > 0 && (
                         <div className="flex flex-col gap-4">
                             {effectiveRoomsByPax.map((paxSlot, idx) => {
                                 const boardingRooms  = paxSlot.rooms.filter(r => r.boardingCode === selectedBoarding);

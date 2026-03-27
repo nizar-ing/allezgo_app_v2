@@ -178,6 +178,7 @@ function HotelDetails() {
     const [activeBoardingTab, setActiveBoardingTab] = useState(null);
     const [roomsByPax,        setRoomsByPax]        = useState(() => preloadedData?.paxGroups ?? []);
     const [selectedRoomTypes, setSelectedRoomTypes] = useState({});
+    const [currentToken,      setCurrentToken]      = useState(preloadedData?.token || null);
 
     const checkInDate  = useMemo(() => toDateString(range.from), [range.from]);
     const checkOutDate = useMemo(() => toDateString(range.to),   [range.to]);
@@ -329,6 +330,7 @@ function HotelDetails() {
             setRoomsByPax(response.roomsByPax ?? []);
             setActiveBoardingTab(fetchedRooms.length > 0 ? fetchedRooms[0].boardingCode : null);
             setHasSearched(true);
+            setCurrentToken(response.token || null);
             if (fetchedRooms.length > 0)
                 toast.success(`${fetchedRooms.length} option${fetchedRooms.length > 1 ? "s" : ""} disponible${fetchedRooms.length > 1 ? "s" : ""} !`);
             else
@@ -361,6 +363,8 @@ function HotelDetails() {
             return {
                 roomType:  sel?.name,
                 roomId:    sel?.id,
+                boardingCode: sel?.boardingCode,
+                boardingName: sel?.boardingName,
                 adults:    pax.adults,
                 children:  rooms[i]?.children.length ?? 0,
                 childAges: rooms[i]?.children.map((c) => c.age) ?? [],
@@ -379,11 +383,13 @@ function HotelDetails() {
             rooms:        selectedRoomsList,
             totalPrice:   computedTotalPrice,
             currency:     "DZD",
+            token:        currentToken,
+            hotel:        { ...hotelData, paxGroups: roomsByPax, token: currentToken }
         };
-        navigate(`/booking/${hotelId}`, { state: { ...bookingData, hotel: hotelData } });
+        navigate(`/booking/${hotelId}`, { state: bookingData });
         toast.success("Redirection vers la réservation...");
     }, [allSelected, computedTotalPrice, effectiveRoomsByPax, selectedRoomTypes, activeBoardingTab,
-        rooms, hotelId, hotelData, checkInDate, checkOutDate, navigate, nights]);
+        rooms, hotelId, hotelData, checkInDate, checkOutDate, navigate, nights, currentToken, roomsByPax]);
 
     // ── Guards ────────────────────────────────────────────────────────────────
     if (!hotelId) return (

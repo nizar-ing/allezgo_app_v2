@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { User, CreditCard, CheckCircle2, ChevronLeft, AlertCircle } from "lucide-react";
 import GuestInfoForm from "../components/booking/GuestInfoForm.jsx";
@@ -66,6 +66,9 @@ export default function BookingPage() {
     const [currentStep, setCurrentStep] = useState(1);
     const [guestData,   setGuestData]   = useState(null);
     const [bookingRef,  setBookingRef]  = useState(null);
+
+    // If we have bookingState, we don't need to fetch anything.
+    // The GuestInfoForm and BookingSummaryCard will use this state.
 
     const handleGuestSubmit = (data) => {
         setGuestData(data);
@@ -140,6 +143,14 @@ export default function BookingPage() {
                                 </div>
                                 <p className="text-gray-700 font-extrabold text-lg mb-1">Confirmation & Paiement</p>
                                 <p className="text-gray-400 text-sm">Cette étape sera disponible prochainement…</p>
+                                <div className="mt-8 flex justify-center">
+                                    <button 
+                                        onClick={() => handleBookingConfirmed('REF-' + Math.random().toString(36).substr(2, 9).toUpperCase())}
+                                        className="px-8 py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95"
+                                    >
+                                        Simuler Confirmation
+                                    </button>
+                                </div>
                             </div>
                         )}
                         {currentStep === 3 && (
@@ -148,7 +159,16 @@ export default function BookingPage() {
                                     <CheckCircle2 size={30} className="text-green-500" />
                                 </div>
                                 <p className="text-gray-700 font-extrabold text-lg mb-1">Réservation Confirmée !</p>
-                                <p className="text-gray-400 text-sm">Cette étape sera disponible prochainement…</p>
+                                <p className="text-sky-600 font-bold text-sm mb-2">Référence: {bookingRef}</p>
+                                <p className="text-gray-400 text-sm">Merci pour votre confiance. Votre confirmation a été envoyée par email.</p>
+                                <div className="mt-8">
+                                    <button 
+                                        onClick={() => navigate('/')}
+                                        className="px-8 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-all active:scale-95"
+                                    >
+                                        Retour à l'accueil
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>
