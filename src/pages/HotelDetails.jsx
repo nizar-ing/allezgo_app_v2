@@ -356,10 +356,12 @@ function HotelDetails() {
         if (!allSelected)           { toast.error("Veuillez sélectionner un type de chambre pour chaque chambre"); return; }
         if (computedTotalPrice <= 0) { toast.error("Veuillez rechercher les disponibilités d'abord"); return; }
 
+        let bookingCurrency = "DZD";
         const selectedRoomsList = effectiveRoomsByPax.map((pax, i) => {
             const sel = pax.rooms.find(
                 (r) => r.id === selectedRoomTypes[i] && r.boardingCode === activeBoardingTab
             );
+            if (sel?.currency) bookingCurrency = sel.currency;
             return {
                 roomType:  sel?.name,
                 roomId:    sel?.id,
@@ -368,8 +370,8 @@ function HotelDetails() {
                 adults:    pax.adults,
                 children:  rooms[i]?.children.length ?? 0,
                 childAges: rooms[i]?.children.map((c) => c.age) ?? [],
-                price:     sel?.price,
-                total:     sel?.price ? sel.price : 0, // FIX: price is already total
+                price:     sel?.price, // This is the total price for this room for the stay
+                total:     sel?.price ?? 0, // Ensure total is also the room's total price
             };
         });
 
@@ -382,7 +384,7 @@ function HotelDetails() {
             boardingType: activeBoardingTab,
             rooms:        selectedRoomsList,
             totalPrice:   computedTotalPrice,
-            currency:     "DZD",
+            currency:     bookingCurrency,
             token:        currentToken,
             hotel:        { ...hotelData, paxGroups: roomsByPax, token: currentToken }
         };

@@ -358,7 +358,7 @@ function SearchResultsPage() {
         const roomsList = Array.isArray(selectedRooms) ? selectedRooms : selectedRooms ? [selectedRooms] : [];
 
         if (roomsList.length > 0) {
-            const totalPrice = roomsList.reduce((acc, r) => acc + (r.price ?? 0) * nights, 0);
+            const totalPrice = roomsList.reduce((acc, r) => acc + (r.price ?? 0), 0);
             navigate(`/booking/${hotel.Id}`, {
                 state: {
                     hotel,

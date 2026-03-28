@@ -54,7 +54,6 @@ export default function BookingSummaryCard({ bookingState }) {
         <div className="sticky top-[110px]">
             <div className="bg-white rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
 
-                {/* ── Gradient header ── */}
                 <div className="bg-gradient-to-br from-sky-600 via-sky-700 to-blue-800 px-5 pt-5 pb-8">
                     <div className="flex items-start gap-2.5">
                         <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0 mt-0.5">
@@ -81,10 +80,7 @@ export default function BookingSummaryCard({ bookingState }) {
                     </div>
                 </div>
 
-                {/* ── Pull-up white body ── */}
                 <div className="bg-white rounded-t-2xl -mt-4 relative z-10 px-5 pt-5 pb-5">
-
-                    {/* Detail rows */}
                     <div className="mb-4">
                         {checkIn && checkOut && (
                             <Row icon={Calendar}  label="Dates"    value={`${checkIn} → ${checkOut}`} />
@@ -107,19 +103,15 @@ export default function BookingSummaryCard({ bookingState }) {
                         )}
                     </div>
 
-                    {/* Room type lines */}
                     {rooms.length > 0 && (
                         <div className="flex flex-col gap-1.5 mb-4">
                             <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-1">
                                 Types de chambre
                             </p>
                             {rooms.map((room, i) => {
-                                // ✅ FIX: HotelLightCard sends `name` + `price`
-                                //         HotelDetails  sends `roomType` + `total`
-                                const label      = room.roomType ?? room.name ?? `Chambre ${i + 1}`;
-                                const roomTotal  = room.total > 0
-                                    ? room.total
-                                    : (room.price ? room.price * (nights ?? 1) : 0);
+                                const label = room.roomType ?? room.name ?? `Chambre ${i + 1}`;
+                                // ✅ STAY TOTAL: Use room price directly without math logic.
+                                const roomTotal = room.price ?? room.total ?? 0;
                                 return (
                                     <div
                                         key={i}
@@ -144,15 +136,16 @@ export default function BookingSummaryCard({ bookingState }) {
 
                     <div className="border-t border-gray-100 my-4" />
 
-                    {/* Total price */}
                     <div className="bg-gradient-to-br from-sky-50 to-blue-50 border border-sky-200 rounded-2xl p-4 text-center">
                         <p className="text-[10px] text-sky-500 uppercase tracking-widest font-extrabold mb-1.5">
                             Total du séjour
                         </p>
                         <p className="text-2xl font-extrabold text-sky-700 leading-none">
+                            {/* ✅ SOURCE OF TRUTH: totalPrice read directly from props with ZERO multiplication. */}
                             {new Intl.NumberFormat("fr-DZ").format(totalPrice)}
                             <span className="text-sm font-semibold text-sky-400 ml-1.5">{currency}</span>
                         </p>
+                        {/* ✅ PER-NIGHT Breakdown: The ONLY allowed math is division for display ONLY if nights > 1 */}
                         {nights > 1 && totalPrice > 0 && (
                             <p className="text-[11px] text-sky-400 mt-1.5 font-medium">
                                 ≈ {new Intl.NumberFormat("fr-DZ").format(Math.round(totalPrice / nights))} {currency} / nuit
