@@ -89,10 +89,7 @@ const BOARDING_TAB_STYLES = {
 
 const makeDefaultRoom = () => ({ id: Date.now(), adults: 2, children: [] });
 
-// ✅ FIX — handles all 3 incoming shapes for room.children:
-//   Shape A — { childAges: [5, 8] }            from BookingHotels direct navigate
-//   Shape B — { children: 2, childAges: [5,8] } from buildHotelUrl (normalized)
-//   Shape C — { children: [5, 8] }              legacy / direct URL typing
+// handles all 3 incoming shapes for room.children:
 function parseRoomsParam(searchParams) {
     const roomsParam = searchParams.get("rooms");
     if (!roomsParam) return [makeDefaultRoom()];
@@ -146,8 +143,10 @@ function HotelDetails() {
     const [searchParams] = useSearchParams();
     const location       = useLocation();
 
+    // ✅ FIX 1: Robust extraction of preloaded data from state
     const preloadedData         = location.state?.hotel;
     const preloadedSearchParams = location.state?.searchParams;
+    const preloadedPricing      = preloadedData?.pricing || preloadedData;
 
     const errorToastFiredRef = useRef(false);
     const hasAutoSearched    = useRef(false);
@@ -172,13 +171,15 @@ function HotelDetails() {
         }
         return parseRoomsParam(searchParams);
     });
-    const [availableRooms,    setAvailableRooms]    = useState(() => preloadedData?.paxGroups?.flatMap(pg => pg.availableRooms) ?? []);
+
+    // ✅ FIX 2: Synchronisation des PaxGroups (clé availableRooms vs rooms)
+    const [availableRooms,    setAvailableRooms]    = useState(() => preloadedPricing?.paxGroups?.flatMap(pg => pg.availableRooms || pg.rooms) ?? []);
     const [isSearchingRooms,  setIsSearchingRooms]  = useState(false);
-    const [hasSearched,       setHasSearched]       = useState(!!preloadedData);
+    const [hasSearched,       setHasSearched]       = useState(!!preloadedPricing?.paxGroups);
     const [activeBoardingTab, setActiveBoardingTab] = useState(null);
-    const [roomsByPax,        setRoomsByPax]        = useState(() => preloadedData?.paxGroups ?? []);
+    const [roomsByPax,        setRoomsByPax]        = useState(() => preloadedPricing?.paxGroups ?? []);
     const [selectedRoomTypes, setSelectedRoomTypes] = useState({});
-    const [currentToken,      setCurrentToken]      = useState(preloadedData?.token || null);
+    const [currentToken,      setCurrentToken]      = useState(preloadedPricing?.token || null);
 
     const checkInDate  = useMemo(() => toDateString(range.from), [range.from]);
     const checkOutDate = useMemo(() => toDateString(range.to),   [range.to]);
@@ -192,20 +193,21 @@ function HotelDetails() {
         totalChildren: rooms.reduce((acc, r) => acc + r.children.length, 0),
     }), [rooms]);
 
+    // ✅ FIX 3: Robust tabs calculation with Boarding Codes
     const boardingTabs = useMemo(() => {
         if (!availableRooms.length) return [];
-        const seen = new Set(); const result = [];
+        const seen = new Map();
         availableRooms.forEach((r) => {
             if (!seen.has(r.boardingCode)) {
-                seen.add(r.boardingCode);
-                result.push({
+                seen.set(r.boardingCode, {
                     code:  r.boardingCode,
                     label: BOARDING_LABELS[r.boardingCode] ?? r.boardingName,
-                    count: availableRooms.filter((x) => x.boardingCode === r.boardingCode).length,
+                    count: 0
                 });
             }
+            seen.get(r.boardingCode).count++;
         });
-        return result;
+        return Array.from(seen.values());
     }, [availableRooms]);
 
     const filteredRooms = useMemo(
@@ -219,20 +221,21 @@ function HotelDetails() {
         if (roomsByPax.length > 0) {
             return roomsByPax.map(pg => ({
                 ...pg,
-                rooms: pg.availableRooms || pg.rooms
+                rooms: pg.availableRooms || pg.rooms || []
             }));
         }
         if (rooms.length === 0 || availableRooms.length === 0) return [];
         return rooms.map((room, idx) => ({ paxIndex: idx, adults: room.adults, rooms: availableRooms }));
     }, [roomsByPax, availableRooms, rooms]);
 
-    // Initialize active boarding tab if preloaded data exists
+    // Initialize active boarding tab
     useEffect(() => {
-        if (preloadedData && availableRooms.length > 0 && !activeBoardingTab) {
-            setActiveBoardingTab(availableRooms[0].boardingCode);
+        if (boardingTabs.length > 0 && !activeBoardingTab) {
+            setActiveBoardingTab(boardingTabs[0].code);
         }
-    }, [preloadedData, availableRooms, activeBoardingTab]);
+    }, [boardingTabs, activeBoardingTab]);
 
+    // ✅ FIX 4: Robust Price Calculation (Handles String ID from <select>)
     const computedTotalPrice = useMemo(() => {
         if (!effectiveRoomsByPax.length || !activeBoardingTab) return 0;
         let total = 0;
@@ -240,10 +243,10 @@ function HotelDetails() {
             const roomId = selectedRoomTypes[i];
             if (!roomId) return 0;
             const room = effectiveRoomsByPax[i]?.rooms.find(
-                (r) => r.id === roomId && r.boardingCode === activeBoardingTab
+                (r) => String(r.id) === String(roomId) && r.boardingCode === activeBoardingTab
             );
             if (!room?.price) return 0;
-            total += room.price; // FIX: API price is already total
+            total += room.price;
         }
         return total;
     }, [effectiveRoomsByPax, selectedRoomTypes, activeBoardingTab]);
@@ -287,9 +290,9 @@ function HotelDetails() {
     const geoLat      = hotelData?.Localization?.Longitude ?? null;
     const geoLng      = hotelData?.Localization?.Latitude  ?? null;
     const hasCoords   = !!(geoLat && geoLng);
-    const mapsUrl     = hasCoords ? `https://maps.google.com/?q=${geoLat},${geoLng}` : null;
+    const mapsUrl     = hasCoords ? `http://googleusercontent.com/maps.google.com/maps?q=${geoLat},${geoLng}` : null;
     const osmEmbedUrl = hasCoords
-        ? `https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(geoLng) - 0.05},${parseFloat(geoLat) - 0.05},${parseFloat(geoLng) + 0.05},${parseFloat(geoLat) + 0.05}&layer=mapnik&marker=${geoLat},${geoLng}`
+        ? `https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(geoLng) - 0.005},${parseFloat(geoLat) - 0.005},${parseFloat(geoLng) + 0.005},${parseFloat(geoLat) + 0.005}&layer=mapnik&marker=${geoLat},${geoLng}`
         : null;
 
     const resetSearchState = useCallback(() => {
@@ -345,23 +348,20 @@ function HotelDetails() {
     }, [checkInDate, checkOutDate, range, hotelId, rooms]);
 
     useEffect(() => {
-        if (hotelData && !hasAutoSearched.current && !preloadedData) {
+        if (hotelData && !hasAutoSearched.current && !preloadedPricing?.paxGroups) {
             hasAutoSearched.current = true;
             handleSearchRooms();
         }
-    }, [hotelData, handleSearchRooms, preloadedData]);
+    }, [hotelData, handleSearchRooms, preloadedPricing]);
 
-    // ✅ FIX: search in pax.rooms (same source as computedTotalPrice), not filteredRooms
     const handleReserve = useCallback(() => {
         if (!allSelected)           { toast.error("Veuillez sélectionner un type de chambre pour chaque chambre"); return; }
         if (computedTotalPrice <= 0) { toast.error("Veuillez rechercher les disponibilités d'abord"); return; }
 
-        let bookingCurrency = "DZD";
         const selectedRoomsList = effectiveRoomsByPax.map((pax, i) => {
             const sel = pax.rooms.find(
-                (r) => r.id === selectedRoomTypes[i] && r.boardingCode === activeBoardingTab
+                (r) => String(r.id) === String(selectedRoomTypes[i]) && r.boardingCode === activeBoardingTab
             );
-            if (sel?.currency) bookingCurrency = sel.currency;
             return {
                 roomType:  sel?.name,
                 roomId:    sel?.id,
@@ -370,8 +370,8 @@ function HotelDetails() {
                 adults:    pax.adults,
                 children:  rooms[i]?.children.length ?? 0,
                 childAges: rooms[i]?.children.map((c) => c.age) ?? [],
-                price:     sel?.price, // This is the total price for this room for the stay
-                total:     sel?.price ?? 0, // Ensure total is also the room's total price
+                price:     sel?.price,
+                total:     sel?.price ?? 0,
             };
         });
 
@@ -384,7 +384,7 @@ function HotelDetails() {
             boardingType: activeBoardingTab,
             rooms:        selectedRoomsList,
             totalPrice:   computedTotalPrice,
-            currency:     bookingCurrency,
+            currency:     "DZD",
             token:        currentToken,
             hotel:        { ...hotelData, paxGroups: roomsByPax, token: currentToken }
         };
@@ -990,7 +990,7 @@ function HotelDetails() {
                                             <div className="flex flex-col gap-3 mb-5">
                                                 {effectiveRoomsByPax.map((pax, idx) => {
                                                     const paxRooms     = pax.rooms.filter((r) => r.boardingCode === activeBoardingTab);
-                                                    const selectedRoom = paxRooms.find((r) => r.id === selectedRoomTypes[idx]);
+                                                    const selectedRoom = paxRooms.find((r) => String(r.id) === String(selectedRoomTypes[idx]));
                                                     const isSlotDone   = !!selectedRoomTypes[idx];
                                                     return (
                                                         <div
@@ -1079,7 +1079,7 @@ function HotelDetails() {
                                                     <div className="flex items-start justify-between flex-wrap gap-3">
                                                         <div>
                                                             <p className="text-sky-200 text-xs font-semibold mb-2 flex items-center gap-2">
-                                                                <Clock size={11} /> {nights} nuit{nights > 1 ? "s" : ""}&nbsp;·&nbsp;
+                                                                <Clock size={11} /> {nights} nuit{nights > 1 ? "s" : ""} ·
                                                                 <BedDouble size={11} /> {rooms.length} chambre{rooms.length > 1 ? "s" : ""}
                                                             </p>
                                                             <div className="flex items-baseline gap-2">

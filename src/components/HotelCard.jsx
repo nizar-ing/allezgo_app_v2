@@ -58,7 +58,7 @@ const THEME_STYLE_MAP = [
         test:     (s) => s.includes("montagne") || s.includes("mountain"),
         Icon:     Mountain,   iconColor: "text-emerald-600",
         gradient: "from-emerald-600 to-teal-600",
-        bg:       "from-emerald-50 to-teal-50", border: "border-emerald-300",
+        bg:       "from-emerald-50 to-teal-600", border: "border-emerald-300",
     },
     {
         test:     (s) => s.includes("ville")    || s.includes("city"),
@@ -74,18 +74,15 @@ const THEME_STYLE_MAP = [
     },
 ];
 
-const DEFAULT_THEME_STYLE = {
-    Icon:     Sparkles, iconColor: "text-purple-500",
-    gradient: "from-purple-500 to-indigo-500",
-    bg:       "from-purple-50 to-indigo-50",  border: "border-purple-200",
-};
-
 const getThemeStyle = (theme) => {
     const lower = theme?.toLowerCase() || "";
-    return THEME_STYLE_MAP.find(({ test }) => test(lower)) ?? DEFAULT_THEME_STYLE;
+    return THEME_STYLE_MAP.find(({ test }) => test(lower)) ?? {
+        Icon:     Sparkles, iconColor: "text-purple-500",
+        gradient: "from-purple-500 to-indigo-500",
+        bg:       "from-purple-50 to-indigo-50",  border: "border-purple-200",
+    };
 };
 
-// ── 🆕 buildDetailUrl: preserves all active search params on navigation ───────
 const buildDetailUrl = (id, searchParams) => {
     const params = new URLSearchParams(searchParams);
     const qs = params.toString();
@@ -109,22 +106,21 @@ const HotelCard = memo(function HotelCard({ hotel, searchParams: searchParamsPro
         Tag        = [],
         Boarding   = [],
         Theme      = [],
-        _enhanced,
+        _enhanced,     // Indicator from ApiClient.listHotelEnhanced
+        minPrice,      // Marked-up price (already a Number from ApiClient)
+        currency = "DZD"
     } = hotel;
 
-    // 🆕 Navigation hooks
     const navigate = useNavigate();
     const [urlSearchParams] = useSearchParams();
 
-    // 🆕 Stable URL: uses caller-supplied params OR the current URL params
+    // Stable URL: preserves search context
     const detailUrl = useMemo(
         () => buildDetailUrl(Id, searchParamsProp ?? urlSearchParams),
         [Id, searchParamsProp, urlSearchParams]
     );
 
-    // ✅ Double-guard: catches null, undefined, "" before any request is made
     const imageSrc = Image || FALLBACK_IMAGE;
-
     const primaryBoarding = Boarding?.[0];
     const topFacilities   = Facilities.slice(0, 4);
     const topThemes       = Theme.slice(0, 3);
@@ -152,24 +148,34 @@ const HotelCard = memo(function HotelCard({ hotel, searchParams: searchParamsPro
                     loading="lazy"
                     onError={(e) => {
                         e.target.onerror = null;
-                        // ✅ Second layer: catches valid URLs that fail at network level
                         e.target.src = FALLBACK_IMAGE;
                     }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
 
-                {/* Premium Badge */}
+                {/* ✅ Premium Badge (Synchronisé avec listHotelEnhanced) */}
                 {_enhanced && (
                     <div className="absolute top-2 left-2 z-10">
-                        <div className="flex items-center gap-1 bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-500 text-white px-2.5 py-1 rounded-full text-xs font-bold shadow-xl border-2 border-white/30">
+                        <div className="flex items-center gap-1 bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-500 text-white px-2.5 py-1 rounded-full text-xs font-bold shadow-xl border-2 border-white/30 animate-in fade-in duration-500">
                             <Sparkles className="w-3 h-3" />
                             <span>Premium</span>
                         </div>
                     </div>
                 )}
 
-                {/* Photo Count */}
-                {Album.length > 0 && (
+                {/* ✅ Badge de Prix (Inclut la marge de 8% et formatage DZD sécurisé) */}
+                {minPrice > 0 && (
+                    <div className="absolute top-2 right-2 z-10 bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-lg shadow-lg border border-sky-100 text-right">
+                        <p className="text-[9px] text-sky-500 font-bold uppercase tracking-tighter leading-none mb-0.5">À partir de</p>
+                        <p className="text-sm font-extrabold text-sky-700 leading-none">
+                            {new Intl.NumberFormat("fr-DZ").format(minPrice)}
+                            <span className="text-[10px] font-bold text-sky-400 ml-1">{currency}</span>
+                        </p>
+                    </div>
+                )}
+
+                {/* Photo Count (fallback top right if no price) */}
+                {Album.length > 0 && !minPrice && (
                     <div className="absolute top-2 right-2 z-10">
                         <div className="flex items-center gap-1 bg-black/60 backdrop-blur-md text-white px-2.5 py-1 rounded-full text-xs font-semibold border border-white/20">
                             <Images className="w-3 h-3" />
@@ -193,7 +199,7 @@ const HotelCard = memo(function HotelCard({ hotel, searchParams: searchParamsPro
                                 />
                             ))}
                         </div>
-                        <span className="text-xs font-bold text-gray-800">{Category?.Star}★</span>
+                        <span className="text-xs font-bold text-gray-800">{Category?.Star || 0}★</span>
                     </div>
                 </div>
 
@@ -221,7 +227,7 @@ const HotelCard = memo(function HotelCard({ hotel, searchParams: searchParamsPro
                     </div>
                     <div className="min-w-0 flex-1">
                         <p className="text-sm font-bold text-gray-700 line-clamp-1">
-                            {City?.Name}, {City?.Country?.Name}
+                            {City?.Name}{City?.Country?.Name ? `, ${City.Country.Name}` : ""}
                         </p>
                         {Adress && (
                             <p className="text-xs text-gray-600 mt-0.5 line-clamp-1" title={Adress}>
@@ -259,28 +265,20 @@ const HotelCard = memo(function HotelCard({ hotel, searchParams: searchParamsPro
                                 return (
                                     <div
                                         key={index}
-                                        title={facility.Title}
                                         className="group/badge relative inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-br from-white to-gray-50 border-2 border-gray-200 hover:border-sky-300 rounded-lg text-xs font-semibold text-gray-700 hover:text-sky-700 transition-all duration-300 shadow-sm hover:shadow-md cursor-default overflow-hidden"
                                     >
                                         <FacilityIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-sky-600 group-hover/badge:text-sky-700 transition-colors flex-shrink-0" />
                                         <span className="hidden sm:inline truncate max-w-[72px]">
                                             {facility.Title}
                                         </span>
-                                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent opacity-0 group-hover/badge:opacity-100 -translate-x-full group-hover/badge:translate-x-full transition-all duration-700 rounded-lg" />
                                     </div>
                                 );
                             })}
-                            {Facilities.length > 4 && (
-                                <div className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-gradient-to-br from-sky-500 to-blue-600 text-white rounded-lg text-xs font-bold shadow-md hover:shadow-lg transition-all cursor-pointer">
-                                    <Sparkles className="w-3 h-3" />
-                                    <span>+{Facilities.length - 4}</span>
-                                </div>
-                            )}
                         </div>
                     </div>
                 )}
 
-                {/* Theme Badges */}
+                {/* Theme Badges (Logic Business Synchronisée) */}
                 {topThemes.length > 0 && (
                     <div className="mb-3 hidden sm:block">
                         <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Thèmes</h4>
@@ -296,7 +294,6 @@ const HotelCard = memo(function HotelCard({ hotel, searchParams: searchParamsPro
                                         <span className={`text-transparent bg-gradient-to-r ${gradient} bg-clip-text`}>
                                             {theme}
                                         </span>
-                                        <div className={`absolute inset-0 bg-gradient-to-r ${gradient} opacity-0 group-hover/theme:opacity-10 transition-opacity duration-300`} />
                                     </div>
                                 );
                             })}
@@ -306,7 +303,7 @@ const HotelCard = memo(function HotelCard({ hotel, searchParams: searchParamsPro
 
                 <div className="flex-1 min-h-[8px]" />
 
-                {/* 🆕 CTA Button — was <Link>, now <button> with navigate(detailUrl) */}
+                {/* CTA Button */}
                 <button
                     onClick={() => navigate(detailUrl)}
                     className="group/btn relative w-full inline-flex justify-center items-center gap-2 font-bold text-white rounded-xl overflow-hidden transition-all duration-300 py-3 px-4 text-sm shadow-lg hover:shadow-xl active:scale-95 focus:outline-none focus:ring-4 focus:ring-sky-300/50"

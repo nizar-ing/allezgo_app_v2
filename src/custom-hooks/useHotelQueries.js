@@ -1,7 +1,7 @@
 // src/custom-hooks/useHotelQueries.js
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import apiClient from "../services/apiClient.js";
+import apiClient from "../services/ApiClient.js";
 
 // ==================== Query Keys ====================
 export const QUERY_KEYS = {
@@ -15,15 +15,15 @@ export const QUERY_KEYS = {
     hotelsByCity:  (cityId)   => ["hotels", "city", cityId],
     hotelDetail:   (hotelId)  => ["hotel", hotelId],
     hotelSearch:   (params)   => ["hotelSearch", params],
-    // ✅ Fix 1 — [...hotelIds] prevents mutation of caller's array
+    // ✅ Empêche la mutation involontaire des tableaux d'IDs passés par l'appelant
     hotelsBatch:   (hotelIds) => ["hotels", "batch", [...hotelIds].sort().join(",")],
 };
 
 // ==================== Configuration ====================
 const QUERY_CONFIG = {
     STATIC: {
-        staleTime: 1000 * 60 * 30,
-        gcTime:    1000 * 60 * 60,
+        staleTime: 1000 * 60 * 30, // 30 mins
+        gcTime:    1000 * 60 * 60, // 1 hour
     },
     SEMI_STATIC: {
         staleTime: 1000 * 60 * 15,
@@ -85,7 +85,6 @@ export const useCurrencies = (options = {}) => useQuery({
 // ==================== Hotel Queries ====================
 
 export const useHotels = (cityId = null, options = {}) => {
-    // ✅ Fix 3 — ES6 shorthand
     const { enabled = true, ...restOptions } = options;
     return useQuery({
         queryKey: cityId ? QUERY_KEYS.hotelsByCity(cityId) : QUERY_KEYS.hotels,
@@ -113,6 +112,10 @@ export const useHotelsBatch = (hotelIds = [], options = {}) => {
     });
 };
 
+/**
+ * ✅ RESTORED & SYNCED: Charge les hôtels avec détails (Premium) pour la HomePage.
+ * Consomme la méthode listHotelEnhanced restaurée dans ApiClient.js.
+ */
 export const useHotelsEnhanced = (cityId = null, options = {}) => {
     const {
         batchSize           = 5,
@@ -122,6 +125,7 @@ export const useHotelsEnhanced = (cityId = null, options = {}) => {
         onBatchComplete     = null,
         ...restOptions
     } = options;
+
     return useQuery({
         queryKey: cityId
             ? [...QUERY_KEYS.hotelsByCity(cityId), "enhanced"]
@@ -134,7 +138,7 @@ export const useHotelsEnhanced = (cityId = null, options = {}) => {
         }),
         enabled,
         ...QUERY_CONFIG.SEMI_STATIC,
-        staleTime:            1000 * 60 * 20,
+        staleTime:            1000 * 60 * 20, // 20 mins
         refetchOnWindowFocus: false,
         refetchOnMount:       false,
         retry:                1,
@@ -151,6 +155,7 @@ export const useHotelDetail = (hotelId, options = {}) => {
             if (data.errorMessage && data.errorMessage.length > 0) {
                 throw new Error(data.errorMessage[0]?.Description || "Failed to fetch hotel details");
             }
+            // Retourne l'hôtel (avec la marge de 8% déjà appliquée par l'ApiClient)
             return data.hotelDetail;
         },
         enabled: !!hotelId && enabled,
@@ -162,6 +167,7 @@ export const useHotelDetail = (hotelId, options = {}) => {
 export const useHotelSearch = (searchParams, options = {}) => {
     const { enabled = false, ...restOptions } = options;
 
+    // Cleanup: Annule les requêtes en cours si les paramètres changent radicalement
     useEffect(() => {
         return () => { apiClient.cancelRequest("hotelSearch"); };
     }, [searchParams?.checkIn, searchParams?.checkOut, searchParams?.hotels?.length]);
@@ -174,6 +180,7 @@ export const useHotelSearch = (searchParams, options = {}) => {
                 if (data.errorMessage && data.errorMessage.Code) {
                     throw new Error(data.errorMessage.Description || "Search failed");
                 }
+                // Retourne les résultats (avec 8% markup et transformation Number faite en amont)
                 return data;
             } catch (error) {
                 if (error.isCancelled) return null;
@@ -195,6 +202,7 @@ export const useHotelSearchMutation = (options = {}) => {
     return useMutation({
         mutationFn: (searchParams) => apiClient.searchHotel(searchParams),
         onSuccess:  (data, variables) => {
+            // Met à jour manuellement le cache de recherche après une mutation réussie
             queryClient.setQueryData(QUERY_KEYS.hotelSearch(variables), data);
         },
         retry: (failureCount, error) => {
@@ -286,8 +294,7 @@ export const useCacheManager = () => {
         clearAll: useCallback(() => {
             queryClient.clear();
             apiClient.clearCache();
-            // ✅ Fix 2 — guarded
-            if (import.meta.env.DEV) console.log("✅ All caches cleared");
+            if (import.meta.env.DEV) console.log("✅ All caches cleared (React Query + ApiClient)");
         }, [queryClient]),
 
         getStats: useCallback(() => {
@@ -337,7 +344,7 @@ export const useDebouncedHotelSearch = (searchParams, delay = 500) => {
             clearTimeout(handler);
             apiClient.cancelRequest("hotelSearch");
         };
-        // ✅ Fix 4 — stable comparison prevents debounce reset on every render
+        // Utilise JSON.stringify pour une comparaison profonde stable des paramètres de recherche
     }, [JSON.stringify(searchParams), delay]);
 
     return useHotelSearch(debouncedParams, {

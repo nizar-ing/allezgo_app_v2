@@ -25,6 +25,7 @@ const FALLBACK_BANNER = '/images/tunisie_hotels.jpeg';
 
 const getDefaultDates = () => {
     const today    = new Date();
+    today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dayAfter = new Date(tomorrow);
@@ -101,7 +102,7 @@ function HotelsPerCityPage() {
         queryKey: ['hotel-pricing', cityId,
             searchParams.checkIn, searchParams.checkOut, searchParams.rooms],
         queryFn:  async () => {
-            if (!allHotelsData || !searchParams.checkIn || !searchParams.checkOut)
+            if (!allHotelsData?.length || !searchParams.checkIn || !searchParams.checkOut)
                 return null;
 
             const hotelIds = allHotelsData.map(h => h.Id);
@@ -111,62 +112,22 @@ function HotelsPerCityPage() {
                 hotels:   hotelIds,
                 rooms: searchParams.rooms.map(room => ({
                     adult:     room.adults,
-                    child:     room.children.length,
-                    childAges: room.children.length > 0 ? room.children : undefined,
+                    child:     room.children, // ApiClient handles array or count transformation
                 })),
-                filters: {keywords: '', category: '', onlyAvailable: true, tags: ''},
+                filters: {keywords: '', category: '', onlyAvailable: false, tags: ''},
             });
 
             const pricingMap = {};
 
-            result.hotelSearch.forEach(item => {
-                const allPrices = [];
-                const roomMap   = new Map();
-
-                item.Price?.Boarding?.forEach(boarding => {
-                    boarding.Pax?.forEach(pax => {
-                        const adultCount = pax.Adult ?? 2;
-                        // ✅ FIX 1: add basePrice + adultCount in key + stopReservation + onRequest
-                        pax.Rooms?.forEach(room => {
-                            const price     = room.Price     ? parseFloat(room.Price)     : null;
-                            const basePrice = room.BasePrice ? parseFloat(room.BasePrice) : null;
-                            const roomKey   = `${boarding.Code}__${adultCount}__${room.Code ?? room.Id ?? ''}`;
-
-                            if (price && !isNaN(price)) allPrices.push(price);
-
-                            if (!roomMap.has(roomKey)) {
-                                roomMap.set(roomKey, {
-                                    id:              room.Id   ?? roomKey,
-                                    name:            room.Name ?? room.Code ?? 'Chambre',
-                                    boardingCode:    boarding.Code,
-                                    boardingName:    boarding.Name,
-                                    price:           price     && !isNaN(price)     ? price     : null,
-                                    basePrice:       basePrice && !isNaN(basePrice) ? basePrice : null,
-                                    stopReservation: room.StopReservation ?? false,
-                                    onRequest:       room.OnRequest       ?? false,
-                                    currency:        item.Currency,
-                                    adults:          adultCount,
-                                });
-                            }
-                        });
-                    });
-                });
-
-                // ✅ FIX 2: compute discountPercent for the badge
-                const preloadedRooms = Array.from(roomMap.values());
-                const discounts = preloadedRooms
-                    .filter(r => r.basePrice && r.price && r.basePrice > r.price)
-                    .map(r => Math.round(((r.basePrice - r.price) / r.basePrice) * 100));
-                const maxDiscount = discounts.length > 0 ? Math.max(...discounts) : null;
-
-                pricingMap[item.Hotel.Id] = {
-                    minPrice:        allPrices.length > 0 ? Math.min(...allPrices) : null,
-                    maxPrice:        allPrices.length > 0 ? Math.max(...allPrices) : null,
-                    currency:        item.Currency,
-                    available:       true,
-                    token:           item.Token,
-                    discountPercent: maxDiscount,
-                    rooms:           preloadedRooms,
+            // ✅ Utilisation de transformedHotels pour récupérer isAvailable et paxGroups synchronisés
+            result.transformedHotels.forEach(th => {
+                pricingMap[th.id] = {
+                    minPrice:        th.minPrice,
+                    currency:        th.currency,
+                    isAvailable:     th.isAvailable, // ✅ Fix: Synchronisé avec HotelLightCard status
+                    token:           th.token,
+                    discountPercent: th.maxDiscount,
+                    paxGroups:       th.paxGroups,   // ✅ Fix: Données injectées pour affichage immédiat
                 };
             });
 
@@ -215,7 +176,7 @@ function HotelsPerCityPage() {
                 )
             );
         if (filters.disponibleSeulement && pricingData)
-            result = result.filter(h => h.pricing?.available);
+            result = result.filter(h => h.pricing?.isAvailable); // ✅ Fix: Utilisation de isAvailable
         if (filters.priceRange && pricingData)
             result = result.filter(h => {
                 const p = h.pricing?.minPrice;
@@ -271,7 +232,7 @@ function HotelsPerCityPage() {
         return () => observer.unobserve(el);
     }, [hasNextPage]);
 
-    // ── Helpers (declared before handlers) ────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
     const nights = searchParams.checkIn && searchParams.checkOut
         ? Math.ceil(
             (new Date(searchParams.checkOut) - new Date(searchParams.checkIn))
@@ -345,12 +306,11 @@ function HotelsPerCityPage() {
         navigate(buildHotelUrl(hotelId));
     }, [navigate, buildHotelUrl]);
 
-    // ✅ FIX 3: full BookingPage-compatible state + hotelId at top-level
     const handleBookHotel = useCallback((hotel, selectedRooms) => {
         const roomsList  = Array.isArray(selectedRooms)
             ? selectedRooms
             : selectedRooms ? [selectedRooms] : [];
-        const totalPrice = roomsList.reduce((acc, r) => acc + (r.price ?? 0) * nights, 0);
+        const totalPrice = roomsList.reduce((acc, r) => acc + (r.price ?? 0), 0);
         navigate(`/booking/${hotel.Id}`, {
             state: {
                 hotel,
@@ -434,7 +394,7 @@ function HotelsPerCityPage() {
         }));
     };
 
-    // ── Other helpers ──────────────────────────────────────────────────────────
+    // ── Rendering Helpers ──────────────────────────────────────────────────────
     const sortOptions = [
         {value: 'recommended', label: 'Recommandés'},
         {value: 'price-asc',   label: 'Prix croissant',   disabled: !pricingData},
@@ -448,8 +408,6 @@ function HotelsPerCityPage() {
         const countryKey   = countryName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         const countryMatch = Object.keys(COUNTRY_BANNERS).find((key) => countryKey.includes(key));
         if (countryMatch) return COUNTRY_BANNERS[countryMatch];
-        if (displayedHotels.length > 0 && displayedHotels[0].Album?.[0])
-            return displayedHotels[0].Album[0];
         return FALLBACK_BANNER;
     };
 
@@ -466,7 +424,8 @@ function HotelsPerCityPage() {
                     hotel={hotel}
                     onFavoriteToggle={handleFavoriteToggle}
                     pricing={hotel.pricing}
-                    preloadedAvailability={hotel.pricing?.rooms ?? null}
+                    // ✅ FIX: Passage de paxGroups pour affichage instantané et badge correct
+                    paxGroups={hotel.pricing?.paxGroups ?? null}
                     onBook={handleBookHotel}
                     onViewDetail={handleViewHotelDetail}
                     showBookButton={true}
