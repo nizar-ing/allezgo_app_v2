@@ -147,7 +147,7 @@ function SearchResultsPage() {
     // ── Step 3: Merge + preloaded rooms ────────────────────────────────────────
     const processedHotels = useMemo(() => {
         if (!searchResults?.transformedHotels) return [];
-        
+
         // Build a map of transformed hotels for quick access
         const transformedMap = {};
         searchResults.transformedHotels.forEach(th => {
@@ -158,7 +158,7 @@ function SearchResultsPage() {
             const fromSearch = sr.Hotel;
             const full       = hotelsDetailsMap[fromSearch.Id];
             const transformed = transformedMap[fromSearch.Id];
-            
+
             const allPrices  = [];
             const roomMap    = new Map();
 
@@ -199,11 +199,20 @@ function SearchResultsPage() {
                 .map(r => Math.round(((r.basePrice - r.price) / r.basePrice) * 100));
             const maxDiscount = discounts.length > 0 ? Math.max(...discounts) : null;
 
+            // ✅ Gère le fallback local de disponibilité au besoin
+            let fallbackStatus = 'full';
+            const bookableRooms = preloadedRooms.filter(r => !r.stopReservation);
+            if (bookableRooms.length > 0) {
+                if (bookableRooms.every(r => r.onRequest)) fallbackStatus = 'on_request';
+                else fallbackStatus = 'available';
+            }
+
             const pricing = {
                 minPrice: transformed?.minPrice ?? minPrice,
                 maxPrice: maxPrice,
                 currency: sr.Currency,
-                isAvailable: transformed?.isAvailable ?? (minPrice !== null),
+                isAvailable: transformed?.isAvailable ?? (bookableRooms.length > 0),
+                availabilityStatus: transformed?.availabilityStatus ?? fallbackStatus,
                 token: sr.Token,
                 discountPercent: transformed?.maxDiscount ?? maxDiscount,
             };
@@ -257,8 +266,9 @@ function SearchResultsPage() {
 
     // ── Filter ─────────────────────────────────────────────────────────────────
     const filteredHotels = useMemo(() => {
-        // Only show available hotels in the results list
-        let result = processedHotels.filter(h => h.IsAvailable);
+        // ✅ SUPPRESSION DU FILTRE STRICT. On affiche TOUS les hôtels (même les Complets) par défaut.
+        let result = [...processedHotels];
+
         if (filters.categories?.length)
             result = result.filter((h) => filters.categories.includes(h.Category?.Star));
         if (filters.services?.length)
@@ -279,7 +289,7 @@ function SearchResultsPage() {
     const sortedHotels = useMemo(() => {
         const sorted = [...filteredHotels];
         switch (sortBy) {
-            case "price-asc":  return sorted.sort((a, b) => (a.MinPrice ?? 999999) - (b.MinPrice ?? 999999));
+            case "price-asc":  return sorted.sort((a, b) => (a.MinPrice ?? Infinity) - (b.MinPrice ?? Infinity));
             case "price-desc": return sorted.sort((a, b) => (b.MinPrice ?? 0) - (a.MinPrice ?? 0));
             case "rating":     return sorted.sort((a, b) => (b.Category?.Star ?? 0) - (a.Category?.Star ?? 0));
             case "name-asc":   return sorted.sort((a, b) => (a.Name ?? "").localeCompare(b.Name ?? ""));

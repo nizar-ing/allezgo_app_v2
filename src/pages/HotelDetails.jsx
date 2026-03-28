@@ -193,6 +193,20 @@ function HotelDetails() {
         totalChildren: rooms.reduce((acc, r) => acc + r.children.length, 0),
     }), [rooms]);
 
+    // ✅ ENRICHISSEMENT UI : Calcul du statut global de disponibilité
+    const cardAvailabilityStatus = useMemo(() => {
+        if (!hasSearched) return null;
+        if (!availableRooms || availableRooms.length === 0) return 'full';
+
+        const bookableRooms = availableRooms.filter(r => !r.stopReservation);
+        if (bookableRooms.length === 0) return 'full';
+
+        if (bookableRooms.every(r => r.onRequest)) return 'on_request';
+
+        if (availableRooms.some(r => r.stopReservation)) return 'last';
+        return 'available';
+    }, [hasSearched, availableRooms]);
+
     // ✅ FIX 3: Robust tabs calculation with Boarding Codes
     const boardingTabs = useMemo(() => {
         if (!availableRooms.length) return [];
@@ -255,6 +269,20 @@ function HotelDetails() {
         () => effectiveRoomsByPax.length > 0 && effectiveRoomsByPax.every((_, i) => !!selectedRoomTypes[i]),
         [effectiveRoomsByPax, selectedRoomTypes]
     );
+
+    // ✅ ENRICHISSEMENT UI : Détection d'une chambre sélectionnée qui est suspendue
+    const hasStopReservation = useMemo(() => {
+        if (!effectiveRoomsByPax.length || !activeBoardingTab) return false;
+        for (let i = 0; i < effectiveRoomsByPax.length; i++) {
+            const roomId = selectedRoomTypes[i];
+            if (!roomId) continue;
+            const room = effectiveRoomsByPax[i]?.rooms.find(
+                (r) => String(r.id) === String(roomId) && r.boardingCode === activeBoardingTab
+            );
+            if (room?.stopReservation) return true;
+        }
+        return false;
+    }, [effectiveRoomsByPax, selectedRoomTypes, activeBoardingTab]);
 
     const { data: hotelData, isLoading, isError, error } = useQuery({
         queryKey: ["hotelDetail", hotelId],
@@ -357,6 +385,7 @@ function HotelDetails() {
     const handleReserve = useCallback(() => {
         if (!allSelected)           { toast.error("Veuillez sélectionner un type de chambre pour chaque chambre"); return; }
         if (computedTotalPrice <= 0) { toast.error("Veuillez rechercher les disponibilités d'abord"); return; }
+        if (hasStopReservation)      { toast.error("Une ou plusieurs chambres sélectionnées sont suspendues."); return; }
 
         const selectedRoomsList = effectiveRoomsByPax.map((pax, i) => {
             const sel = pax.rooms.find(
@@ -390,7 +419,7 @@ function HotelDetails() {
         };
         navigate(`/booking/${hotelId}`, { state: bookingData });
         toast.success("Redirection vers la réservation...");
-    }, [allSelected, computedTotalPrice, effectiveRoomsByPax, selectedRoomTypes, activeBoardingTab,
+    }, [allSelected, computedTotalPrice, hasStopReservation, effectiveRoomsByPax, selectedRoomTypes, activeBoardingTab,
         rooms, hotelId, hotelData, checkInDate, checkOutDate, navigate, nights, currentToken, roomsByPax]);
 
     // ── Guards ────────────────────────────────────────────────────────────────
@@ -935,14 +964,30 @@ function HotelDetails() {
                                                 : "Aucune disponibilité pour ces dates"}
                                         </p>
                                     </div>
-                                    <span className={`flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-full ${
-                                        availableRooms.length > 0
-                                            ? "bg-green-400/25 text-green-100 border border-green-300/40"
-                                            : "bg-red-400/25 text-red-100 border border-red-300/40"
-                                    }`}>
-                                        <span className={`w-1.5 h-1.5 rounded-full ${availableRooms.length > 0 ? "bg-green-300 animate-pulse" : "bg-red-300"}`} />
-                                        {availableRooms.length > 0 ? "Disponible" : "Indisponible"}
-                                    </span>
+                                    {cardAvailabilityStatus && (
+                                        <div className="flex items-center">
+                                            {cardAvailabilityStatus === 'available' && (
+                                                <span className="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-full bg-green-400/25 text-green-100 border border-green-300/40">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-green-300 animate-pulse" /> Disponible
+                                                </span>
+                                            )}
+                                            {cardAvailabilityStatus === 'on_request' && (
+                                                <span className="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-full bg-amber-400/25 text-amber-100 border border-amber-300/40">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-300" /> Sur demande
+                                                </span>
+                                            )}
+                                            {cardAvailabilityStatus === 'last' && (
+                                                <span className="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-full bg-orange-400/25 text-orange-100 border border-orange-300/40">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-orange-300" /> Dernières chambres
+                                                </span>
+                                            )}
+                                            {cardAvailabilityStatus === 'full' && (
+                                                <span className="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-full bg-red-400/25 text-red-100 border border-red-300/40">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-red-300" /> Complet
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="p-6">
@@ -1041,6 +1086,7 @@ function HotelDetails() {
                                                                                 <option value="" disabled>— Sélectionnez le type de chambre —</option>
                                                                                 {paxRooms.map((room) => (
                                                                                     <option key={room.id} value={room.id}>
+                                                                                        {room.stopReservation ? '🔴 ' : room.onRequest ? '🔔 ' : ''}
                                                                                         {room.name} — {new Intl.NumberFormat("fr-DZ").format(room.price)} DZD
                                                                                     </option>
                                                                                 ))}
@@ -1048,18 +1094,35 @@ function HotelDetails() {
                                                                             <ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                                                                         </div>
                                                                         {selectedRoom && (
-                                                                            <div className="mt-2.5 flex items-center justify-between bg-white border border-sky-200 rounded-xl px-4 py-2.5 shadow-sm">
-                                                                                <span className="text-sm text-sky-600 font-semibold">
-                                                                                    {BOARDING_LABELS[selectedRoom.boardingCode] ?? selectedRoom.boardingName}
-                                                                                </span>
-                                                                                <div className="flex items-baseline gap-1.5">
-                                                                                    <span className="text-base font-extrabold text-sky-700">
-                                                                                        {new Intl.NumberFormat("fr-DZ").format(selectedRoom.price)}
+                                                                            <div className="mt-2.5 flex flex-col gap-2 bg-white border border-sky-200 rounded-xl px-4 py-2.5 shadow-sm">
+                                                                                <div className="flex items-center justify-between">
+                                                                                    <span className="text-sm text-sky-600 font-semibold">
+                                                                                        {BOARDING_LABELS[selectedRoom.boardingCode] ?? selectedRoom.boardingName}
                                                                                     </span>
-                                                                                    <span className="text-sm text-sky-400 font-medium">DZD</span>
-                                                                                    {nights > 1 && (
-                                                                                        <span className="text-xs text-gray-400 ml-1">
-                                                                                            · {new Intl.NumberFormat("fr-DZ").format(Math.round(selectedRoom.price / nights))} / nuit
+                                                                                    <div className="flex items-baseline gap-1.5">
+                                                                                        <span className="text-base font-extrabold text-sky-700">
+                                                                                            {new Intl.NumberFormat("fr-DZ").format(selectedRoom.price)}
+                                                                                        </span>
+                                                                                        <span className="text-sm text-sky-400 font-medium">DZD</span>
+                                                                                        {nights > 1 && (
+                                                                                            <span className="text-xs text-gray-400 ml-1">
+                                                                                                · {new Intl.NumberFormat("fr-DZ").format(Math.round(selectedRoom.price / nights))} / nuit
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-sky-50">
+                                                                                    {selectedRoom.stopReservation ? (
+                                                                                        <span className="inline-flex items-center gap-1 bg-red-50 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-200">
+                                                                                            🔴 Réservation suspendue
+                                                                                        </span>
+                                                                                    ) : selectedRoom.onRequest ? (
+                                                                                        <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-200">
+                                                                                            🔔 Sur demande
+                                                                                        </span>
+                                                                                    ) : (
+                                                                                        <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                                                                                            ✅ Disponible à la réservation
                                                                                         </span>
                                                                                     )}
                                                                                 </div>
@@ -1094,13 +1157,17 @@ function HotelDetails() {
                                                                 </p>
                                                             )}
                                                         </div>
-                                                        {allSelected
+                                                        {allSelected && !hasStopReservation
                                                             ? <span className="flex items-center gap-2 text-sm font-bold text-green-200 bg-green-400/20 border border-green-300/40 px-4 py-2 rounded-full">
                                                                 <CheckCircle2 size={14} /> Prêt à réserver
                                                               </span>
-                                                            : <span className="flex items-center gap-2 text-sm font-bold text-amber-200 bg-amber-400/20 border border-amber-300/40 px-4 py-2 rounded-full">
+                                                            : hasStopReservation
+                                                                ? <span className="flex items-center gap-2 text-sm font-bold text-red-200 bg-red-400/20 border border-red-300/40 px-4 py-2 rounded-full">
+                                                                <AlertCircle size={14} /> Sélection invalide (suspendue)
+                                                              </span>
+                                                                : <span className="flex items-center gap-2 text-sm font-bold text-amber-200 bg-amber-400/20 border border-amber-300/40 px-4 py-2 rounded-full">
                                                                 <AlertCircle size={14} />
-                                                                {effectiveRoomsByPax.filter((_, i) => !selectedRoomTypes[i]).length} chambre(s) restante(s)
+                                                                    {effectiveRoomsByPax.filter((_, i) => !selectedRoomTypes[i]).length} chambre(s) restante(s)
                                                               </span>
                                                         }
                                                     </div>
@@ -1194,14 +1261,14 @@ function HotelDetails() {
                                     )}
 
                                     {/* Reserve button */}
-                                    <div className={`relative ${allSelected && computedTotalPrice > 0 ? "before:absolute before:inset-0 before:rounded-xl before:bg-orange-400/40 before:animate-ping before:scale-105" : ""}`}>
+                                    <div className={`relative ${allSelected && computedTotalPrice > 0 && !hasStopReservation ? "before:absolute before:inset-0 before:rounded-xl before:bg-orange-400/40 before:animate-ping before:scale-105" : ""}`}>
                                         <button
                                             onClick={handleReserve}
-                                            disabled={!allSelected || computedTotalPrice <= 0}
+                                            disabled={!allSelected || computedTotalPrice <= 0 || hasStopReservation}
                                             className="relative w-full flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 disabled:from-gray-200 disabled:to-gray-300 disabled:cursor-not-allowed text-white text-base font-extrabold rounded-xl transition-all shadow-md shadow-orange-200/60 active:scale-[0.98]"
                                         >
                                             Réserver maintenant
-                                            {allSelected && computedTotalPrice > 0 && <ChevronRight size={18} />}
+                                            {allSelected && computedTotalPrice > 0 && !hasStopReservation && <ChevronRight size={18} />}
                                         </button>
                                     </div>
 

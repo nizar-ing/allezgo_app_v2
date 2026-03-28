@@ -122,12 +122,13 @@ function HotelsPerCityPage() {
             // ✅ Utilisation de transformedHotels pour récupérer isAvailable et paxGroups synchronisés
             result.transformedHotels.forEach(th => {
                 pricingMap[th.id] = {
-                    minPrice:        th.minPrice,
-                    currency:        th.currency,
-                    isAvailable:     th.isAvailable, // ✅ Fix: Synchronisé avec HotelLightCard status
-                    token:           th.token,
-                    discountPercent: th.maxDiscount,
-                    paxGroups:       th.paxGroups,   // ✅ Fix: Données injectées pour affichage immédiat
+                    minPrice:           th.minPrice,
+                    currency:           th.currency,
+                    isAvailable:        th.isAvailable, // ✅ Fix: Synchronisé avec HotelLightCard status
+                    availabilityStatus: th.availabilityStatus, // ✅ NOUVEAU: Transmet le statut "Sur demande" ou "Complet"
+                    token:              th.token,
+                    discountPercent:    th.maxDiscount,
+                    paxGroups:          th.paxGroups,   // ✅ Fix: Données injectées pour affichage immédiat
                 };
             });
 
@@ -175,8 +176,9 @@ function HotelsPerCityPage() {
                     filters.services.some(s => theme.toLowerCase().includes(s.toLowerCase()))
                 )
             );
+        // ✅ FIX : On masque uniquement les hôtels vraiment "full" si l'utilisateur coche la case "Disponible"
         if (filters.disponibleSeulement && pricingData)
-            result = result.filter(h => h.pricing?.isAvailable); // ✅ Fix: Utilisation de isAvailable
+            result = result.filter(h => h.pricing?.availabilityStatus !== 'full');
         if (filters.priceRange && pricingData)
             result = result.filter(h => {
                 const p = h.pricing?.minPrice;

@@ -2,8 +2,6 @@
 import axios from 'axios';
 
 // ==================== CONSTANTS ====================
-// ✅ Agency Benefit Configuration
-// Cette marge de 8% est appliquée à tous les prix d'hôtels entrants.
 const MY_BENEFIT_CAUTION = 0.08;
 
 const CONFIG = {
@@ -22,9 +20,7 @@ const CREDENTIALS = {
 };
 
 if (!CREDENTIALS.Login || !CREDENTIALS.Password) {
-    throw new Error(
-        'FATAL: API credentials (VITE_API_LOGIN, VITE_API_PASSWORD) are not configured in .env file.'
-    );
+    throw new Error('FATAL: API credentials (VITE_API_LOGIN, VITE_API_PASSWORD) are not configured in .env file.');
 }
 
 // ==================== CUSTOM ERROR ====================
@@ -201,7 +197,6 @@ class ApiClient {
         return data;
     }
 
-    // ==================== LIST ENDPOINTS ====================
     async listCountry() {
         const cacheKey = 'countries';
         if (this.cache.has(cacheKey)) return this.cache.get(cacheKey);
@@ -268,7 +263,6 @@ class ApiClient {
         return data;
     }
 
-    // ==================== HOTEL ENDPOINTS ====================
     async listHotel(cityId = null) {
         const cacheKey = cityId ? `hotels_city_${cityId}` : 'hotels_all';
         if (this.cache.has(cacheKey)) return this.cache.get(cacheKey);
@@ -311,13 +305,7 @@ class ApiClient {
         return hotelsMap;
     }
 
-    // ==================== SEARCH & TRANSFORM ====================
-
-    /**
-     * @private
-     * ✅ FIX: Calcule le VRAI minPrice comme la somme des minimums par chambre
-     * pour une formule de pension (Boarding) valide.
-     */
+    // ✅ Engine de Statut Intégré
     _transformHotelSearchResponse(response, requestedRooms) {
         if (!response?.HotelSearch) return [];
 
@@ -369,40 +357,52 @@ class ApiClient {
                 };
             });
 
-            // ✅ CALCUL DU PRIX MULTI-CHAMBRES (Somme des minimums par pension)
+            // Logique de Disponibilité Avancée
             let hotelMinPrice = null;
-            let isHotelAvailable = false;
+            let hasImmediateCombo = false;
+            let hasOnRequestCombo = false;
 
-            // 1. Lister toutes les formules de pension disponibles dans cet hôtel
             const allBoardingCodes = new Set();
             paxGroups.forEach(pg => pg.availableRooms.forEach(r => allBoardingCodes.add(r.boardingCode)));
 
-            // 2. Tester chaque formule pour s'assurer qu'il y a une chambre pour chaque groupe
             allBoardingCodes.forEach(bCode => {
                 let comboPrice = 0;
                 let isValidCombo = true;
+                let isComboOnRequest = false;
 
                 for (const pg of paxGroups) {
-                    const roomsForBoarding = pg.availableRooms.filter(r => r.boardingCode === bCode);
-                    if (roomsForBoarding.length === 0) {
-                        isValidCombo = false; // Impossible de loger tout le monde avec cette formule
+                    const bookableRooms = pg.availableRooms.filter(r => r.boardingCode === bCode && !r.stopReservation);
+
+                    if (bookableRooms.length === 0) {
+                        isValidCombo = false;
                         break;
                     }
-                    // Ajoute le prix de la chambre la moins chère pour ce groupe
-                    comboPrice += Math.min(...roomsForBoarding.map(r => r.price));
+
+                    const cheapestRoom = bookableRooms[0];
+                    comboPrice += cheapestRoom.price;
+
+                    if (cheapestRoom.onRequest) {
+                        isComboOnRequest = true;
+                    }
                 }
 
                 if (isValidCombo) {
-                    isHotelAvailable = true;
+                    if (isComboOnRequest) hasOnRequestCombo = true;
+                    else hasImmediateCombo = true;
+
                     if (hotelMinPrice === null || comboPrice < hotelMinPrice) {
-                        hotelMinPrice = comboPrice; // On garde la combinaison totale la moins chère
+                        hotelMinPrice = comboPrice;
                     }
                 }
             });
 
+            let finalStatus = 'full';
+            if (hasImmediateCombo) finalStatus = 'available';
+            else if (hasOnRequestCombo) finalStatus = 'on_request';
+
             const allRoomsFlat = Array.from(roomsByPaxKey.values()).flat();
             const discounts = allRoomsFlat
-                .filter(r => r.basePrice && r.price && r.basePrice > r.price)
+                .filter(r => !r.stopReservation && r.basePrice && r.price && r.basePrice > r.price)
                 .map(r => Math.round(((r.basePrice - r.price) / r.basePrice) * 100));
 
             return {
@@ -412,7 +412,8 @@ class ApiClient {
                 image: Hotel.Image,
                 category: Hotel.Category,
                 city: Hotel.City,
-                isAvailable: isHotelAvailable,
+                isAvailable: finalStatus !== 'full',
+                availabilityStatus: finalStatus,
                 currency: Currency,
                 minPrice: hotelMinPrice,
                 maxDiscount: discounts.length > 0 ? Math.max(...discounts) : null,
@@ -464,7 +465,8 @@ class ApiClient {
                 return await this.client.post('/HotelSearch', this.createRequestBody({
                     SearchDetails: {
                         BookingDetails: { CheckIn: params.checkIn, CheckOut: params.checkOut, Hotels: [params.hotelId] },
-                        Filters: { OnlyAvailable: true },
+                        // ✅ FIX CRITIQUE: OnlyAvailable passe à FALSE pour ne pas bloquer les "Sur demande"
+                        Filters: { OnlyAvailable: false },
                         Rooms: params.rooms.map(r => ({ Adult: r.adults || 2, Child: r.childAges || [] }))
                     },
                 }), { timeout: CONFIG.TIMEOUT.SEARCH, cancelToken: cancelToken.token });
@@ -484,7 +486,6 @@ class ApiClient {
         }
     }
 
-    /** @private */
     _processRoomResults(hotelResult, boardingType = null) {
         const rooms = [];
         hotelResult.Price?.Boarding?.forEach((b, bIdx) => {
@@ -507,7 +508,6 @@ class ApiClient {
         return rooms.sort((a, b) => a.price - b.price);
     }
 
-    /** @private */
     _processRoomsByPax(hotelResult, requestedRooms = [], boardingType = null) {
         return (requestedRooms || []).map((req, idx) => ({
             paxIndex: idx,
@@ -516,7 +516,6 @@ class ApiClient {
         }));
     }
 
-    // ==================== RESTORED ENHANCED METHODS ====================
     async listHotelEnhanced(cityId = null, options = {}) {
         const { batchSize = CONFIG.BATCH.DEFAULT_SIZE, delayBetweenBatches = CONFIG.BATCH.DEFAULT_DELAY } = options;
         const hotelsList = await this.listHotel(cityId);

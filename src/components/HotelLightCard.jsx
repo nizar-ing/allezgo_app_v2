@@ -162,7 +162,6 @@ function HotelLightCard({
         }));
     }, [paxGroups]);
 
-    // ✅ NOUVELLE LOGIQUE : Calcule le vrai total minimum par pension (Multi-chambres)
     const derivedMinPrice = useMemo(() => {
         if (pricing?.minPrice) return pricing.minPrice;
         if (!effectiveRoomsByPax || effectiveRoomsByPax.length === 0) return null;
@@ -177,18 +176,17 @@ function HotelLightCard({
 
             for (let i = 0; i < effectiveRoomsByPax.length; i++) {
                 const paxSlot = effectiveRoomsByPax[i];
-                const roomsForBoarding = paxSlot.rooms.filter(r => r.boardingCode === bCode);
-                if (roomsForBoarding.length === 0) {
-                    isValid = false; // Manque une chambre pour cette pension
+                // Exclut les chambres stopReservation pour le prix d'appel
+                const bookableRooms = paxSlot.rooms.filter(r => r.boardingCode === bCode && !r.stopReservation);
+                if (bookableRooms.length === 0) {
+                    isValid = false;
                     break;
                 }
-                comboPrice += Math.min(...roomsForBoarding.map(r => r.price));
+                comboPrice += Math.min(...bookableRooms.map(r => r.price));
             }
 
             if (isValid) {
-                if (calcMinPrice === null || comboPrice < calcMinPrice) {
-                    calcMinPrice = comboPrice;
-                }
+                if (calcMinPrice === null || comboPrice < calcMinPrice) calcMinPrice = comboPrice;
             }
         });
 
@@ -197,15 +195,21 @@ function HotelLightCard({
 
     const totalPrice = derivedMinPrice;
 
+    // ✅ NOUVELLE LOGIQUE: Prise en charge explicite du "Sur demande"
     const cardAvailabilityStatus = useMemo(() => {
-        if (pricing?.isAvailable === false) return 'full';
-        if (pricing?.isAvailable === true) return 'available';
+        if (pricing?.availabilityStatus) return pricing.availabilityStatus;
         if (noAvailability) return 'full';
         if (!hasFetched || !allRooms.length) return null;
-        if (allRooms.every(r => r.stopReservation)) return 'full';
+
+        const bookableRooms = allRooms.filter(r => !r.stopReservation);
+        if (bookableRooms.length === 0) return 'full';
+
+        // Si toutes les chambres réservables nécessitent une confirmation
+        if (bookableRooms.every(r => r.onRequest)) return 'on_request';
+
         if (allRooms.some(r => r.stopReservation)) return 'last';
         return 'available';
-    }, [hasFetched, allRooms, noAvailability, pricing?.isAvailable]);
+    }, [hasFetched, allRooms, noAvailability, pricing?.availabilityStatus]);
 
     const computedTotalPrice = useMemo(() => {
         if (!effectiveRoomsByPax?.length || !selectedBoarding) return null;
@@ -239,8 +243,8 @@ function HotelLightCard({
         if (isFetchingRef.current) return;
 
         if (!hasFetched) setIsLoading(true);
-
         isFetchingRef.current = true;
+
         try {
             const response = await apiClient.searchRoomAvailability({
                 hotelId: Id,
@@ -470,7 +474,6 @@ function HotelLightCard({
                         </div>
                     )}
 
-                    {/* Favorite */}
                     <button
                         onClick={handleFavoriteClick}
                         className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center shadow-md backdrop-blur-md transition-all duration-200 hover:scale-110 active:scale-95 ${
@@ -478,7 +481,6 @@ function HotelLightCard({
                                 ? 'bg-rose-500 border border-rose-400'
                                 : 'bg-white/80 border border-white/50 hover:bg-white'
                         }`}
-                        aria-label="Favoris"
                     >
                         <Heart size={15} className={isFavorite ? 'fill-white text-white' : 'text-gray-500'}/>
                     </button>
@@ -491,12 +493,11 @@ function HotelLightCard({
                         </div>
                     )}
 
-                    {/* Price overlay */}
-                    {derivedMinPrice && (
+                    {/* Price overlay ou Complet */}
+                    {cardAvailabilityStatus !== 'full' && derivedMinPrice ? (
                         <div
                             className="absolute bottom-3 right-3 bg-gradient-to-br from-orange-400 to-orange-600 text-white text-xs font-bold px-3 py-2 rounded-2xl shadow-lg border border-orange-300/30">
-                            <div className="text-[10px] font-normal opacity-80 tracking-wide uppercase">À partir de
-                            </div>
+                            <div className="text-[10px] font-normal opacity-80 tracking-wide uppercase">À partir de</div>
                             <div className="text-sm font-extrabold">
                                 {formatPrice(totalPrice ?? derivedMinPrice)}{' '}
                                 <span className="font-normal opacity-80 text-[11px]">DZD</span>
@@ -507,13 +508,19 @@ function HotelLightCard({
                                     nuit</div>
                             )}
                         </div>
-                    )}
+                    ) : cardAvailabilityStatus === 'full' ? (
+                        <div
+                            className="absolute bottom-3 right-3 bg-gradient-to-br from-red-500 to-red-600 text-white text-xs font-bold px-4 py-2 rounded-2xl shadow-lg border border-red-400/30">
+                            <div className="text-sm font-extrabold uppercase tracking-wide flex items-center gap-1">
+                                Complet
+                            </div>
+                        </div>
+                    ) : null}
                 </div>
 
                 {/* ── Content ── */}
                 <div className="flex-1 p-5 sm:p-6 flex flex-col gap-2.5 min-w-0">
 
-                    {/* Name + FreeChild badge */}
                     <div className="flex items-start gap-2 lg:gap-4 flex-wrap">
                         <h3 className="text-base lg:text-xl font-extrabold text-gray-600 leading-tight tracking-tight">{Name}</h3>
                         {freeChildInfo && (
@@ -525,45 +532,40 @@ function HotelLightCard({
                         )}
                     </div>
 
-                    {/* City */}
                     <p className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
                         <MapPin size={13} className="text-sky-500 shrink-0"/>
                         {City?.Name}{City?.Country?.Name ? `, ${City.Country.Name}` : ''}
                     </p>
 
-                    {/* Card-level availability badge */}
                     {cardAvailabilityStatus && (
                         <div className="flex items-center">
                             {cardAvailabilityStatus === 'available' && (
-                                <span
-                                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"/>
-                                    Disponible
+                                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"/> Disponible
+                                </span>
+                            )}
+                            {cardAvailabilityStatus === 'on_request' && (
+                                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-600">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"/> Sur demande
                                 </span>
                             )}
                             {cardAvailabilityStatus === 'last' && (
-                                <span
-                                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-600">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"/>
-                                    Dernières chambres
+                                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-orange-500">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0"/> Dernières chambres
                                 </span>
                             )}
                             {cardAvailabilityStatus === 'full' && (
-                                <span
-                                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-red-600">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"/>
-                                    Complet
+                                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-red-600">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"/> Complet
                                 </span>
                             )}
                         </div>
                     )}
 
-                    {/* Description */}
                     {shortDesc && (
                         <p className="text-xs lg:text-sm text-gray-500 line-clamp-2 leading-relaxed">{shortDesc}</p>
                     )}
 
-                    {/* Facilities */}
                     {topFacilities.length > 0 && (
                         <div className="flex flex-wrap gap-1.5">
                             {topFacilities.map((f, i) => {
@@ -578,26 +580,21 @@ function HotelLightCard({
                         </div>
                     )}
 
-                    {/* Nights + guests summary */}
                     {searchParams && (
                         <div className="flex items-center gap-3 flex-wrap">
-                            <span
-                                className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 text-[11px] font-medium px-2.5 py-1 rounded-full">
+                            <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 text-[11px] font-medium px-2.5 py-1 rounded-full">
                                 🌙 {nights} nuit{nights > 1 ? 's' : ''}
                             </span>
-                            <span
-                                className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 text-[11px] font-medium px-2.5 py-1 rounded-full">
+                            <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 text-[11px] font-medium px-2.5 py-1 rounded-full">
                                 👤 {searchParams.rooms?.reduce((s, r) => s + (r.adults || 0), 0)} adulte(s)
                             </span>
                             {searchParams.rooms?.some(r => Array.isArray(r.children) ? r.children.length > 0 : r.children > 0) && (
-                                <span
-                                    className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 text-[11px] font-medium px-2.5 py-1 rounded-full">
+                                <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 text-[11px] font-medium px-2.5 py-1 rounded-full">
                                     🧒 {searchParams.rooms?.reduce((s, r) => s + (Array.isArray(r.children) ? r.children.length : (r.children || 0)), 0)} enfant(s)
                                 </span>
                             )}
                             {searchParams.rooms?.length > 1 && (
-                                <span
-                                    className="inline-flex items-center gap-1 bg-sky-100 text-sky-700 text-[11px] font-medium px-2.5 py-1 rounded-full">
+                                <span className="inline-flex items-center gap-1 bg-sky-100 text-sky-700 text-[11px] font-medium px-2.5 py-1 rounded-full">
                                     🛏 {searchParams.rooms.length} chambres
                                 </span>
                             )}
@@ -614,6 +611,11 @@ function HotelLightCard({
                                 <p className="text-sm font-semibold text-gray-400 italic flex items-center gap-1.5">
                                     <Loader2 size={12} className="animate-spin"/> Chargement...
                                 </p>
+                            </div>
+                        ) : cardAvailabilityStatus === 'full' ? (
+                            <div>
+                                <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Tarif</p>
+                                <p className="text-lg font-extrabold text-red-500 leading-none">Complet</p>
                             </div>
                         ) : derivedMinPrice ? (
                             <div>
@@ -636,7 +638,7 @@ function HotelLightCard({
                         )}
 
                         <div className="flex items-center gap-2">
-                            {showBookButton && (
+                            {showBookButton && cardAvailabilityStatus !== 'full' && (
                                 <button
                                     onClick={handleToggleTarifs}
                                     className="flex items-center gap-1.5 bg-sky-600 hover:bg-sky-700 active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all duration-150 shadow-sm"
@@ -657,7 +659,7 @@ function HotelLightCard({
             </div>
 
             {/* ── Tarifs & Chambres panel ── */}
-            {showTarifs && (
+            {showTarifs && cardAvailabilityStatus !== 'full' && (
                 <div className="border-t border-gray-100 bg-gradient-to-b from-slate-50 to-white px-5 sm:px-6 py-5">
 
                     {/* Panel header */}
@@ -675,7 +677,6 @@ function HotelLightCard({
                         </button>
                     </div>
 
-                    {/* Loading skeleton */}
                     {isLoading && !allRooms.length && (
                         <div className="flex flex-col gap-3">
                             {[1, 2, 3].map(i => (
@@ -684,7 +685,6 @@ function HotelLightCard({
                         </div>
                     )}
 
-                    {/* No availability */}
                     {!isLoading && noAvailability && (
                         <div
                             className="flex items-center gap-2.5 bg-red-50 border border-red-100 rounded-2xl px-4 py-3">
@@ -693,8 +693,8 @@ function HotelLightCard({
                         </div>
                     )}
 
-                    {/* Boarding tabs */}
-                    {!noAvailability && availableBoarding.length > 1 && (
+                    {/* ✅ FIX: Affiche les onglets de pension même s'il n'y en a qu'un seul */}
+                    {!noAvailability && availableBoarding.length > 0 && (
                         <div className="flex gap-2 flex-wrap mb-4">
                             {availableBoarding.map(b => (
                                 <button
@@ -726,7 +726,6 @@ function HotelLightCard({
                                     <div key={idx}
                                          className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
 
-                                        {/* Slot header */}
                                         <p className="text-xs font-bold text-gray-500 mb-2.5 flex items-center gap-1.5">
                                             <span
                                                 className="bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full text-[10px] font-extrabold">
@@ -740,7 +739,6 @@ function HotelLightCard({
                                             <p className="text-xs text-gray-400 italic">Aucune chambre disponible.</p>
                                         ) : (
                                             <>
-                                                {/* Room selector */}
                                                 <div className="relative">
                                                     <select
                                                         value={selectedRoomId ?? ''}
@@ -766,7 +764,6 @@ function HotelLightCard({
                                                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>
                                                 </div>
 
-                                                {/* Selected room summary + badges */}
                                                 {selectedRoom && (
                                                     <div
                                                         className="mt-2.5 bg-sky-50 rounded-xl px-3 py-2.5 flex flex-col gap-1.5">
@@ -802,12 +799,12 @@ function HotelLightCard({
                                                             ) : selectedRoom.onRequest ? (
                                                                 <span
                                                                     className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-200">
-                                                                    🔔 Sur confirmation
+                                                                    🔔 Sur demande
                                                                 </span>
                                                             ) : (
                                                                 <span
                                                                     className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-200">
-                                                                    ✅ Disponible à la réservation
+                                                                    ✅ Disponible
                                                                 </span>
                                                             )}
                                                         </div>
@@ -819,7 +816,6 @@ function HotelLightCard({
                                 );
                             })}
 
-                            {/* Multi-room total + book CTA */}
                             {effectiveRoomsByPax.length > 0 && (
                                 <div
                                     className="flex items-center justify-between gap-3 pt-2 border-t border-gray-100 flex-wrap">
@@ -839,8 +835,7 @@ function HotelLightCard({
                                                 )}
                                             </>
                                         ) : (
-                                            <p className="text-xs text-gray-400 italic">Sélectionnez une chambre par
-                                                slot</p>
+                                            <p className="text-xs text-gray-400 italic">Sélectionnez une chambre par slot</p>
                                         )}
                                     </div>
                                     <button
@@ -852,67 +847,6 @@ function HotelLightCard({
                                     </button>
                                 </div>
                             )}
-                        </div>
-                    )}
-
-                    {/* ── Flat room list fallback (no pax data) ── */}
-                    {!isLoading && !noAvailability && effectiveRoomsByPax.length === 0 && filteredRooms.length > 0 && (
-                        <div className="flex flex-col gap-2">
-                            {filteredRooms.map((room) => {
-                                const discount = getDiscountInfo(room);
-                                return (
-                                    <div
-                                        key={room.id}
-                                        className="group/row flex items-center justify-between gap-3 bg-white hover:bg-sky-50 border border-gray-100 hover:border-sky-200 rounded-2xl px-4 py-3 transition-all duration-150"
-                                    >
-                                        <div className="min-w-0">
-                                            <p className="text-sm font-semibold text-gray-800 group-hover/row:text-sky-700 transition-colors flex items-center gap-1.5 flex-wrap">
-                                                {room.name}
-                                                {discount && (
-                                                    <span
-                                                        className="inline-flex items-center bg-rose-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full">
-                                                        -{discount.pct}%
-                                                    </span>
-                                                )}
-                                            </p>
-                                            <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                                                {room.boardingName}
-                                                {room.stopReservation ? (
-                                                    <span
-                                                        className="bg-red-50 text-red-700 text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-red-200">
-                                                        Suspendu
-                                                    </span>
-                                                ) : room.onRequest ? (
-                                                    <span
-                                                        className="bg-amber-50 text-amber-700 text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-amber-200">
-                                                        Sur confirmation
-                                                    </span>
-                                                ) : null}
-                                            </p>
-                                        </div>
-
-                                        <div className="flex items-center gap-3 shrink-0">
-                                            <div className="text-right">
-                                                <p className="text-sm font-extrabold text-sky-700 leading-none">
-                                                    {formatPrice(room.price)}
-                                                    <span
-                                                        className="text-[11px] font-semibold text-sky-400 ml-1">DZD</span>
-                                                </p>
-                                                {nights > 1 && (
-                                                    <p className="text-[10px] text-gray-400 mt-0.5">{formatPrice(Math.round(room.price / nights))} /
-                                                        nuit</p>
-                                                )}
-                                            </div>
-                                            <button
-                                                onClick={() => handleBook(room)}
-                                                className="flex items-center gap-1 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white text-[11px] font-extrabold px-3 py-2 rounded-xl transition-all duration-150 shadow-sm whitespace-nowrap"
-                                            >
-                                                Réserver <ChevronRight size={12}/>
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
                         </div>
                     )}
                 </div>
