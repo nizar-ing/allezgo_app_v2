@@ -58,7 +58,9 @@ export default function BookingPage() {
     // This prevents recalculation errors when navigating from HotelLightCard.
     const bookingState = useMemo(() => {
         if (!locationState) return null;
-        const totalPrice = locationState.selectedRooms?.[0]?.price ?? locationState.totalPrice ?? 0;
+        // ✅ FIX: Trust the totalPrice passed in state directly.
+        // Do NOT look at selectedRooms[0].price, as that only captures the first room.
+        const totalPrice = locationState.totalPrice ?? 0;
         return {
             ...locationState,
             totalPrice,

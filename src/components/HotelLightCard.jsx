@@ -324,40 +324,42 @@ function HotelLightCard({
     }, [isFavorite, Id, onFavoriteToggle]);
 
     const handleBook = useCallback((room) => {
-        if (onBook) { onBook(hotel, room); return; }
-
-        // Get pax details from the original searchParams.rooms
         const originalPax = searchParams?.rooms?.[0] || { adults: 2, children: [] };
         const childrenCount = Array.isArray(originalPax.children) ? originalPax.children.length : (originalPax.children || 0);
         const childAgesArray = Array.isArray(originalPax.children) ? originalPax.children : (originalPax.childAges || []);
 
-        // Default navigation to booking if no onBook handler
+        const roomsData = [{
+            roomType: room.name,
+            roomId: room.id,
+            adults: originalPax.adults ?? 2,
+            children: childrenCount,
+            childAges: childAgesArray,
+            price: room.price, // Stay Total
+            total: room.price, // Stay Total
+            boardingCode: room.boardingCode,
+            boardingName: room.boardingName,
+        }];
+
+        // If parent provides a handler (like SearchResultsPage), pass the list
+        if (onBook) { onBook(hotel, roomsData); return; }
+
         const bookingData = {
-            hotelId:      Number(Id),
-            hotelName:    Name,
-            checkIn:      searchParams?.checkIn,
-            checkOut:     searchParams?.checkOut,
+            hotelId: Number(Id),
+            hotelName: Name,
+            checkIn: searchParams?.checkIn,
+            checkOut: searchParams?.checkOut,
             nights,
             boardingType: room.boardingCode,
-            rooms:        [{
-                roomType:  room.name,
-                roomId:    room.id,
-                adults:    originalPax.adults ?? 2,
-                children:  childrenCount,
-                childAges: childAgesArray,
-                price:     room.price,
-                total:     room.price,
-                boardingCode: room.boardingCode,
-                boardingName: room.boardingName,
-            }],
-            totalPrice:   room.price,
-            currency:     room.currency || hotel.currency || "DZD",
-            token:        currentToken,
-            hotel:        { ...hotel, paxGroups, token: currentToken }
+            rooms: roomsData,
+            totalPrice: room.price,
+            currency: room.currency || hotel.currency || "DZD",
+            token: currentToken,
+            hotel: { ...hotel, paxGroups, token: currentToken }
         };
         navigate(`/booking/${Id}`, { state: bookingData });
     }, [onBook, hotel, navigate, Id, Name, searchParams, nights, currentToken, paxGroups]);
 
+    // ✅ UPDATED: Multi-Room Booking Logic
     const handleBookAll = useCallback(() => {
         if (!effectiveRoomsByPax || effectiveRoomsByPax.length === 0) return;
 
@@ -371,15 +373,15 @@ function HotelLightCard({
                 if (!room) return null;
 
                 return {
-                    roomType:  room.name,
-                    roomId:    room.id,
+                    roomType: room.name,
+                    roomId: room.id,
                     boardingCode: room.boardingCode,
                     boardingName: room.boardingName,
-                    adults:    pax.adults,
-                    children:  pax.children,
+                    adults: pax.adults,
+                    children: pax.children,
                     childAges: pax.childAges,
-                    price:     room.price,
-                    total:     room.price,
+                    price: room.price, // Stay Total for this room
+                    total: room.price, // Stay Total for this room
                 };
             })
             .filter(Boolean);
@@ -389,20 +391,24 @@ function HotelLightCard({
             return;
         }
 
-        if (onBook) { onBook(hotel, selectedRoomsList); return; }
+        // ✅ IMPORTANT: Pass the already calculated computedTotalPrice to the parent handler
+        if (onBook) {
+            onBook(hotel, selectedRoomsList);
+            return;
+        }
 
         const bookingData = {
-            hotelId:      Number(Id),
-            hotelName:    Name,
-            checkIn:      searchParams?.checkIn,
-            checkOut:     searchParams?.checkOut,
+            hotelId: Number(Id),
+            hotelName: Name,
+            checkIn: searchParams?.checkIn,
+            checkOut: searchParams?.checkOut,
             nights,
             boardingType: selectedBoarding,
-            rooms:        selectedRoomsList,
-            totalPrice:   computedTotalPrice,
-            currency:     hotel.currency || pricing?.currency || "DZD",
-            token:        currentToken,
-            hotel:        { ...hotel, paxGroups, token: currentToken }
+            rooms: selectedRoomsList,
+            totalPrice: computedTotalPrice, // Sum of all rooms
+            currency: hotel.currency || pricing?.currency || "DZD",
+            token: currentToken,
+            hotel: { ...hotel, paxGroups, token: currentToken }
         };
         navigate(`/booking/${Id}`, { state: bookingData });
     }, [effectiveRoomsByPax, selectedRooms, selectedBoarding, onBook, hotel, navigate, Id, Name, searchParams, nights, computedTotalPrice, currentToken, paxGroups, pricing?.currency]);
