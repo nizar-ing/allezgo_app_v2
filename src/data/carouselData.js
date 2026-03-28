@@ -6,6 +6,10 @@
  */
 export const carouselImages = [
     {
+        url: "/images/allezgo_banner.jpeg",
+        alt: "banner_video",
+    },
+    {
         url: "/videos/banner.mp4",
         alt: "banner_video",
     },

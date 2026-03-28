@@ -171,11 +171,6 @@ class ApiClient {
         return { Credential: this.credentials, ...additionalData };
     }
 
-    /**
-     * @private
-     * ✅ FIX TECHNIQUE: Applique la marge et convertit en type NUMBER.
-     * Prévient les crashs de formatage Intl et les erreurs de calcul.
-     */
     _applyAgencyMarkup(data) {
         if (!data) return data;
         const applyToHotel = (hotel) => {
@@ -320,7 +315,8 @@ class ApiClient {
 
     /**
      * @private
-     * ✅ FIX: Transforme les noms des chambres (Name -> name) pour HotelLightCard.
+     * ✅ FIX: Calcule le VRAI minPrice comme la somme des minimums par chambre
+     * pour une formule de pension (Boarding) valide.
      */
     _transformHotelSearchResponse(response, requestedRooms) {
         if (!response?.HotelSearch) return [];
@@ -333,9 +329,8 @@ class ApiClient {
         };
 
         return response.HotelSearch.map(hotelData => {
-            const { Hotel, Token, Price, FreeChild, Currency } = hotelData;
+            const { Hotel, Token, Price, Currency } = hotelData;
             const roomsByPaxKey = new Map();
-            const allPrices = [];
 
             if (Price?.Boarding) {
                 Price.Boarding.forEach(boarding => {
@@ -346,8 +341,6 @@ class ApiClient {
                         pax.Rooms?.forEach(room => {
                             const price = Number(room.Price);
                             if (!isNaN(price)) {
-                                allPrices.push(price);
-                                // ✅ Mapping vers les minuscules attendues par le UI
                                 roomsByPaxKey.get(paxKey).push({
                                     id: room.Id ?? room.Code ?? `${boarding.Code}-${paxKey}-${room.Name}`,
                                     name: room.Name || room.RoomName || 'Chambre Standard',
@@ -376,7 +369,37 @@ class ApiClient {
                 };
             });
 
-            const hasPrices = allPrices.length > 0;
+            // ✅ CALCUL DU PRIX MULTI-CHAMBRES (Somme des minimums par pension)
+            let hotelMinPrice = null;
+            let isHotelAvailable = false;
+
+            // 1. Lister toutes les formules de pension disponibles dans cet hôtel
+            const allBoardingCodes = new Set();
+            paxGroups.forEach(pg => pg.availableRooms.forEach(r => allBoardingCodes.add(r.boardingCode)));
+
+            // 2. Tester chaque formule pour s'assurer qu'il y a une chambre pour chaque groupe
+            allBoardingCodes.forEach(bCode => {
+                let comboPrice = 0;
+                let isValidCombo = true;
+
+                for (const pg of paxGroups) {
+                    const roomsForBoarding = pg.availableRooms.filter(r => r.boardingCode === bCode);
+                    if (roomsForBoarding.length === 0) {
+                        isValidCombo = false; // Impossible de loger tout le monde avec cette formule
+                        break;
+                    }
+                    // Ajoute le prix de la chambre la moins chère pour ce groupe
+                    comboPrice += Math.min(...roomsForBoarding.map(r => r.price));
+                }
+
+                if (isValidCombo) {
+                    isHotelAvailable = true;
+                    if (hotelMinPrice === null || comboPrice < hotelMinPrice) {
+                        hotelMinPrice = comboPrice; // On garde la combinaison totale la moins chère
+                    }
+                }
+            });
+
             const allRoomsFlat = Array.from(roomsByPaxKey.values()).flat();
             const discounts = allRoomsFlat
                 .filter(r => r.basePrice && r.price && r.basePrice > r.price)
@@ -389,9 +412,9 @@ class ApiClient {
                 image: Hotel.Image,
                 category: Hotel.Category,
                 city: Hotel.City,
-                isAvailable: hasPrices && paxGroups.every(pg => pg.availableRooms.length > 0),
+                isAvailable: isHotelAvailable,
                 currency: Currency,
-                minPrice: hasPrices ? Math.min(...allPrices) : null,
+                minPrice: hotelMinPrice,
                 maxDiscount: discounts.length > 0 ? Math.max(...discounts) : null,
                 paxGroups,
                 _raw: hotelData,

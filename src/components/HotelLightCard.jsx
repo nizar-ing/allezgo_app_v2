@@ -116,7 +116,6 @@ function HotelLightCard({
     const [selectedRooms, setSelectedRooms] = useState({});
     const [currentToken, setCurrentToken] = useState(hotel?.token || pricing?.token || null);
 
-    // When preloaded data changes, update state
     useEffect(() => {
         if (preloadedPaxGroups === null) return;
         if (hasRealFetchRef.current) return;
@@ -153,40 +152,60 @@ function HotelLightCard({
     const freeChildInfo = useMemo(() => getFreeChildInfo(FreeChild), [FreeChild]);
     const detailUrl = useMemo(() => buildDetailUrl(Id, searchParams), [Id, searchParams]);
 
-    const derivedMinPrice = useMemo(() => {
-        if (pricing?.minPrice) return pricing.minPrice;
-        if (!allRooms.length) return null;
-        const prices = allRooms.map(r => r.price).filter(p => p != null && p > 0);
-        return prices.length > 0 ? Math.min(...prices) : null;
-    }, [pricing?.minPrice, allRooms]);
-
-    const totalPrice = derivedMinPrice;
-
-    const cardAvailabilityStatus = useMemo(() => {
-        // If we have pricing info from parent, use its isAvailable flag
-        if (pricing?.isAvailable === false) return 'full';
-        if (pricing?.isAvailable === true) return 'available';
-
-        // Fallback to local state logic
-        if (noAvailability) return 'full';
-        if (!hasFetched || !allRooms.length) return null;
-
-        // Check room-level stopReservation
-        if (allRooms.every(r => r.stopReservation)) return 'full';
-        if (allRooms.some(r => r.stopReservation)) return 'last';
-        return 'available';
-    }, [hasFetched, allRooms, noAvailability, pricing?.isAvailable]);
-
     const effectiveRoomsByPax = useMemo(() => {
         if (!paxGroups) return [];
         return paxGroups.map(pg => ({
             ...pg,
             rooms: pg.availableRooms,
-            // pg.children is an array of ages like [5, 8] from ApiClient
             children: Array.isArray(pg.children) ? pg.children.length : (pg.children || 0),
             childAges: Array.isArray(pg.children) ? pg.children : (pg.childAges || []),
         }));
     }, [paxGroups]);
+
+    // ✅ NOUVELLE LOGIQUE : Calcule le vrai total minimum par pension (Multi-chambres)
+    const derivedMinPrice = useMemo(() => {
+        if (pricing?.minPrice) return pricing.minPrice;
+        if (!effectiveRoomsByPax || effectiveRoomsByPax.length === 0) return null;
+
+        let calcMinPrice = null;
+        const availableBoardings = buildBoardingFromRooms(allRooms);
+
+        availableBoardings.forEach(b => {
+            const bCode = b.code;
+            let comboPrice = 0;
+            let isValid = true;
+
+            for (let i = 0; i < effectiveRoomsByPax.length; i++) {
+                const paxSlot = effectiveRoomsByPax[i];
+                const roomsForBoarding = paxSlot.rooms.filter(r => r.boardingCode === bCode);
+                if (roomsForBoarding.length === 0) {
+                    isValid = false; // Manque une chambre pour cette pension
+                    break;
+                }
+                comboPrice += Math.min(...roomsForBoarding.map(r => r.price));
+            }
+
+            if (isValid) {
+                if (calcMinPrice === null || comboPrice < calcMinPrice) {
+                    calcMinPrice = comboPrice;
+                }
+            }
+        });
+
+        return calcMinPrice;
+    }, [pricing?.minPrice, effectiveRoomsByPax, allRooms]);
+
+    const totalPrice = derivedMinPrice;
+
+    const cardAvailabilityStatus = useMemo(() => {
+        if (pricing?.isAvailable === false) return 'full';
+        if (pricing?.isAvailable === true) return 'available';
+        if (noAvailability) return 'full';
+        if (!hasFetched || !allRooms.length) return null;
+        if (allRooms.every(r => r.stopReservation)) return 'full';
+        if (allRooms.some(r => r.stopReservation)) return 'last';
+        return 'available';
+    }, [hasFetched, allRooms, noAvailability, pricing?.isAvailable]);
 
     const computedTotalPrice = useMemo(() => {
         if (!effectiveRoomsByPax?.length || !selectedBoarding) return null;
@@ -199,7 +218,6 @@ function HotelLightCard({
                 allRoomsSelected = false;
                 break;
             }
-            //const room = paxSlot.rooms.find(r => r.id === roomId && r.boardingCode === selectedBoarding)
             const room = paxSlot.rooms.find(r => String(r.id) === String(roomId));
             if (!room?.price) {
                 allRoomsSelected = false;
@@ -220,7 +238,6 @@ function HotelLightCard({
         if (!sp?.checkIn || !sp?.checkOut) return;
         if (isFetchingRef.current) return;
 
-        // If we already have data (preloaded), don't show loader unless we are refreshing
         if (!hasFetched) setIsLoading(true);
 
         isFetchingRef.current = true;
@@ -262,7 +279,6 @@ function HotelLightCard({
         } catch (err) {
             if (!err.isCancelled) {
                 if (showTarifsRef.current) toast.error('Erreur lors de la recherche de disponibilités.');
-                // Don't wipe data on error if we had preloaded data
                 if (!paxGroups) {
                     setNoAvailability(true);
                     setPaxGroups([]);
@@ -276,9 +292,6 @@ function HotelLightCard({
 
     useEffect(() => {
         if (!searchParamsRef.current?.checkIn || !searchParamsRef.current?.checkOut) return;
-        // Optimization: if we already have preloaded paxGroups, we don't NEED to fetch immediately.
-        // But the original code used IntersectionObserver to fetch when visible.
-        // Let's only fetch if we DON'T have data.
         if (hasFetched) return;
 
         const el = cardRef.current;
@@ -300,7 +313,6 @@ function HotelLightCard({
         const next = !showTarifs;
         showTarifsRef.current = next;
         setShowTarifs(next);
-        // If we don't have data yet, fetch it.
         if (next && !hasFetched && !isFetchingRef.current) {
             void fetchAvailability();
         }
@@ -336,13 +348,12 @@ function HotelLightCard({
             adults: originalPax.adults ?? 2,
             children: childrenCount,
             childAges: childAgesArray,
-            price: room.price, // Stay Total
-            total: room.price, // Stay Total
+            price: room.price,
+            total: room.price,
             boardingCode: room.boardingCode,
             boardingName: room.boardingName,
         }];
 
-        // If parent provides a handler (like SearchResultsPage), pass the list
         if (onBook) {
             onBook(hotel, roomsData);
             return;
@@ -364,7 +375,6 @@ function HotelLightCard({
         navigate(`/booking/${Id}`, {state: bookingData});
     }, [onBook, hotel, navigate, Id, Name, searchParams, nights, currentToken, paxGroups]);
 
-    // ✅ UPDATED: Multi-Room Booking Logic
     const handleBookAll = useCallback(() => {
         if (!effectiveRoomsByPax || effectiveRoomsByPax.length === 0) return;
 
@@ -373,9 +383,7 @@ function HotelLightCard({
                 const roomId = selectedRooms[idx];
                 if (!roomId) return null;
 
-                // ✅ FIX: Comparaison robuste des IDs
                 const room = pax.rooms.find(r => String(r.id) === String(roomId));
-
                 if (!room) return null;
 
                 return {
@@ -397,7 +405,6 @@ function HotelLightCard({
             return;
         }
 
-        // ✅ IMPORTANT: Pass the already calculated computedTotalPrice to the parent handler
         if (onBook) {
             onBook(hotel, selectedRoomsList);
             return;
@@ -411,7 +418,7 @@ function HotelLightCard({
             nights,
             boardingType: selectedBoarding,
             rooms: selectedRoomsList,
-            totalPrice: computedTotalPrice, // Sum of all rooms
+            totalPrice: computedTotalPrice,
             currency: hotel.currency || pricing?.currency || "DZD",
             token: currentToken,
             hotel: {...hotel, paxGroups, token: currentToken}
@@ -712,7 +719,7 @@ function HotelLightCard({
                                 const boardingRooms = paxSlot.rooms.filter(r => r.boardingCode === selectedBoarding);
                                 const displayRooms = boardingRooms.length > 0 ? boardingRooms : paxSlot.rooms;
                                 const selectedRoomId = selectedRooms[idx];
-                                const selectedRoom = displayRooms.find(r => r.id === selectedRoomId) ?? null;
+                                const selectedRoom = displayRooms.find(r => String(r.id) === String(selectedRoomId)) ?? null;
                                 const discount = getDiscountInfo(selectedRoom);
 
                                 return (
