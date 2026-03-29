@@ -2,14 +2,14 @@ import { useState, useCallback } from "react";
 import {
     User, Mail, Phone, MapPin,
     Calendar, CreditCard, Building2,
-    Home, ChevronRight, AlertCircle, Baby,
+    Home, ChevronRight, AlertCircle, Baby, Users,
 } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const PAYMENT_METHODS = [
     { id: "online", label: "Paiement en ligne",   icon: CreditCard },
     { id: "agency", label: "Paiement à l'agence", icon: Building2  },
-    { id: "home",   label: "Paiement à domicile", icon: Home       },
+    { id: "home",   label: "Paiement par virement bancaire", icon: Home       },
 ];
 
 // ─── Local sub-components ─────────────────────────────────────────────────────
@@ -86,7 +86,7 @@ export default function GuestInfoForm({ bookingState, onSubmit }) {
             const { count, ages } = normalizeChildren(room);
             return {
                 adults: Array.from({ length: room.adults ?? 1 }, () => ({
-                    firstName: "", lastName: ""
+                    fullName: "",
                 })),
                 children: Array.from({ length: count }, (_, ci) => ({
                     firstName: "",
@@ -144,6 +144,32 @@ export default function GuestInfoForm({ bookingState, onSubmit }) {
         clearError(`rooms.${ri}.children.${ci}.${field}`);
     }, [clearError]);
 
+    const handleCopyContactToAdults = useCallback(() => {
+        const { fullName } = formData.contact;
+        if (!fullName.trim()) return;
+
+        setFormData((p) => ({
+            ...p,
+            rooms: p.rooms.map(room => ({
+                ...room,
+                adults: room.adults.map(adult => ({
+                    ...adult,
+                    fullName
+                }))
+            }))
+        }));
+
+        setErrors((prev) => {
+            const next = { ...prev };
+            formData.rooms.forEach((room, ri) => {
+                room.adults.forEach((adult, ai) => {
+                    delete next[`rooms.${ri}.adults.${ai}.fullName`];
+                });
+            });
+            return next;
+        });
+    }, [formData.contact.fullName, formData.rooms]);
+
     // ── Validation ────────────────────────────────────────────────────────────
     const validate = useCallback(() => {
         const errs = {};
@@ -169,10 +195,8 @@ export default function GuestInfoForm({ bookingState, onSubmit }) {
 
         rooms.forEach((room, ri) => {
             room.adults.forEach((adult, ai) => {
-                if (!adult.firstName.trim())
-                    errs[`rooms.${ri}.adults.${ai}.firstName`] = "Requis";
-                if (!adult.lastName.trim())
-                    errs[`rooms.${ri}.adults.${ai}.lastName`] = "Requis";
+                if (!adult.fullName.trim())
+                    errs[`rooms.${ri}.adults.${ai}.fullName`] = "Requis";
             });
             room.children.forEach((child, ci) => {
                 if (!child.firstName.trim())
@@ -250,6 +274,17 @@ export default function GuestInfoForm({ bookingState, onSubmit }) {
                         />
                     </Field>
                 </div>
+
+                <div className="mt-6 pt-5 border-t border-dashed border-gray-200 flex justify-end">
+                    <button
+                        type="button"
+                        onClick={handleCopyContactToAdults}
+                        className="flex items-center gap-2 text-sm font-bold text-sky-600 bg-sky-50 hover:bg-sky-100 px-5 py-2.5 rounded-xl transition-all border border-sky-100 hover:border-sky-200 active:scale-[0.98]"
+                    >
+                        <Users size={16} className="text-sky-500" />
+                        Utiliser ce nom pour tous les adultes
+                    </button>
+                </div>
             </div>
 
             {/* ══════════════════════════════════════════════════════════════
@@ -300,31 +335,18 @@ export default function GuestInfoForm({ bookingState, onSubmit }) {
                                         </span>
                                         {ai > 0 && <div className="flex-1 h-px bg-gray-100" />}
                                     </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="w-full">
                                         <Field
-                                            label="Prénom"
+                                            label="Nom & Prénom"
                                             icon={User}
-                                            error={errors[`rooms.${ri}.adults.${ai}.firstName`]}
+                                            error={errors[`rooms.${ri}.adults.${ai}.fullName`]}
                                         >
                                             <TextInput
                                                 type="text"
-                                                placeholder="Prénom"
-                                                value={adult.firstName}
-                                                onChange={(e) => updateAdult(ri, ai, "firstName", e.target.value)}
-                                                error={errors[`rooms.${ri}.adults.${ai}.firstName`]}
-                                            />
-                                        </Field>
-                                        <Field
-                                            label="Nom"
-                                            icon={User}
-                                            error={errors[`rooms.${ri}.adults.${ai}.lastName`]}
-                                        >
-                                            <TextInput
-                                                type="text"
-                                                placeholder="Nom de famille"
-                                                value={adult.lastName}
-                                                onChange={(e) => updateAdult(ri, ai, "lastName", e.target.value)}
-                                                error={errors[`rooms.${ri}.adults.${ai}.lastName`]}
+                                                placeholder="ex: Mohamed Benali"
+                                                value={adult.fullName}
+                                                onChange={(e) => updateAdult(ri, ai, "fullName", e.target.value)}
+                                                error={errors[`rooms.${ri}.adults.${ai}.fullName`]}
                                             />
                                         </Field>
                                     </div>
