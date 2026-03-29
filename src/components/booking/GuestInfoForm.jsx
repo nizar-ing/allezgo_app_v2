@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import {
     User, Mail, Phone, MapPin,
     Calendar, CreditCard, Building2,
-    Home, ChevronRight, AlertCircle, Baby, Users,
+    Home, ChevronRight, AlertCircle, Baby,
 } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -144,31 +144,23 @@ export default function GuestInfoForm({ bookingState, onSubmit }) {
         clearError(`rooms.${ri}.children.${ci}.${field}`);
     }, [clearError]);
 
-    const handleCopyContactToAdults = useCallback(() => {
+    const handleCopyContactToPrincipalTraveler = useCallback(() => {
         const { fullName } = formData.contact;
         if (!fullName.trim()) return;
 
-        setFormData((p) => ({
-            ...p,
-            rooms: p.rooms.map(room => ({
-                ...room,
-                adults: room.adults.map(adult => ({
-                    ...adult,
-                    fullName
-                }))
-            }))
-        }));
-
-        setErrors((prev) => {
-            const next = { ...prev };
-            formData.rooms.forEach((room, ri) => {
-                room.adults.forEach((adult, ai) => {
-                    delete next[`rooms.${ri}.adults.${ai}.fullName`];
-                });
-            });
-            return next;
+        setFormData((p) => {
+            if (!p.rooms[0]?.adults[0]) {
+                return p;
+            }
+            const newRooms = [...p.rooms];
+            const newAdults = [...newRooms[0].adults];
+            newAdults[0] = { ...newAdults[0], fullName };
+            newRooms[0] = { ...newRooms[0], adults: newAdults };
+            return { ...p, rooms: newRooms };
         });
-    }, [formData.contact.fullName, formData.rooms]);
+
+        clearError('rooms.0.adults.0.fullName');
+    }, [formData.contact.fullName, clearError]);
 
     // ── Validation ────────────────────────────────────────────────────────────
     const validate = useCallback(() => {
@@ -278,11 +270,11 @@ export default function GuestInfoForm({ bookingState, onSubmit }) {
                 <div className="mt-6 pt-5 border-t border-dashed border-gray-200 flex justify-end">
                     <button
                         type="button"
-                        onClick={handleCopyContactToAdults}
+                        onClick={handleCopyContactToPrincipalTraveler}
                         className="flex items-center gap-2 text-sm font-bold text-sky-600 bg-sky-50 hover:bg-sky-100 px-5 py-2.5 rounded-xl transition-all border border-sky-100 hover:border-sky-200 active:scale-[0.98]"
                     >
-                        <Users size={16} className="text-sky-500" />
-                        Utiliser ce nom pour tous les adultes
+                        <User size={16} className="text-sky-500" />
+                        Utiliser ce nom pour le voyageur principal
                     </button>
                 </div>
             </div>
@@ -331,7 +323,7 @@ export default function GuestInfoForm({ bookingState, onSubmit }) {
                                             <User size={12} className="text-sky-600" />
                                         </div>
                                         <span className="text-xs font-extrabold text-sky-700 uppercase tracking-wide">
-                                            {room.adults.length === 1 ? "Voyageur Principal" : `Adulte ${ai + 1}`}
+                                            {ai === 0 ? "Voyageur Principal" : `Adulte ${ai + 1}`}
                                         </span>
                                         {ai > 0 && <div className="flex-1 h-px bg-gray-100" />}
                                     </div>
