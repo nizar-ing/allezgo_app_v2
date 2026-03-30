@@ -13,6 +13,7 @@ import 'react-day-picker/style.css';
 import apiClient from '../services/ApiClient';
 import HotelsFiltering from '../components/HotelsFiltering.jsx';
 import HotelLightCard from '../components/HotelLightCard.jsx';
+import DateRoomsPickerBanner from '../components/DateRoomsPickerBanner.jsx';
 import Loader from '../ui/Loader.jsx';
 import {normalizeHotelForCard} from '../utils/normalizeHotel';
 
@@ -255,14 +256,11 @@ function HotelsPerCityPage() {
     }, []);
 
     const handleDateRangeSelect = (range) => {
-        if (!range?.from) return;
         setDateRange(range);
         setTempSearchParams(prev => ({
             ...prev,
-            checkIn:  range.from.toISOString().split('T')[0],
-            checkOut: range.to
-                ? range.to.toISOString().split('T')[0]
-                : range.from.toISOString().split('T')[0],
+            checkIn:  range?.from ? range.from.toISOString().split('T')[0] : '',
+            checkOut: range?.to ? range.to.toISOString().split('T')[0] : '',
         }));
     };
 
@@ -414,7 +412,7 @@ function HotelsPerCityPage() {
     };
 
     const formatDate = (dateString) => {
-        if (!dateString) return '';
+        if (!dateString) return 'Sélectionner';
         return new Date(dateString).toLocaleDateString('fr-FR',
             {weekday: 'short', day: 'numeric', month: 'short'});
     };
@@ -489,250 +487,40 @@ function HotelsPerCityPage() {
             <div className="w-full max-w-[1800px] mx-auto px-2 sm:px-4 lg:px-6 xl:px-8 py-4 sm:py-6 lg:py-8">
 
                 {/* Date Picker Banner */}
-                <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 mb-4 sm:mb-6">
-                    <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-                        <div className="flex-1">
-                            <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 flex items-center gap-2">
-                                <Calendar className="text-sky-600" size={24}/>
-                                Dates de séjour
-                            </h3>
-                            <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
-                                <span className="font-semibold">{searchParams.checkIn}</span>
-                                <span>→</span>
-                                <span className="font-semibold">{searchParams.checkOut}</span>
-                                <span className="px-2 py-1 bg-sky-100 text-sky-700 rounded-full text-xs font-semibold">
-                                    {nights} nuit{nights > 1 ? 's' : ''}
-                                </span>
-                                <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
-                                    {searchParams.rooms.reduce((s, r) => s + r.adults, 0)} adulte{searchParams.rooms.reduce((s, r) => s + r.adults, 0) > 1 ? 's' : ''}
-                                </span>
-                                {searchParams.rooms.reduce((s, r) => s + r.children.length, 0) > 0 && (
-                                    <span className="px-2 py-1 bg-pink-100 text-pink-700 rounded-full text-xs font-semibold">
-                                        {searchParams.rooms.reduce((s, r) => s + r.children.length, 0)} enfant{searchParams.rooms.reduce((s, r) => s + r.children.length, 0) > 1 ? 's' : ''}
-                                    </span>
-                                )}
-                                {pricingData && (
-                                    <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
-                                        Prix chargés ✓
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                        <button
-                            onClick={() => setShowDatePicker(!showDatePicker)}
-                            className="px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-xl transition-all shadow-md flex items-center gap-2"
-                        >
-                            <Calendar size={20}/>
-                            Modifier les dates
-                        </button>
-                    </div>
-
-                    {/* Expanded date + rooms picker */}
-                    {showDatePicker && (
-                        <div className="mt-4 p-4 sm:p-6 bg-gradient-to-br from-sky-50 to-blue-50 rounded-xl border-2 border-sky-200 shadow-inner">
-
-                            {/* Selected dates summary */}
-                            <div className="mb-4 p-3 bg-white rounded-lg border-2 border-sky-200 flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    <div>
-                                        <span className="text-xs text-gray-500 block">Date d'arrivée</span>
-                                        <span className="text-sm font-bold text-gray-800">{formatDate(tempSearchParams.checkIn)}</span>
-                                    </div>
-                                    <span className="text-gray-400">→</span>
-                                    <div>
-                                        <span className="text-xs text-gray-500 block">Date de départ</span>
-                                        <span className="text-sm font-bold text-gray-800">{formatDate(tempSearchParams.checkOut)}</span>
-                                    </div>
-                                </div>
-                                <div className="px-3 py-1 bg-sky-100 text-sky-700 rounded-full text-xs font-semibold">
-                                    {Math.ceil(
-                                        (new Date(tempSearchParams.checkOut) - new Date(tempSearchParams.checkIn))
-                                        / (1000 * 60 * 60 * 24)
-                                    )} nuits
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col lg:flex-row gap-4 mb-6">
-                                {/* Calendar */}
-                                <div className="w-full lg:w-1/3">
-                                    <label className="block text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                        <Calendar size={18} className="text-sky-600"/>
-                                        Sélectionnez vos dates
-                                    </label>
-                                    <div className="bg-white rounded-xl p-4 border-2 border-gray-200 shadow-sm">
-                                        <div className="flex items-center justify-between mb-3 px-2">
-                                            <button
-                                                onClick={() => {
-                                                    const m = new Date(currentMonth);
-                                                    m.setMonth(m.getMonth() - 1);
-                                                    setCurrentMonth(m);
-                                                }}
-                                                className="w-10 h-10 flex items-center justify-center rounded-lg border-2 border-gray-300 hover:border-sky-500 hover:bg-sky-50 text-sky-600 font-bold text-xl transition-all"
-                                                aria-label="Mois précédent"
-                                            >‹</button>
-                                            <div className="text-center font-bold text-gray-800 capitalize">
-                                                {currentMonth.toLocaleDateString('fr-FR', {month: 'long', year: 'numeric'})}
-                                            </div>
-                                            <button
-                                                onClick={() => {
-                                                    const m = new Date(currentMonth);
-                                                    m.setMonth(m.getMonth() + 1);
-                                                    setCurrentMonth(m);
-                                                }}
-                                                className="w-10 h-10 flex items-center justify-center rounded-lg border-2 border-gray-300 hover:border-sky-500 hover:bg-sky-50 text-sky-600 font-bold text-xl transition-all"
-                                                aria-label="Mois suivant"
-                                            >›</button>
-                                        </div>
-                                        <DayPicker
-                                            mode="range"
-                                            selected={dateRange}
-                                            onSelect={handleDateRangeSelect}
-                                            disabled={date => {
-                                                const today = new Date();
-                                                today.setHours(0, 0, 0, 0);
-                                                return date < today;
-                                            }}
-                                            month={currentMonth}
-                                            onMonthChange={setCurrentMonth}
-                                            numberOfMonths={1}
-                                            className="custom-day-picker"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Rooms & Guests */}
-                                <div className="w-full lg:w-2/3">
-                                    <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                        <Users size={18} className="text-sky-600"/>
-                                        Chambres et voyageurs
-                                    </h4>
-                                    <div className="space-y-3 max-h-[450px] overflow-y-auto filter-scroll pr-2">
-                                        {tempSearchParams.rooms.map((room, index) => (
-                                            <div key={index} className="p-3 bg-white rounded-xl border-2 border-gray-200 shadow-sm hover:border-sky-300 transition-all">
-                                                <div className="flex items-center justify-between mb-3">
-                                                    <span className="text-xs font-bold text-gray-800 flex items-center gap-1">
-                                                        <Hotel size={14} className="text-gray-600"/>
-                                                        Chambre {index + 1}
-                                                    </span>
-                                                    {tempSearchParams.rooms.length > 1 && (
-                                                        <button
-                                                            onClick={() => handleRemoveRoom(index)}
-                                                            className="p-1 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                            title="Supprimer la chambre"
-                                                        >
-                                                            <IoTrashOutline size={16}/>
-                                                        </button>
-                                                    )}
-                                                </div>
-
-                                                {/* Adults */}
-                                                <div className="mb-3">
-                                                    <label className="text-xs text-gray-600 font-semibold mb-1.5 block uppercase tracking-wide">Adultes</label>
-                                                    <div className="flex items-center gap-2">
-                                                        <button
-                                                            onClick={() => handleUpdateRoomAdults(index, room.adults - 1)}
-                                                            disabled={room.adults <= 1}
-                                                            className="w-8 h-8 flex items-center justify-center rounded-lg border-2 border-gray-300 hover:border-sky-500 hover:bg-sky-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all font-bold text-base"
-                                                        >−</button>
-                                                        <input
-                                                            type="number" min={1} max={6}
-                                                            value={room.adults}
-                                                            onChange={e => handleUpdateRoomAdults(index, e.target.value)}
-                                                            className="w-16 px-2 py-1.5 border-2 border-gray-300 rounded-lg text-center font-bold text-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-200 transition-all"
-                                                        />
-                                                        <button
-                                                            onClick={() => handleUpdateRoomAdults(index, room.adults + 1)}
-                                                            disabled={room.adults >= 6}
-                                                            className="w-8 h-8 flex items-center justify-center rounded-lg border-2 border-gray-300 hover:border-sky-500 hover:bg-sky-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all font-bold text-base"
-                                                        >+</button>
-                                                        <span className="text-xs text-gray-600 ml-1 font-medium">
-                                                            adulte{room.adults > 1 ? 's' : ''}
-                                                        </span>
-                                                    </div>
-                                                </div>
-
-                                                {/* Children */}
-                                                <div>
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <label className="text-xs text-gray-600 font-semibold uppercase tracking-wide">Enfants (1–11 ans)</label>
-                                                        <button
-                                                            onClick={() => handleAddChild(index)}
-                                                            disabled={room.children.length >= 4}
-                                                            className="text-xs text-sky-600 hover:text-sky-700 font-bold flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed px-2 py-1 bg-sky-50 hover:bg-sky-100 rounded-lg transition-all"
-                                                        >
-                                                            <IoAddOutline size={14}/>
-                                                            Ajouter
-                                                        </button>
-                                                    </div>
-                                                    {room.children.length === 0 ? (
-                                                        <p className="text-xs text-gray-400 italic py-2 text-center bg-gray-50 rounded-lg">Aucun enfant</p>
-                                                    ) : (
-                                                        <div className="space-y-2">
-                                                            {room.children.map((childAge, childIndex) => (
-                                                                <div key={childIndex} className="flex items-center gap-2 p-2 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border border-gray-200">
-                                                                    <span className="text-xs text-gray-700 font-semibold min-w-[60px]">Enfant {childIndex + 1}</span>
-                                                                    <select
-                                                                        value={childAge}
-                                                                        onChange={e => handleUpdateChildAge(index, childIndex, e.target.value)}
-                                                                        className="flex-1 px-2 py-1.5 border-2 border-gray-300 rounded-lg text-xs font-semibold focus:border-sky-500 focus:ring-2 focus:ring-sky-200 transition-all bg-white"
-                                                                    >
-                                                                        {[...Array(11)].map((_, i) => (
-                                                                            <option key={i + 1} value={i + 1}>
-                                                                                {i + 1} an{i + 1 > 1 ? 's' : ''}
-                                                                            </option>
-                                                                        ))}
-                                                                    </select>
-                                                                    <button
-                                                                        onClick={() => handleRemoveChild(index, childIndex)}
-                                                                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                                        title="Supprimer l'enfant"
-                                                                    >
-                                                                        <X size={14}/>
-                                                                    </button>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    {tempSearchParams.rooms.length < 5 && (
-                                        <button
-                                            onClick={handleAddRoom}
-                                            className="w-full mt-3 py-2.5 px-4 border-2 border-dashed border-sky-400 hover:border-sky-600 text-sky-600 hover:bg-sky-50 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all"
-                                        >
-                                            <IoAddOutline size={18}/>
-                                            Ajouter une chambre
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Action buttons */}
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={handleSearchPricing}
-                                    disabled={!tempSearchParams.checkIn || !tempSearchParams.checkOut || isLoadingPricing}
-                                    className="flex-1 px-6 py-3.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-gray-300 disabled:to-gray-400 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl disabled:cursor-not-allowed"
-                                >
-                                    {isLoadingPricing ? (
-                                        <><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"/>Recherche...</>
-                                    ) : (
-                                        <><RefreshCw size={20}/>Actualiser les prix</>
-                                    )}
-                                </button>
-                                <button
-                                    onClick={() => setShowDatePicker(false)}
-                                    className="px-6 py-3.5 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded-xl transition-all"
-                                >
-                                    Fermer
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
+                <DateRoomsPickerBanner
+                    searchParams={searchParams}
+                    nights={nights}
+                    pricingData={pricingData}
+                    showDatePicker={showDatePicker}
+                    tempSearchParams={tempSearchParams}
+                    dateRange={dateRange}
+                    currentMonth={currentMonth}
+                    isLoadingPricing={isLoadingPricing}
+                    onOpen={() => {
+                        if (!showDatePicker) {
+                            setTempSearchParams(searchParams);
+                            setDateRange({
+                                from: searchParams.checkIn ? new Date(searchParams.checkIn) : undefined,
+                                to: searchParams.checkOut ? new Date(searchParams.checkOut) : undefined,
+                            });
+                            if (searchParams.checkIn) {
+                                setCurrentMonth(new Date(searchParams.checkIn));
+                            }
+                        }
+                        setShowDatePicker(!showDatePicker);
+                    }}
+                    onClose={() => setShowDatePicker(false)}
+                    onMonthChange={setCurrentMonth}
+                    onDateSelect={handleDateRangeSelect}
+                    onSearch={handleSearchPricing}
+                    onAddRoom={handleAddRoom}
+                    onRemoveRoom={handleRemoveRoom}
+                    onUpdateAdults={handleUpdateRoomAdults}
+                    onAddChild={handleAddChild}
+                    onRemoveChild={handleRemoveChild}
+                    onUpdateChildAge={handleUpdateChildAge}
+                    formatDate={formatDate}
+                />
 
                 {/* Pricing error */}
                 {isErrorPricing && (
@@ -745,7 +533,7 @@ function HotelsPerCityPage() {
                             </div>
                             <button
                                 onClick={handleSearchPricing}
-                                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-all"
+                                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-all focus:outline-none focus:ring-4 focus:ring-red-200"
                             >
                                 Réessayer
                             </button>
@@ -754,17 +542,17 @@ function HotelsPerCityPage() {
                 )}
 
                 {/* Top Bar */}
-                <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-3 sm:p-4 mb-4 sm:mb-6 sticky top-16 sm:top-20 lg:top-4 z-40">
+                <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-100 p-3 sm:p-4 mb-4 sm:mb-6 sticky top-16 sm:top-20 lg:top-4 z-40">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
                         <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
-                            <div className="p-1.5 sm:p-2 bg-sky-100 rounded-lg flex-shrink-0">
+                            <div className="p-1.5 sm:p-2 bg-sky-50 border border-sky-100 rounded-xl flex-shrink-0">
                                 <Hotel className="text-sky-600" size={20}/>
                             </div>
                             <div className="min-w-0 flex-1">
-                                <p className="text-xs sm:text-sm text-gray-500">Résultats trouvés</p>
-                                <p className="text-base sm:text-lg lg:text-xl font-bold text-gray-800 truncate">
+                                <p className="text-xs sm:text-sm text-gray-500 font-medium">Résultats trouvés</p>
+                                <p className="text-base sm:text-lg lg:text-xl font-extrabold text-gray-800 truncate">
                                     {sortedHotels.length} hôtel{sortedHotels.length > 1 ? 's' : ''}
-                                    <span className="text-xs sm:text-sm text-gray-500 font-normal ml-1 sm:ml-2">
+                                    <span className="text-xs sm:text-sm text-gray-400 font-medium ml-1 sm:ml-2">
                                         ({displayedHotels.length} affichés)
                                     </span>
                                 </p>
@@ -773,7 +561,7 @@ function HotelsPerCityPage() {
                         <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full sm:w-auto">
                             <button
                                 onClick={() => setShowFilters(!showFilters)}
-                                className="lg:hidden flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-sm sm:text-base font-semibold rounded-lg sm:rounded-xl transition-all shadow-md active:scale-95 flex-1 sm:flex-initial justify-center"
+                                className="lg:hidden flex items-center gap-1.5 sm:gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:border-sky-300 hover:bg-sky-50 text-gray-700 hover:text-sky-700 text-sm sm:text-base font-bold rounded-xl transition-all shadow-sm active:scale-95 flex-1 sm:flex-initial justify-center focus:outline-none focus:ring-4 focus:ring-sky-100"
                             >
                                 <Filter size={18}/>
                                 <span className="hidden xs:inline">Filtres</span>
@@ -782,7 +570,7 @@ function HotelsPerCityPage() {
                                 <select
                                     value={sortBy}
                                     onChange={e => setSortBy(e.target.value)}
-                                    className="appearance-none w-full pl-3 sm:pl-4 pr-8 sm:pr-10 py-2 sm:py-2.5 bg-white border-2 border-gray-200 rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold text-gray-700 hover:border-sky-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 transition-all cursor-pointer"
+                                    className="appearance-none w-full pl-3 sm:pl-4 pr-8 sm:pr-10 py-2.5 bg-white border border-gray-200 shadow-sm rounded-xl text-xs sm:text-sm font-bold text-gray-700 hover:border-sky-300 hover:shadow-md focus:outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100 transition-all cursor-pointer"
                                 >
                                     {sortOptions.map(o => (
                                         <option key={o.value} value={o.value} disabled={o.disabled}>
@@ -790,7 +578,7 @@ function HotelsPerCityPage() {
                                         </option>
                                     ))}
                                 </select>
-                                <ArrowUpDown size={16} className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>
+                                <ArrowUpDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>
                             </div>
                         </div>
                     </div>
@@ -814,15 +602,15 @@ function HotelsPerCityPage() {
                     <main className="lg:col-span-9 xl:col-span-3">
 
                         {isErrorAll && (
-                            <div className="bg-white rounded-xl sm:rounded-2xl shadow-xl p-6 sm:p-8 lg:p-12 text-center">
+                            <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 lg:p-12 text-center border border-gray-100">
                                 <AlertCircle size={48} className="sm:w-16 sm:h-16 mx-auto text-red-500 mb-3 sm:mb-4"/>
-                                <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2 sm:mb-3">Erreur de chargement</h3>
+                                <h3 className="text-xl sm:text-2xl font-extrabold text-gray-800 mb-2 sm:mb-3">Erreur de chargement</h3>
                                 <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 px-4">
                                     {errorAll?.message ?? 'Impossible de charger les hôtels. Veuillez réessayer.'}
                                 </p>
                                 <button
                                     onClick={() => window.location.reload()}
-                                    className="px-5 sm:px-6 py-2.5 sm:py-3 bg-sky-600 hover:bg-sky-700 text-white text-sm sm:text-base font-semibold rounded-lg sm:rounded-xl transition-all shadow-lg active:scale-95"
+                                    className="px-5 sm:px-6 py-2.5 sm:py-3 bg-sky-600 hover:bg-sky-700 text-white text-sm sm:text-base font-bold rounded-xl transition-all shadow-lg active:scale-95 focus:outline-none focus:ring-4 focus:ring-sky-200"
                                 >
                                     Réessayer
                                 </button>
@@ -830,15 +618,15 @@ function HotelsPerCityPage() {
                         )}
 
                         {!isLoadingAll && !isErrorAll && sortedHotels.length === 0 && (
-                            <div className="bg-white rounded-xl sm:rounded-2xl shadow-xl p-6 sm:p-8 lg:p-12 text-center">
+                            <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 lg:p-12 text-center border border-gray-100">
                                 <Search size={48} className="sm:w-16 sm:h-16 mx-auto text-gray-300 mb-3 sm:mb-4"/>
-                                <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2 sm:mb-3">Aucun hôtel trouvé</h3>
+                                <h3 className="text-xl sm:text-2xl font-extrabold text-gray-800 mb-2 sm:mb-3">Aucun hôtel trouvé</h3>
                                 <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 px-4">
                                     Essayez de modifier vos filtres ou critères de recherche.
                                 </p>
                                 <button
                                     onClick={() => setFilters({})}
-                                    className="px-5 sm:px-6 py-2.5 sm:py-3 bg-orange-500 hover:bg-orange-600 text-white text-sm sm:text-base font-semibold rounded-lg sm:rounded-xl transition-all shadow-lg active:scale-95"
+                                    className="px-5 sm:px-6 py-2.5 sm:py-3 bg-orange-500 hover:bg-orange-600 text-white text-sm sm:text-base font-bold rounded-xl transition-all shadow-lg active:scale-95 focus:outline-none focus:ring-4 focus:ring-orange-200"
                                 >
                                     Réinitialiser les filtres
                                 </button>
@@ -853,12 +641,12 @@ function HotelsPerCityPage() {
 
                         {hasNextPage && (
                             <div ref={loadMoreRef} className="mt-6 sm:mt-8">
-                                <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg flex justify-center p-4">
+                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex justify-center p-4">
                                     <button
                                         onClick={loadMore}
-                                        className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-sky-600 hover:bg-sky-700 text-white font-bold text-base sm:text-lg rounded-lg sm:rounded-xl transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 active:scale-95"
+                                        className="w-full sm:w-auto px-6 sm:px-8 py-3.5 bg-sky-50 text-sky-700 hover:bg-sky-100 font-bold text-sm sm:text-base rounded-xl transition-all flex items-center justify-center gap-2 active:scale-95 focus:outline-none focus:ring-4 focus:ring-sky-100"
                                     >
-                                        <ChevronDown size={20} className="sm:w-6 sm:h-6"/>
+                                        <ChevronDown size={20} className="sm:w-5 sm:h-5"/>
                                         Charger plus d'hôtels
                                     </button>
                                 </div>
@@ -867,11 +655,13 @@ function HotelsPerCityPage() {
 
                         {!hasNextPage && displayedHotels.length > 0 && (
                             <div className="text-center py-6 sm:py-8 mt-4 sm:mt-6">
-                                <div className="inline-flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-lg sm:rounded-xl shadow-md max-w-full mx-2">
-                                    <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 flex-shrink-0"/>
+                                <div className="inline-flex items-center gap-3 px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl shadow-sm max-w-full mx-2">
+                                    <div className="p-2 bg-green-100 rounded-full flex-shrink-0">
+                                        <CheckCircle className="w-5 h-5 text-green-600"/>
+                                    </div>
                                     <div className="text-left">
-                                        <p className="text-gray-800 font-bold text-sm sm:text-base lg:text-lg">Tous les hôtels affichés !</p>
-                                        <p className="text-gray-600 text-xs sm:text-sm">
+                                        <p className="text-gray-800 font-extrabold text-sm sm:text-base">Tous les hôtels affichés !</p>
+                                        <p className="text-gray-600 text-xs sm:text-sm font-medium">
                                             Vous avez vu les {sortedHotels.length} hôtel{sortedHotels.length > 1 ? 's' : ''} disponible{sortedHotels.length > 1 ? 's' : ''}
                                         </p>
                                     </div>
@@ -885,14 +675,14 @@ function HotelsPerCityPage() {
             {/* Mobile Filters Modal */}
             {showFilters && (
                 <div className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end animate-fade-in">
-                    <div className="bg-white rounded-t-2xl sm:rounded-t-3xl w-full max-h-[85vh] sm:max-h-[90vh] overflow-hidden flex flex-col animate-slide-up shadow-2xl">
-                        <div className="sticky top-0 bg-white border-b-2 border-gray-100 p-4 sm:p-5 flex items-center justify-between z-10 shadow-sm">
-                            <h3 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <div className="bg-white rounded-t-3xl w-full max-h-[85vh] sm:max-h-[90vh] overflow-hidden flex flex-col animate-slide-up shadow-2xl">
+                        <div className="sticky top-0 bg-white border-b border-gray-100 p-4 sm:p-5 flex items-center justify-between z-10 shadow-sm">
+                            <h3 className="text-lg sm:text-xl font-extrabold text-gray-800 flex items-center gap-2">
                                 <Filter size={22} className="text-sky-600"/>
                                 Filtres
                             </h3>
-                            <button onClick={() => setShowFilters(false)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors active:scale-95">
-                                <X size={24} className="text-gray-600"/>
+                            <button onClick={() => setShowFilters(false)} className="p-2 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl transition-colors active:scale-95 focus:outline-none focus:ring-4 focus:ring-gray-200">
+                                <X size={20}/>
                             </button>
                         </div>
                         <div className="flex-1 overflow-y-auto filter-scroll p-4 sm:p-5">
@@ -902,14 +692,14 @@ function HotelsPerCityPage() {
                                 showPriceFilter={!!pricingData}
                             />
                         </div>
-                        <div className="sticky bottom-0 bg-white border-t-2 border-gray-100 p-4 sm:p-5 flex gap-3 shadow-lg">
+                        <div className="sticky bottom-0 bg-white border-t border-gray-100 p-4 sm:p-5 flex gap-3 shadow-lg">
                             <button
                                 onClick={() => { setFilters({}); setShowFilters(false); }}
-                                className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-all active:scale-95"
+                                className="flex-1 px-4 py-3.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 font-bold rounded-xl transition-all active:scale-95 focus:outline-none focus:ring-4 focus:ring-gray-200"
                             >Réinitialiser</button>
                             <button
                                 onClick={() => setShowFilters(false)}
-                                className="flex-1 px-4 py-3 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-xl transition-all shadow-md active:scale-95"
+                                className="flex-1 px-4 py-3.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl transition-all shadow-md active:scale-95 focus:outline-none focus:ring-4 focus:ring-sky-200"
                             >Appliquer</button>
                         </div>
                     </div>
@@ -919,7 +709,7 @@ function HotelsPerCityPage() {
             {/* Pricing loading overlay */}
             {isLoadingPricing && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-                    <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-md mx-4">
+                    <div className="bg-white rounded-3xl p-8 shadow-2xl max-w-md mx-4">
                         <Loader
                             message="Recherche des prix et disponibilités..."
                             submessage={`Pour ${sortedHotels.length} hôtels sur ${nights} nuit${nights > 1 ? 's' : ''}`}
@@ -935,15 +725,15 @@ function HotelsPerCityPage() {
                 .custom-day-picker { --rdp-accent-color: #0284c7; --rdp-background-color: #e0f2fe; font-family: inherit; }
                 .custom-day-picker .rdp-month { margin: 0; }
                 .custom-day-picker .rdp-nav { display: none !important; }
-                .custom-day-picker .rdp-caption { display: flex; justify-content: center; padding: 0.5rem 1rem !important; font-weight: 700; font-size: 1rem; color: #1f2937; }
-                .custom-day-picker .rdp-head_cell { font-weight: 600; font-size: 0.875rem; color: #6b7280; text-transform: uppercase; padding: 0.5rem; }
-                .custom-day-picker .rdp-day { width: 2.5rem; height: 2.5rem; border-radius: 0.5rem; font-weight: 600; transition: all 0.2s; cursor: pointer; }
-                .custom-day-picker .rdp-day:hover:not(:disabled):not(.rdp-day_selected) { background: #e0f2fe; color: #0284c7; }
-                .custom-day-picker .rdp-day_selected { background: #0284c7; color: white; font-weight: 700; }
+                .custom-day-picker .rdp-caption { display: flex; justify-content: center; padding: 0.5rem 1rem !important; font-weight: 800; font-size: 1rem; color: #1f2937; }
+                .custom-day-picker .rdp-head_cell { font-weight: 700; font-size: 0.875rem; color: #6b7280; text-transform: uppercase; padding: 0.5rem; }
+                .custom-day-picker .rdp-day { width: 2.5rem; height: 2.5rem; border-radius: 0.75rem; font-weight: 700; transition: all 0.2s; cursor: pointer; border: 2px solid transparent; }
+                .custom-day-picker .rdp-day:hover:not(:disabled):not(.rdp-day_selected) { background: #e0f2fe; color: #0284c7; border-color: #bae6fd; }
+                .custom-day-picker .rdp-day_selected { background: #0284c7; color: white; font-weight: 800; box-shadow: 0 4px 6px -1px rgba(2, 132, 199, 0.2); }
                 .custom-day-picker .rdp-day_selected:hover { background: #0369a1; }
-                .custom-day-picker .rdp-day_range_middle { background: #e0f2fe; color: #0284c7; }
+                .custom-day-picker .rdp-day_range_middle { background: #e0f2fe; color: #0284c7; border-radius: 0; border: none; box-shadow: none; }
                 .custom-day-picker .rdp-day_disabled { opacity: 0.3; cursor: not-allowed; }
-                .custom-day-picker .rdp-day_today:not(.rdp-day_selected) { font-weight: 700; color: #0ea5e9; background: #f0f9ff; }
+                .custom-day-picker .rdp-day_today:not(.rdp-day_selected) { font-weight: 800; color: #0ea5e9; background: #f0f9ff; border-color: #e0f2fe; }
                 .custom-day-picker .rdp-months { margin: 0 auto; }
                 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
                 @keyframes slide-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
