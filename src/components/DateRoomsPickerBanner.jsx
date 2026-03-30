@@ -74,7 +74,7 @@ export default function DateRoomsPickerBanner({
 
             {/* Expanded date + rooms picker */}
             {showDatePicker && (
-                <div className="mt-4 p-6 sm:p-8 bg-gradient-to-br from-sky-50 to-blue-50 rounded-3xl border border-sky-100 shadow-lg">
+                <div className="mt-4 p-6 sm:p-8 bg-linear-to-br from-sky-50 to-blue-50 rounded-3xl border border-sky-100 shadow-lg">
 
                     {/* Selected dates summary */}
                     <div className="mb-6 p-5 bg-white rounded-2xl border border-sky-100 shadow-md flex items-center justify-between">
@@ -102,7 +102,7 @@ export default function DateRoomsPickerBanner({
                     <div className="flex flex-col lg:flex-row gap-8 mb-8">
                         {/* Calendar */}
                         <div className="w-full lg:w-1/3">
-                            <label className="block text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <label className="flex text-sm font-bold text-slate-800 mb-4 items-center gap-2">
                                 <Calendar size={18} className="text-sky-700"/>
                                 Sélectionnez vos dates
                             </label>
@@ -114,7 +114,7 @@ export default function DateRoomsPickerBanner({
                                             m.setMonth(m.getMonth() - 1);
                                             onMonthChange(m);
                                         }}
-                                        className="w-10 h-10 flex items-center justify-center rounded-full border border-gray-200 hover:border-sky-400 hover:bg-sky-50 hover:text-sky-600 text-gray-600 font-bold text-xl transition-all duration-200 ease-in-out shadow-md focus:ring-4 focus:ring-sky-100 outline-none"
+                                        className="w-10 h-10 flex items-center justify-center rounded-full border border-gray-200 hover:border-orange-400 hover:bg-orange-50 text-gray-600 font-bold text-xl transition-all duration-200 ease-in-out shadow-md focus:ring-4 focus:ring-orange-100 outline-none"
                                         aria-label="Mois précédent"
                                     >‹</button>
                                     <div className="text-center font-extrabold text-slate-800 capitalize">
@@ -126,10 +126,36 @@ export default function DateRoomsPickerBanner({
                                             m.setMonth(m.getMonth() + 1);
                                             onMonthChange(m);
                                         }}
-                                        className="w-10 h-10 flex items-center justify-center rounded-full border border-gray-200 hover:border-sky-400 hover:bg-sky-50 hover:text-sky-600 text-gray-600 font-bold text-xl transition-all duration-200 ease-in-out shadow-md focus:ring-4 focus:ring-sky-100 outline-none"
+                                        className="w-10 h-10 flex items-center justify-center rounded-full border border-gray-200 hover:border-orange-400 hover:bg-orange-50 text-gray-600 font-bold text-xl transition-all duration-200 ease-in-out shadow-md focus:ring-4 focus:ring-orange-100 outline-none"
                                         aria-label="Mois suivant"
                                     >›</button>
                                 </div>
+                                <style>
+                                    {`
+                                    .custom-day-picker .rdp-day_selected,
+                                    .custom-day-picker .rdp-day_selected:focus-visible,
+                                    .custom-day-picker .rdp-day_selected:hover,
+                                    .custom-day-picker .rdp-day:hover .rdp-day_button {
+                                        background-color: #ea580c !important; /* bg-orange-600 */
+                                        color: white !important;
+                                    }
+                                    .custom-day-picker .rdp-day_selected.rdp-day_range_middle {
+                                        background-color: #ffedd5 !important; /* bg-orange-100 */
+                                        color: #c2410c !important; /* text-orange-800 */
+                                    }
+                                    .custom-day-picker .rdp-chevron {
+                                        fill: #ea580c; /* orange-600 */
+                                    }
+                                    .custom-day-picker .rdp-range_start .rdp-day_button{
+                                         background-color: #ea580c;
+                                         border-color: #ea580c;
+                                    }
+                                    .custom-day-picker .rdp-range_end .rdp-day_button{
+                                         background-color: #ea580c;
+                                         border-color: #ea580c;
+                                    }
+                                    `}
+                                </style>
                                 <DayPicker
                                     mode="range"
                                     selected={dateRange}
@@ -153,7 +179,7 @@ export default function DateRoomsPickerBanner({
                                 <Users size={18} className="text-sky-600"/>
                                 Chambres et voyageurs
                             </h4>
-                            <div className="space-y-5 max-h-[450px] overflow-y-auto filter-scroll pr-3">
+                            <div className="space-y-5 max-h-112.5 overflow-y-auto filter-scroll pr-3">
                                 {tempSearchParams.rooms.map((room, index) => (
                                     <div key={index} className="p-5 sm:p-6 bg-white rounded-3xl border border-gray-100 shadow-md hover:shadow-lg transition-all duration-200 ease-in-out">
                                         <div className="flex items-center justify-between mb-5 border-b border-gray-100 pb-4">
@@ -275,7 +301,7 @@ export default function DateRoomsPickerBanner({
                         <button
                             onClick={onSearch}
                             disabled={!tempSearchParams.checkIn || !tempSearchParams.checkOut || isLoadingPricing}
-                            className="flex-1 px-6 py-3.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-gray-300 disabled:to-gray-400 text-white font-bold rounded-2xl transition-all duration-200 ease-in-out flex items-center justify-center gap-2 shadow-xl hover:shadow-2xl disabled:cursor-not-allowed focus:outline-none focus:ring-4 focus:ring-orange-200"
+                            className="flex-1 px-6 py-3.5 bg-linear-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-gray-300 disabled:to-gray-400 text-white font-bold rounded-2xl transition-all duration-200 ease-in-out flex items-center justify-center gap-2 shadow-xl hover:shadow-2xl disabled:cursor-not-allowed focus:outline-none focus:ring-4 focus:ring-orange-200"
                         >
                             {isLoadingPricing ? (
                                 <><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"/>Recherche...</>
