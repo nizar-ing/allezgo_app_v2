@@ -1,22 +1,27 @@
 import { useState, useCallback } from "react";
 import {
     User, Mail, Phone, MapPin,
-    Calendar, CreditCard, Building2,
-    Home, ChevronRight, AlertCircle, Baby,
+    CreditCard, Building2,
+    Home, ChevronRight, AlertCircle, Baby, UploadCloud,
 } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const PAYMENT_METHODS = [
-    { id: "online", label: "Paiement en ligne",   icon: CreditCard },
     { id: "agency", label: "Paiement à l'agence", icon: Building2  },
     { id: "home",   label: "Paiement par virement bancaire", icon: Home       },
+    { id: "online", label: "Paiement en ligne",   icon: CreditCard },
+];
+
+const BANK_ACCOUNTS = [
+    { id: "baridi", name: "BaridiMob", details: "00799999001822490138", icon: "/images/icons/baridiMob.jpg" },
+    { id: "bdl",    name: "BDL",       details: "005 003260000002617",  icon: "/images/icons/bdl.jpg" },
 ];
 
 // ─── Local sub-components ─────────────────────────────────────────────────────
 function SectionHeader({ number, title, subtitle, gradient = "from-sky-500 to-blue-600" }) {
     return (
         <div className="flex items-start gap-3 mb-5">
-            <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${gradient} text-white flex items-center justify-center shrink-0 font-extrabold text-sm shadow-md mt-0.5`}>
+            <div className={`w-8 h-8 rounded-xl bg-linear-to-br ${gradient} text-white flex items-center justify-center shrink-0 font-extrabold text-sm shadow-md mt-0.5`}>
                 {number}
             </div>
             <div>
@@ -95,6 +100,8 @@ export default function GuestInfoForm({ bookingState, onSubmit }) {
             };
         }),
         paymentMethod: "agency",
+        selectedBank: null,
+        receiptFile: null,
     }));
 
     const [errors, setErrors] = useState({});
@@ -196,6 +203,16 @@ export default function GuestInfoForm({ bookingState, onSubmit }) {
             });
         });
 
+        // Payment validation
+        if (formData.paymentMethod === 'home') {
+             if (!formData.selectedBank) {
+                 errs["payment.selectedBank"] = "Veuillez sélectionner un compte bancaire";
+             }
+             if (!formData.receiptFile) {
+                 errs["payment.receiptFile"] = "Veuillez télécharger la preuve de paiement";
+             }
+        }
+
         return errs;
     }, [formData]);
 
@@ -212,6 +229,86 @@ export default function GuestInfoForm({ bookingState, onSubmit }) {
         }
         onSubmit(formData);
     }, [validate, formData, onSubmit]);
+
+    const renderPaymentDetails = () => {
+        switch (formData.paymentMethod) {
+            case 'agency':
+                return (
+                    <div className="mt-4 p-5 bg-sky-50 border border-sky-200 rounded-xl">
+                        <h4 className="text-sm font-bold text-sky-800 mb-3">Rendez-vous à notre agence</h4>
+                        <div className="space-y-2 text-sm text-sky-700">
+                            <p className="flex items-center gap-2">
+                                <MapPin size={16} className="shrink-0" />
+                                <strong>Adresse:</strong> Cite El moustakbel Ain Beida, OEB (Oum Al Bouaghi)
+                            </p>
+                            <p className="flex items-center gap-2">
+                                <Phone size={16} className="shrink-0" />
+                                <strong>Téléphones:</strong> 0770932563 / 0670230235
+                            </p>
+                        </div>
+                    </div>
+                );
+            case 'home':
+                return (
+                    <div className="mt-4 p-5 bg-gray-50 border border-dashed border-gray-200 rounded-xl">
+                        <h4 className="text-sm font-bold text-gray-800 mb-4">Choisissez un compte pour le virement</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                            {BANK_ACCOUNTS.map(bank => (
+                                <label key={bank.id} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${formData.selectedBank === bank.id ?
+                                    'bg-white border-orange-500 ring-2 ring-orange-200' : 'bg-white border-gray-200 hover:border-orange-300'}`}>
+                                    <input
+                                        type="radio"
+                                        name="bank-account"
+                                        className="sr-only"
+                                        onChange={() => {
+                                            setFormData(p => ({ ...p, selectedBank: bank.id }));
+                                            clearError('payment.selectedBank');
+                                        }}
+                                    />
+                                    <img src={bank.icon} alt={bank.name} className="w-10 h-10 rounded-lg object-cover" />
+                                    <div>
+                                        <p className="font-bold text-sm text-gray-800">{bank.name}</p>
+                                        <p className="text-xs text-gray-500 font-mono">{bank.details}</p>
+                                    </div>
+                                </label>
+                            ))}
+                        </div>
+                        {errors["payment.selectedBank"] && (
+                             <p className="field-error text-xs text-red-500 font-semibold flex items-center gap-1 mt-0.5 mb-4">
+                                <AlertCircle size={11} className="shrink-0" /> {errors["payment.selectedBank"]}
+                            </p>
+                        )}
+                        <Field label="Preuve de paiement" icon={UploadCloud} error={errors["payment.receiptFile"]}>
+                            <div className="relative">
+                                <input
+                                    type="file"
+                                    id="receipt-upload"
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                    onChange={(e) => {
+                                        setFormData(p => ({ ...p, receiptFile: e.target.files[0] }));
+                                        clearError('payment.receiptFile');
+                                    }}
+                                />
+                                <label htmlFor="receipt-upload" className={`flex items-center justify-center gap-2 w-full border-2 border-dashed rounded-xl px-4 py-3 text-sm font-medium transition-all cursor-pointer ${errors["payment.receiptFile"] ? 'border-red-300 text-red-500 hover:bg-red-50' : 'border-gray-300 text-gray-500 hover:border-orange-400 hover:bg-white hover:text-orange-600'}`}>
+                                    <UploadCloud size={16} />
+                                    {formData.receiptFile ? formData.receiptFile.name : 'Envoyer votre réçu de paiement'}
+                                </label>
+                            </div>
+                        </Field>
+                    </div>
+                );
+            case 'online':
+            default:
+                return (
+                    <div className="mt-4 p-5 bg-gray-50 border border-dashed border-gray-200 rounded-xl flex items-center justify-center gap-2.5">
+                        <div className="w-2 h-2 rounded-full bg-gray-300 animate-pulse" />
+                        <p className="text-sm text-gray-400 font-medium">
+                            Les détails de paiement seront disponibles prochainement.
+                        </p>
+                    </div>
+                );
+        }
+    };
 
     const errCount = Object.keys(errors).length;
 
@@ -290,8 +387,8 @@ export default function GuestInfoForm({ bookingState, onSubmit }) {
                         <div className="flex items-center gap-3 mb-5">
                             <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-extrabold text-sm shadow-md ${
                                 ri === 0
-                                    ? "bg-gradient-to-br from-emerald-400 to-teal-600 text-white"
-                                    : "bg-gradient-to-br from-teal-400 to-cyan-600 text-white"
+                                    ? "bg-linear-to-br from-emerald-400 to-teal-600 text-white"
+                                    : "bg-linear-to-br from-teal-400 to-cyan-600 text-white"
                             }`}>
                                 {ri + 1}
                             </div>
@@ -408,11 +505,15 @@ export default function GuestInfoForm({ bookingState, onSubmit }) {
                             <button
                                 key={id}
                                 type="button"
-                                onClick={() => setFormData((p) => ({ ...p, paymentMethod: id }))}
-                                className={`flex-1 flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-xl border-2 font-bold text-sm transition-all duration-200 ${
+                                onClick={() => {
+                                    setFormData((p) => ({ ...p, paymentMethod: id, selectedBank: null, receiptFile: null }));
+                                    clearError('payment.selectedBank');
+                                    clearError('payment.receiptFile');
+                                }}
+                                className={`flex-1 flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-xl border-2 font-bold text-sm transition-all duration-200 focus:outline-none focus:ring-2 ${
                                     isActive
-                                        ? "bg-orange-600 text-white border-transparent shadow-lg shadow-orange-200"
-                                        : "bg-white text-gray-600 border-gray-200 hover:border-orange-300 hover:text-sky-700 hover:bg-orange-50"
+                                        ? "bg-orange-600 text-white border-transparent shadow-lg shadow-orange-200 ring-orange-300"
+                                        : "bg-white text-gray-600 border-gray-200 hover:border-orange-300 hover:text-orange-700 hover:bg-orange-50 ring-orange-200"
                                 }`}
                             >
                                 <Icon size={16} className="shrink-0" />
@@ -421,12 +522,7 @@ export default function GuestInfoForm({ bookingState, onSubmit }) {
                         );
                     })}
                 </div>
-                <div className="mt-4 p-5 bg-gray-50 border border-dashed border-gray-200 rounded-xl flex items-center justify-center gap-2.5">
-                    <div className="w-2 h-2 rounded-full bg-gray-300 animate-pulse" />
-                    <p className="text-sm text-gray-400 font-medium">
-                        Les détails de paiement seront disponibles prochainement.
-                    </p>
-                </div>
+                {renderPaymentDetails()}
             </div>
 
             {/* ── Validation error banner ── */}
@@ -448,7 +544,7 @@ export default function GuestInfoForm({ bookingState, onSubmit }) {
             {/* ── Submit button ── */}
             <button
                 type="submit"
-                className="w-full flex items-center justify-center gap-2.5 py-4 bg-gradient-to-r from-orange-500 to-orange-700 hover:from-orange-600 hover:to-orange-800 text-white text-base font-extrabold rounded-2xl shadow-lg shadow-sky-200/60 transition-all active:scale-[0.98]"
+                className="w-full flex items-center justify-center gap-2.5 py-4 bg-linear-to-r from-orange-500 to-orange-700 hover:from-orange-600 hover:to-orange-800 text-white text-base font-extrabold rounded-2xl shadow-lg shadow-orange-200/60 transition-all active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-orange-300"
             >
                 Continuer vers la confirmation
                 <ChevronRight size={18} />
