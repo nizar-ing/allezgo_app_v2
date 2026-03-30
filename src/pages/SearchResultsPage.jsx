@@ -6,10 +6,11 @@ import {
     Search, Calendar, Users, Hotel, AlertCircle,
     ArrowLeft, ArrowUpDown, CheckCircle, ChevronDown, MapPin,
 } from "lucide-react";
-import toast            from "react-hot-toast";
-import apiClient        from "../services/ApiClient";
-import HotelLightCard   from "../components/HotelLightCard.jsx";
-import Loader           from "../ui/Loader.jsx";
+import toast from "react-hot-toast";
+import apiClient from "../services/ApiClient";
+import HotelLightCard from "../components/HotelLightCard.jsx";
+import DateRoomsPickerBanner from "../components/DateRoomsPickerBanner.jsx";
+import Loader from "../ui/Loader.jsx";
 
 // ── Country banner constants ───────────────────────────────────────────────────
 const COUNTRY_BANNERS = {
@@ -21,20 +22,20 @@ const FALLBACK_BANNER = "/images/tunisie_hotels.jpeg";
 const HOTELS_PER_PAGE = 15;
 
 function SearchResultsPage() {
-    const [searchParams] = useSearchParams();
-    const navigate       = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const navigate = useNavigate();
 
     // ── URL params ──────────────────────────────────────────────────────────────
     const selectionType = searchParams.get("selectionType");
-    const cityId        = searchParams.get("cityId");
-    const cityName      = searchParams.get("cityName");
-    const countryName   = searchParams.get("countryName");
-    const hotelId       = searchParams.get("hotelId");
-    const hotelName     = searchParams.get("hotelName");
-    const checkIn       = searchParams.get("checkIn");
-    const checkOut      = searchParams.get("checkOut");
-    const roomsParam    = searchParams.get("rooms");
-    const nightsParam   = searchParams.get("nights");
+    const cityId = searchParams.get("cityId");
+    const cityName = searchParams.get("cityName");
+    const countryName = searchParams.get("countryName");
+    const hotelId = searchParams.get("hotelId");
+    const hotelName = searchParams.get("hotelName");
+    const checkIn = searchParams.get("checkIn");
+    const checkOut = searchParams.get("checkOut");
+    const roomsParam = searchParams.get("rooms");
+    const nightsParam = searchParams.get("nights");
 
     const rooms = useMemo(() => {
         try {
@@ -54,8 +55,19 @@ function SearchResultsPage() {
 
     // ── State ───────────────────────────────────────────────────────────────────
     const [filters, setFilters] = useState({});
-    const [sortBy,  setSortBy]  = useState("recommended");
-    const loadMoreRef           = useRef(null);
+    const [sortBy, setSortBy] = useState("recommended");
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [currentMonth, setCurrentMonth] = useState(new Date());
+    const [tempSearchParams, setTempSearchParams] = useState({
+        checkIn,
+        checkOut,
+        rooms,
+    });
+    const [dateRange, setDateRange] = useState({
+        from: checkIn ? new Date(checkIn) : new Date(),
+        to: checkOut ? new Date(checkOut) : new Date(),
+    });
+    const loadMoreRef = useRef(null);
 
     // ── Guard redirect ──────────────────────────────────────────────────────────
     useEffect(() => {
@@ -67,13 +79,13 @@ function SearchResultsPage() {
 
     // ── Step 1: Fetch hotel list + details ──────────────────────────────────────
     const {
-        data:      hotelsData,
+        data: hotelsData,
         isLoading: isLoadingHotels,
-        isError:   isErrorHotels,
-        error:     errorHotels,
+        isError: isErrorHotels,
+        error: errorHotels,
     } = useQuery({
         queryKey: ["hotelDetails", cityId, hotelId, selectionType],
-        queryFn:  async () => {
+        queryFn: async () => {
             if (selectionType === "hotel") {
                 try {
                     const hotelDetail = await apiClient.getHotel(Number(hotelId));
@@ -81,7 +93,7 @@ function SearchResultsPage() {
                 } catch {
                     console.warn("getHotel failed, falling back to listHotel");
                     if (cityId) {
-                        const list   = await apiClient.listHotel(Number(cityId));
+                        const list = await apiClient.listHotel(Number(cityId));
                         const target = list.find((h) => h.Id === Number(hotelId));
                         if (target) return { hotels: [target], hotelIds: [Number(hotelId)] };
                     }
@@ -94,9 +106,9 @@ function SearchResultsPage() {
             }
             return { hotels: [], hotelIds: [] };
         },
-        enabled:   !!selectionType && !!(cityId || hotelId),
+        enabled: !!selectionType && !!(cityId || hotelId),
         staleTime: 5 * 60 * 1000,
-        retry:     2,
+        retry: 2,
     });
 
     const hotelsDetailsMap = useMemo(() => {
@@ -109,29 +121,25 @@ function SearchResultsPage() {
 
     // ── Step 2: Search hotels + pricing ────────────────────────────────────────
     const {
-        data:      searchResults,
+        data: searchResults,
         isLoading: isLoadingSearch,
-        isError:   isErrorSearch,
-        error:     errorSearch,
+        isError: isErrorSearch,
+        error: errorSearch,
     } = useQuery({
         queryKey: ["hotelSearch", hotelIds, checkIn, checkOut, rooms],
-        queryFn:  async () => {
+        queryFn: async () => {
             if (!hotelIds.length) throw new Error("Aucun hôtel à rechercher");
 
-            // FIX: Map rooms correctly to include Child Ages array instead of just count
             const result = await apiClient.searchHotel({
                 checkIn,
                 checkOut,
                 hotels: hotelIds,
-                rooms:  rooms.map((room) => ({
+                rooms: rooms.map((room) => ({
                     adult: room.adults,
-                    // Pass the actual age array. If children is an array of objects/numbers,
-                    // ensure we extract only the age value as expected by the API.
                     child: Array.isArray(room.children)
                         ? room.children.map(c => typeof c === 'object' ? (c.age ?? 5) : c)
                         : (typeof room.children === 'number' && room.children > 0 ? Array(room.children).fill(5) : [])
                 })),
-                // Relax OnlyAvailable to false to ensure we get "On Request" hotels
                 filters: { keywords: "", category: "", onlyAvailable: false, tags: "" },
             });
 
@@ -139,16 +147,15 @@ function SearchResultsPage() {
                 throw new Error(result.errorMessage.Description ?? "Erreur de recherche");
             return result;
         },
-        enabled:   !!hotelIds.length && !!checkIn && !!checkOut,
+        enabled: !!hotelIds.length && !!checkIn && !!checkOut,
         staleTime: 2 * 60 * 1000,
-        retry:     1,
+        retry: 1,
     });
 
     // ── Step 3: Merge + preloaded rooms ────────────────────────────────────────
     const processedHotels = useMemo(() => {
         if (!searchResults?.transformedHotels) return [];
 
-        // Build a map of transformed hotels for quick access
         const transformedMap = {};
         searchResults.transformedHotels.forEach(th => {
             transformedMap[th.id] = th;
@@ -156,42 +163,42 @@ function SearchResultsPage() {
 
         return searchResults.hotelSearch.map((sr) => {
             const fromSearch = sr.Hotel;
-            const full       = hotelsDetailsMap[fromSearch.Id];
+            const full = hotelsDetailsMap[fromSearch.Id];
             const transformed = transformedMap[fromSearch.Id];
 
-            const allPrices  = [];
-            const roomMap    = new Map();
+            const allPrices = [];
+            const roomMap = new Map();
 
             sr.Price?.Boarding?.forEach((boarding) => {
                 boarding.Pax?.forEach((pax) => {
                     const adultCount = pax.Adult ?? 2;
                     pax.Rooms?.forEach((room) => {
-                        const price     = room.Price     ? parseFloat(room.Price)     : null;
+                        const price = room.Price ? parseFloat(room.Price) : null;
                         const basePrice = room.BasePrice ? parseFloat(room.BasePrice) : null;
-                        const roomKey   = `${boarding.Code}__${adultCount}__${room.Code ?? room.Id ?? ""}`;
+                        const roomKey = `${boarding.Code}__${adultCount}__${room.Code ?? room.Id ?? ""}`;
 
                         if (price && !isNaN(price)) allPrices.push(price);
 
                         if (!roomMap.has(roomKey)) {
                             roomMap.set(roomKey, {
-                                id:              room.Id   ?? roomKey,
-                                name:            room.Name ?? room.Code ?? "Chambre",
-                                boardingCode:    boarding.Code,
-                                boardingName:    boarding.Name,
-                                price:           price     && !isNaN(price)     ? price     : null,
-                                basePrice:       basePrice && !isNaN(basePrice) ? basePrice : null,
+                                id: room.Id ?? roomKey,
+                                name: room.Name ?? room.Code ?? "Chambre",
+                                boardingCode: boarding.Code,
+                                boardingName: boarding.Name,
+                                price: price && !isNaN(price) ? price : null,
+                                basePrice: basePrice && !isNaN(basePrice) ? basePrice : null,
                                 stopReservation: room.StopReservation ?? false,
-                                onRequest:       room.OnRequest       ?? false,
-                                currency:        sr.Currency,
-                                adults:          adultCount,
+                                onRequest: room.OnRequest ?? false,
+                                currency: sr.Currency,
+                                adults: adultCount,
                             });
                         }
                     });
                 });
             });
 
-            const minPrice       = allPrices.length > 0 ? Math.min(...allPrices) : null;
-            const maxPrice       = allPrices.length > 0 ? Math.max(...allPrices) : null;
+            const minPrice = allPrices.length > 0 ? Math.min(...allPrices) : null;
+            const maxPrice = allPrices.length > 0 ? Math.max(...allPrices) : null;
             const preloadedRooms = Array.from(roomMap.values());
 
             const discounts = preloadedRooms
@@ -199,7 +206,6 @@ function SearchResultsPage() {
                 .map(r => Math.round(((r.basePrice - r.price) / r.basePrice) * 100));
             const maxDiscount = discounts.length > 0 ? Math.max(...discounts) : null;
 
-            // ✅ Gère le fallback local de disponibilité au besoin
             let fallbackStatus = 'full';
             const bookableRooms = preloadedRooms.filter(r => !r.stopReservation);
             if (bookableRooms.length > 0) {
@@ -218,42 +224,42 @@ function SearchResultsPage() {
             };
 
             return {
-                Id:               fromSearch.Id,
-                Name:             full?.Name             ?? fromSearch.Name,
-                Category:         full?.Category         ?? fromSearch.Category,
-                City:             full?.City             ?? fromSearch.City,
-                Address:          full?.Adress           ?? full?.Address ?? fromSearch.Adress,
-                Adress:           full?.Adress           ?? fromSearch.Adress,
-                Localization:     full?.Localization     ?? fromSearch.Localization,
+                Id: fromSearch.Id,
+                Name: full?.Name ?? fromSearch.Name,
+                Category: full?.Category ?? fromSearch.Category,
+                City: full?.City ?? fromSearch.City,
+                Address: full?.Adress ?? full?.Address ?? fromSearch.Adress,
+                Adress: full?.Adress ?? fromSearch.Adress,
+                Localization: full?.Localization ?? fromSearch.Localization,
                 ShortDescription: full?.ShortDescription ?? fromSearch.ShortDescription,
-                Description:      full?.Description      ?? full?.ShortDescription ?? fromSearch.ShortDescription,
-                Image:            full?.Image            ?? fromSearch.Image,
-                Images:           full?.Album            ?? (fromSearch.Image ? [fromSearch.Image] : []),
-                Album:            full?.Album            ?? [],
-                Facilities:       full?.Facilities       ?? [],
-                Theme:            full?.Theme            ?? fromSearch.Theme ?? [],
-                Tag:              full?.Tag              ?? [],
-                Equipments:       full?.Equipments       ?? full?.Facilities ?? [],
-                Email:            full?.Email,
-                Phone:            full?.Phone,
-                Vues:             full?.Vues             ?? [],
-                Type:             full?.Type,
-                Boarding:         full?.Boarding         ?? [],
+                Description: full?.Description ?? full?.ShortDescription ?? fromSearch.ShortDescription,
+                Image: full?.Image ?? fromSearch.Image,
+                Images: full?.Album ?? (fromSearch.Image ? [fromSearch.Image] : []),
+                Album: full?.Album ?? [],
+                Facilities: full?.Facilities ?? [],
+                Theme: full?.Theme ?? fromSearch.Theme ?? [],
+                Tag: full?.Tag ?? [],
+                Equipments: full?.Equipments ?? full?.Facilities ?? [],
+                Email: full?.Email,
+                Phone: full?.Phone,
+                Vues: full?.Vues ?? [],
+                Type: full?.Type,
+                Boarding: full?.Boarding ?? [],
                 pricing,
-                MinPrice:         pricing.minPrice,
-                MaxPrice:         maxPrice,
-                Currency:         sr.Currency,
-                PriceDetails:     sr.Price,
-                Token:            sr.Token,
-                Recommended:      sr.Recommended,
-                FreeChild:        sr.FreeChild,
-                Source:           sr.Source,
-                IsAvailable:      pricing.isAvailable,
-                searchResult:     true,
-                hasFullDetails:   !!full,
-                dataSource:       full ? "merged" : "search-only",
+                MinPrice: pricing.minPrice,
+                MaxPrice: maxPrice,
+                Currency: sr.Currency,
+                PriceDetails: sr.Price,
+                Token: sr.Token,
+                Recommended: sr.Recommended,
+                FreeChild: sr.FreeChild,
+                Source: sr.Source,
+                IsAvailable: pricing.isAvailable,
+                searchResult: true,
+                hasFullDetails: !!full,
+                dataSource: full ? "merged" : "search-only",
                 preloadedRooms,
-                paxGroups:        transformed?.paxGroups ?? [],
+                paxGroups: transformed?.paxGroups ?? [],
             };
         });
     }, [searchResults, hotelsDetailsMap]);
@@ -266,7 +272,6 @@ function SearchResultsPage() {
 
     // ── Filter ─────────────────────────────────────────────────────────────────
     const filteredHotels = useMemo(() => {
-        // ✅ SUPPRESSION DU FILTRE STRICT. On affiche TOUS les hôtels (même les Complets) par défaut.
         let result = [...processedHotels];
 
         if (filters.categories?.length)
@@ -289,10 +294,10 @@ function SearchResultsPage() {
     const sortedHotels = useMemo(() => {
         const sorted = [...filteredHotels];
         switch (sortBy) {
-            case "price-asc":  return sorted.sort((a, b) => (a.MinPrice ?? Infinity) - (b.MinPrice ?? Infinity));
+            case "price-asc": return sorted.sort((a, b) => (a.MinPrice ?? Infinity) - (b.MinPrice ?? Infinity));
             case "price-desc": return sorted.sort((a, b) => (b.MinPrice ?? 0) - (a.MinPrice ?? 0));
-            case "rating":     return sorted.sort((a, b) => (b.Category?.Star ?? 0) - (a.Category?.Star ?? 0));
-            case "name-asc":   return sorted.sort((a, b) => (a.Name ?? "").localeCompare(b.Name ?? ""));
+            case "rating": return sorted.sort((a, b) => (b.Category?.Star ?? 0) - (a.Category?.Star ?? 0));
+            case "name-asc": return sorted.sort((a, b) => (a.Name ?? "").localeCompare(b.Name ?? ""));
             default:
                 return sorted.sort((a, b) => {
                     const diff = (b.Recommended ?? 0) - (a.Recommended ?? 0);
@@ -303,21 +308,21 @@ function SearchResultsPage() {
 
     // ── Pagination (infinite scroll) ───────────────────────────────────────────
     const {
-        data:              paginatedData,
+        data: paginatedData,
         fetchNextPage,
         hasNextPage,
         isFetchingNextPage,
     } = useInfiniteQuery({
         queryKey: ["hotels-paginated", sortedHotels.length, sortedHotels[0]?.Id, sortBy],
-        queryFn:  async ({ pageParam = 0 }) => {
-            const start    = pageParam * HOTELS_PER_PAGE;
+        queryFn: async ({ pageParam = 0 }) => {
+            const start = pageParam * HOTELS_PER_PAGE;
             const pageData = sortedHotels.slice(start, start + HOTELS_PER_PAGE);
             return { hotels: pageData, nextPage: start + HOTELS_PER_PAGE < sortedHotels.length ? pageParam + 1 : undefined };
         },
         getNextPageParam: (lastPage) => lastPage.nextPage,
-        enabled:          sortedHotels.length > 0,
+        enabled: sortedHotels.length > 0,
         initialPageParam: 0,
-        staleTime:        5 * 60 * 1000,
+        staleTime: 5 * 60 * 1000,
     });
 
     const displayedHotels = paginatedData?.pages?.flatMap((p) => p.hotels) ?? [];
@@ -344,16 +349,16 @@ function SearchResultsPage() {
 
     const buildHotelUrl = useCallback((id) => {
         const p = new URLSearchParams();
-        if (checkIn)  p.set("checkin",  checkIn);
+        if (checkIn) p.set("checkin", checkIn);
         if (checkOut) p.set("checkout", checkOut);
         if (rooms?.length) {
             try {
                 const normalized = rooms.map((room) => ({
-                    adults:    room.adults ?? 2,
-                    children:  Array.isArray(room.children) ? room.children : [],
+                    adults: room.adults ?? 2,
+                    children: Array.isArray(room.children) ? room.children : [],
                 }));
                 p.set("rooms", encodeURIComponent(JSON.stringify(normalized)));
-            } catch {}
+            } catch { }
         }
         const qs = p.toString();
         return `/hotel/${id}${qs ? `?${qs}` : ""}`;
@@ -372,17 +377,17 @@ function SearchResultsPage() {
             navigate(`/booking/${hotel.Id}`, {
                 state: {
                     hotel,
-                    hotelId:      hotel.Id,
-                    hotelName:    hotel.Name,
+                    hotelId: hotel.Id,
+                    hotelName: hotel.Name,
                     checkIn,
                     checkOut,
                     nights,
                     boardingType: roomsList[0]?.boardingCode ?? null,
-                    rooms:        roomsList,
+                    rooms: roomsList,
                     totalPrice,
-                    currency:     hotel.pricing?.currency ?? "DZD",
+                    currency: hotel.pricing?.currency ?? "DZD",
                     selectedRooms: roomsList,
-                    searchParams:  { checkIn, checkOut, rooms },
+                    searchParams: { checkIn, checkOut, rooms },
                 },
             });
             return;
@@ -394,21 +399,21 @@ function SearchResultsPage() {
         }
 
         const firstBoardingCode = preloadedRooms[0]?.boardingCode ?? null;
-        const boardingRooms     = preloadedRooms.filter((r) => r.boardingCode === firstBoardingCode);
+        const boardingRooms = preloadedRooms.filter((r) => r.boardingCode === firstBoardingCode);
 
         const selectedRoomsList = rooms.map((room) => {
-            const adultCount    = room.adults ?? 2;
+            const adultCount = room.adults ?? 2;
             const matchingRooms = boardingRooms.filter((r) => r.adults === adultCount);
-            const pool          = matchingRooms.length > 0 ? matchingRooms : boardingRooms;
-            const bestRoom      = pool.reduce(
+            const pool = matchingRooms.length > 0 ? matchingRooms : boardingRooms;
+            const bestRoom = pool.reduce(
                 (best, r) => (!best || (r.price ?? Infinity) < (best.price ?? Infinity)) ? r : best,
                 null
             );
             return {
-                roomType:  bestRoom?.name  ?? null,
-                roomId:    bestRoom?.id    ?? null,
-                adults:    adultCount,
-                children:  Array.isArray(room.children) ? room.children.length : 0,
+                roomType: bestRoom?.name ?? null,
+                roomId: bestRoom?.id ?? null,
+                adults: adultCount,
+                children: Array.isArray(room.children) ? room.children.length : 0,
                 childAges: Array.isArray(room.children) ? room.children : [],
                 price: bestRoom?.price ?? 0,
                 total: bestRoom ? (bestRoom.price ?? 0) * nights : 0,
@@ -420,49 +425,142 @@ function SearchResultsPage() {
         navigate(`/booking/${hotel.Id}`, {
             state: {
                 hotel,
-                hotelId:      hotel.Id,
-                hotelName:    hotel.Name,
+                hotelId: hotel.Id,
+                hotelName: hotel.Name,
                 checkIn,
                 checkOut,
                 nights,
                 boardingType: firstBoardingCode,
-                rooms:        selectedRoomsList,
+                rooms: selectedRoomsList,
                 totalPrice,
-                currency:     hotel.pricing?.currency ?? "DZD",
+                currency: hotel.pricing?.currency ?? "DZD",
             },
         });
     }, [navigate, buildHotelUrl, rooms, checkIn, checkOut, nights]);
 
+    const handleDateRangeSelect = (range) => {
+        setDateRange(range);
+        setTempSearchParams(prev => ({
+            ...prev,
+            checkIn: range?.from ? range.from.toISOString().split('T')[0] : '',
+            checkOut: range?.to ? range.to.toISOString().split('T')[0] : '',
+        }));
+    };
+
+    const handleSearchPricing = () => {
+        if (!tempSearchParams.checkIn || !tempSearchParams.checkOut)
+            return toast.error('Veuillez sélectionner les dates de séjour', { duration: 4000, position: 'top-center' });
+        if (new Date(tempSearchParams.checkIn) >= new Date(tempSearchParams.checkOut))
+            return toast.error("La date de départ doit être après la date d'arrivée", { duration: 4000, position: 'top-center' });
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (new Date(tempSearchParams.checkIn) < today)
+            return toast.error("La date d'arrivée ne peut pas être dans le passé", { duration: 4000, position: 'top-center' });
+
+        const newSearchParams = new URLSearchParams(searchParams);
+        newSearchParams.set('checkIn', tempSearchParams.checkIn);
+        newSearchParams.set('checkOut', tempSearchParams.checkOut);
+        newSearchParams.set('rooms', JSON.stringify(tempSearchParams.rooms));
+        setSearchParams(newSearchParams);
+        setShowDatePicker(false);
+    };
+
+    const handleAddRoom = () =>
+        setTempSearchParams(prev => ({
+            ...prev, rooms: [...prev.rooms, { adults: 1, children: [] }],
+        }));
+
+    const handleRemoveRoom = (index) => {
+        if (tempSearchParams.rooms.length <= 1)
+            return toast.error('Au moins une chambre requise');
+        setTempSearchParams(prev => ({
+            ...prev, rooms: prev.rooms.filter((_, i) => i !== index),
+        }));
+    };
+
+    const handleUpdateRoomAdults = (index, value) => {
+        const n = parseInt(value);
+        if (n < 1 || n > 6) return;
+        setTempSearchParams(prev => ({
+            ...prev,
+            rooms: prev.rooms.map((room, i) => i === index ? { ...room, adults: n } : room),
+        }));
+    };
+
+    const handleAddChild = (roomIndex) =>
+        setTempSearchParams(prev => ({
+            ...prev,
+            rooms: prev.rooms.map((room, i) => {
+                if (i !== roomIndex) return room;
+                if (room.children.length >= 4) {
+                    toast.error('Maximum 4 enfants par chambre');
+                    return room;
+                }
+                return { ...room, children: [...room.children, 1] };
+            }),
+        }));
+
+    const handleRemoveChild = (roomIndex, childIndex) =>
+        setTempSearchParams(prev => ({
+            ...prev,
+            rooms: prev.rooms.map((room, i) =>
+                i === roomIndex
+                    ? { ...room, children: room.children.filter((_, ci) => ci !== childIndex) }
+                    : room),
+        }));
+
+    const handleUpdateChildAge = (roomIndex, childIndex, age) => {
+        const ageNum = parseInt(age);
+        if (ageNum < 1 || ageNum > 11) return;
+        setTempSearchParams(prev => ({
+            ...prev,
+            rooms: prev.rooms.map((room, i) =>
+                i === roomIndex
+                    ? {
+                        ...room,
+                        children: room.children.map((a, ci) =>
+                            ci === childIndex ? ageNum : a),
+                    }
+                    : room),
+        }));
+    };
+
     // ── Helpers ─────────────────────────────────────────────────────────────────
     const totalGuests = useMemo(() => ({
-        adults:   rooms.reduce((s, r) => s + (r.adults ?? 0), 0),
+        adults: rooms.reduce((s, r) => s + (r.adults ?? 0), 0),
         children: rooms.reduce((s, r) => s + (Array.isArray(r.children) ? r.children.length : (r.children ?? 0)), 0),
     }), [rooms]);
 
     const formatDisplayDate = (dateString) => {
-        const d      = new Date(dateString);
-        const days   = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+        const d = new Date(dateString);
+        const days = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
         const months = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
         return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
     };
 
+    const formatDate = (dateString) => {
+        if (!dateString) return 'Sélectionner';
+        return new Date(dateString).toLocaleDateString('fr-FR',
+            { weekday: 'short', day: 'numeric', month: 'short' });
+    };
+
     const getBannerImage = () => {
-        const key   = (countryName ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const key = (countryName ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         const match = Object.keys(COUNTRY_BANNERS).find((k) => key.includes(k));
         return match ? COUNTRY_BANNERS[match] : FALLBACK_BANNER;
     };
 
     const sortOptions = [
         { value: "recommended", label: "Recommandés" },
-        { value: "price-asc",   label: "Prix croissant" },
-        { value: "price-desc",  label: "Prix décroissant" },
-        { value: "rating",      label: "Meilleures notes" },
-        { value: "name-asc",    label: "Nom A-Z" },
+        { value: "price-asc", label: "Prix croissant" },
+        { value: "price-desc", label: "Prix décroissant" },
+        { value: "rating", label: "Meilleures notes" },
+        { value: "name-asc", label: "Nom A-Z" },
     ];
 
     const isLoading = isLoadingHotels || isLoadingSearch;
-    const isError   = isErrorHotels   || isErrorSearch;
-    const error     = errorHotels     || errorSearch;
+    const isError = isErrorHotels || isErrorSearch;
+    const error = errorHotels || errorSearch;
 
     if (isLoading) return (
         <div className="min-h-screen w-full bg-gradient-to-br from-sky-50 via-blue-50 to-sky-100">
@@ -543,6 +641,40 @@ function SearchResultsPage() {
 
             {/* ── Main Content ─────────────────────────────────────────────────────── */}
             <div className="w-full max-w-[1800px] mx-auto px-2 sm:px-4 lg:px-6 xl:px-8 py-4 sm:py-6 lg:py-8">
+                <DateRoomsPickerBanner
+                    searchParams={{ checkIn, checkOut, rooms }}
+                    nights={nights}
+                    pricingData={searchResults}
+                    showDatePicker={showDatePicker}
+                    tempSearchParams={tempSearchParams}
+                    dateRange={dateRange}
+                    currentMonth={currentMonth}
+                    isLoadingPricing={isLoadingSearch}
+                    onOpen={() => {
+                        if (!showDatePicker) {
+                            setTempSearchParams({ checkIn, checkOut, rooms });
+                            setDateRange({
+                                from: checkIn ? new Date(checkIn) : undefined,
+                                to: checkOut ? new Date(checkOut) : undefined,
+                            });
+                            if (checkIn) {
+                                setCurrentMonth(new Date(checkIn));
+                            }
+                        }
+                        setShowDatePicker(!showDatePicker);
+                    }}
+                    onClose={() => setShowDatePicker(false)}
+                    onMonthChange={setCurrentMonth}
+                    onDateSelect={handleDateRangeSelect}
+                    onSearch={handleSearchPricing}
+                    onAddRoom={handleAddRoom}
+                    onRemoveRoom={handleRemoveRoom}
+                    onUpdateAdults={handleUpdateRoomAdults}
+                    onAddChild={handleAddChild}
+                    onRemoveChild={handleRemoveChild}
+                    onUpdateChildAge={handleUpdateChildAge}
+                    formatDate={formatDate}
+                />
                 <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-3 sm:p-4 mb-4 sm:mb-6">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
                         <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
