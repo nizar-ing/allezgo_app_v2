@@ -30,17 +30,17 @@ const getDefaultRange = () => {
 function BookingHotels() {
     const navigate = useNavigate();
     const [isPending, startTransition] = useTransition();
-    const [selectedCity, setSelectedCity]   = useState(null);
+    const [selectedCity, setSelectedCity] = useState(null);
     const [selectedHotel, setSelectedHotel] = useState(null);
     const [selectionType, setSelectionType] = useState('city');
-    const [range, setRange]   = useState(getDefaultRange);
-    const [rooms, setRooms]   = useState([{ id: 1, adults: 2, children: [] }]);
+    const [range, setRange] = useState(getDefaultRange);
+    const [rooms, setRooms] = useState([{ id: 1, adults: 2, children: [] }]);
 
     const defaultCityAppliedRef = useRef(false);
 
     const { data: citiesData } = useQuery({
         queryKey: ['cities'],
-        queryFn:  () => apiClient.listCity(),
+        queryFn: () => apiClient.listCity(),
         staleTime: 10 * 60 * 1000,
     });
 
@@ -73,11 +73,11 @@ function BookingHotels() {
     const handleHotelSelect = useCallback((hotel) => {
         setSelectedHotel(hotel);
         setSelectedCity(null); // ✅ FIX: don't set selectedCity on hotel selection —
-                               // it pollutes selectionLabel in LocationSearch which
-                               // checks selectedCity first, causing the city name to
-                               // be shown instead of the hotel name (hotel selection
-                               // appears ignored). Hotel city info is read directly
-                               // from selectedHotel.City inside handleSearch.
+        // it pollutes selectionLabel in LocationSearch which
+        // checks selectedCity first, causing the city name to
+        // be shown instead of the hotel name (hotel selection
+        // appears ignored). Hotel city info is read directly
+        // from selectedHotel.City inside handleSearch.
         setSelectionType('hotel');
     }, []);
 
@@ -116,47 +116,47 @@ function BookingHotels() {
     const handleSearch = useCallback(() => {
         if (!validateSearch()) return;
 
-        const checkInFormatted  = formatDateForAPI(range.from);
+        const checkInFormatted = formatDateForAPI(range.from);
         const checkOutFormatted = formatDateForAPI(range.to);
-        const nights            = calculateNights(range.from, range.to);
+        const nights = calculateNights(range.from, range.to);
 
         const searchParams = new URLSearchParams();
         searchParams.append('selectionType', selectionType);
 
         if (selectionType === 'city') {
-            searchParams.append('cityId',      String(Number(selectedCity.Id)));
-            searchParams.append('cityName',    selectedCity.Name);
+            searchParams.append('cityId', String(Number(selectedCity.Id)));
+            searchParams.append('cityName', selectedCity.Name);
             if (selectedCity.Country?.Name) {
                 searchParams.append('countryName', selectedCity.Country.Name);
             }
         } else if (selectionType === 'hotel') {
-            searchParams.append('hotelId',   String(Number(selectedHotel.Id)));
+            searchParams.append('hotelId', String(Number(selectedHotel.Id)));
             searchParams.append('hotelName', selectedHotel.Name);
             // ✅ city info is read from selectedHotel.City (selectedCity is null by design)
-            if (selectedHotel.City?.Id)   searchParams.append('cityId',   String(Number(selectedHotel.City.Id)));
+            if (selectedHotel.City?.Id) searchParams.append('cityId', String(Number(selectedHotel.City.Id)));
             if (selectedHotel.City?.Name) searchParams.append('cityName', selectedHotel.City.Name);
             if (selectedHotel.City?.Country?.Name) searchParams.append('countryName', selectedHotel.City.Country.Name);
         }
 
-        searchParams.append('checkIn',  checkInFormatted);
+        searchParams.append('checkIn', checkInFormatted);
         searchParams.append('checkOut', checkOutFormatted);
 
         const roomsData = rooms.map(room => ({
-            adults:   room.adults,
+            adults: room.adults,
             children: room.children.map(child => child.age),
         }));
 
-        searchParams.append('rooms',  JSON.stringify(roomsData));
+        searchParams.append('rooms', JSON.stringify(roomsData));
         searchParams.append('nights', nights);
 
         if (import.meta.env.DEV) {
             console.log('🔍 Search Params:', {
                 selectionType,
-                cityId:   selectedCity?.Id  ?? selectedHotel?.City?.Id,
-                hotelId:  selectedHotel?.Id,
-                checkIn:  checkInFormatted,
+                cityId: selectedCity?.Id ?? selectedHotel?.City?.Id,
+                hotelId: selectedHotel?.Id,
+                checkIn: checkInFormatted,
                 checkOut: checkOutFormatted,
-                rooms:    roomsData,
+                rooms: roomsData,
                 nights,
             });
         }
@@ -197,10 +197,10 @@ function BookingHotels() {
                         className="w-full lg:w-auto bg-sky-600 hover:bg-sky-700 text-white rounded-lg transition-colors font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                         <span className="flex justify-center items-center gap-2 px-4">
-                          {isPending
-                              ? <Loader2 size={20} className="animate-spin" />
-                              : <Search size={20} />
-                          }
+                            {isPending
+                                ? <Loader2 size={20} className="animate-spin" />
+                                : <Search size={20} />
+                            }
                             {isPending ? 'Recherche...' : 'Rechercher'}
                         </span>
                     </Button>

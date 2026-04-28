@@ -1,32 +1,12 @@
 // src/pages/HotelsSearchResultsPage.jsx
-import { useEffect, useState, useMemo, useCallback } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useLayoutEffect, useMemo, useCallback } from "react";
+import { useLocation, useNavigate, useSearchParams, Navigate } from "react-router-dom";
 import { Calendar, Users, Moon, ArrowLeft, AlertTriangle } from "lucide-react";
 import HotelsListView from "../ui/HotelsListView.jsx";
 import Loader         from "../ui/Loader.jsx";
-import { useQuery }   from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import apiClient      from "../services/ApiClient";
 import { normalizeHotelForCard } from "../utils/normalizeHotel";
-
-const extractRoomsFromPrice = (priceTree, currency) => {
-    if (!priceTree?.Boarding) return [];
-    const roomMap = new Map();
-    priceTree.Boarding.forEach((boarding) => {
-        boarding.Pax?.forEach((pax) => {
-            pax.Rooms?.forEach((room) => {
-                const price   = room.Price ? parseFloat(room.Price) : null;
-                const roomKey = `${boarding.Code}__${room.Code ?? room.Id ?? ""}`;
-                if (!roomMap.has(roomKey)) {
-                    roomMap.set(roomKey, {
-                        id: room.Id ?? roomKey, name: room.Name ?? room.Code ?? "Chambre",
-                        boardingCode: boarding.Code, boardingName: boarding.Name, price, currency,
-                    });
-                }
-            });
-        });
-    });
-    return Array.from(roomMap.values());
-};
 
 function SearchSummaryBanner({ countResults, allHotelsCount, searchCriteria, searchId, onBack }) {
     const formatDate = (date) => {
@@ -126,29 +106,45 @@ function HotelsSearchResultsPage() {
         return Math.ceil(Math.abs(new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
     }, [checkIn, checkOut, searchParams]);
 
-    const [searchData,    setSearchData]    = useState(null);
-    const [dataLoadError, setDataLoadError] = useState(null);
-
-    useEffect(() => {
+    const fromNavigation = useMemo(() => {
+        if (stateData) return { data: stateData, storageError: null };
         try {
-            if (stateData) {
-                if (JSON.stringify(stateData).length > 1048576) {
-                    const sid = `search_${Date.now()}`;
-                    sessionStorage.setItem(sid, JSON.stringify(stateData));
-                    sessionStorage.setItem("currentSearchId", sid);
-                }
-                setSearchData(stateData);
-            } else {
-                const currentSearchId = sessionStorage.getItem("currentSearchId");
-                if (currentSearchId) {
-                    const stored = sessionStorage.getItem(currentSearchId);
-                    if (stored) {
-                        try { setSearchData(JSON.parse(stored)); }
-                        catch { setDataLoadError("Données corrompues dans le cache"); }
+            const currentSearchId = sessionStorage.getItem("currentSearchId");
+            if (currentSearchId) {
+                const stored = sessionStorage.getItem(currentSearchId);
+                if (stored) {
+                    try {
+                        return { data: JSON.parse(stored), storageError: null };
+                    } catch {
+                        return { data: null, storageError: "Données corrompues dans le cache" };
                     }
                 }
             }
-        } catch { setDataLoadError("Erreur lors du chargement des données"); }
+        } catch {
+            return { data: null, storageError: "Erreur lors du chargement des données" };
+        }
+        return { data: null, storageError: null };
+    }, [stateData]);
+
+    const hotelSearchQueryKey = useMemo(
+        () => ["hotelSearch", hotelIds, checkIn, checkOut, rooms],
+        [hotelIds, checkIn, checkOut, rooms],
+    );
+
+    const queryClient = useQueryClient();
+    const cachedHotelSearch = queryClient.getQueryData(hotelSearchQueryKey);
+    const hasMergedSearchResults = !!(fromNavigation.data ?? cachedHotelSearch);
+
+    useLayoutEffect(() => {
+        if (!stateData) return;
+        try {
+            if (JSON.stringify(stateData).length <= 1048576) return;
+            const sid = `search_${Date.now()}`;
+            sessionStorage.setItem(sid, JSON.stringify(stateData));
+            sessionStorage.setItem("currentSearchId", sid);
+        } catch {
+            /* ignore quota / private mode */
+        }
     }, [stateData]);
 
     const { data: hotelsDetailsData, isLoading: isLoadingDetails, isError: isErrorDetails, error: errorDetails } = useQuery({
@@ -159,11 +155,11 @@ function HotelsSearchResultsPage() {
             const hotelsMap = await apiClient.getHotelsBatch(ids, ids.length <= 50 ? 3 : 5, { delayBetweenBatches: 150 });
             return { hotelsMap, count: Object.keys(hotelsMap).length };
         },
-        enabled: !searchData && !!hotelIds && hotelIds.length > 0, staleTime: 5 * 60 * 1000, retry: 1,
+        enabled: !hasMergedSearchResults && !!hotelIds && hotelIds.length > 0, staleTime: 5 * 60 * 1000, retry: 1,
     });
 
     const { data: fetchedData, isLoading: isLoadingSearch, isError, error } = useQuery({
-        queryKey: ["hotelSearch", hotelIds, checkIn, checkOut, rooms],
+        queryKey: hotelSearchQueryKey,
         queryFn:  async () => {
             if (!hotelIds?.length)     throw new Error("Aucun hôtel spécifié");
             if (!checkIn || !checkOut) throw new Error("Dates de séjour manquantes");
@@ -219,20 +215,27 @@ function HotelsSearchResultsPage() {
             const finalData = { searchResults: enrichedResults, searchId: result.searchId, countResults: result.countResults, searchCriteria: { checkIn, checkOut, rooms, nights } };
             if (JSON.stringify(finalData).length > 524288) {
                 const sid = `search_${Date.now()}`;
-                try { sessionStorage.setItem(sid, JSON.stringify(finalData)); sessionStorage.setItem("currentSearchId", sid); } catch {}
+                try { sessionStorage.setItem(sid, JSON.stringify(finalData)); sessionStorage.setItem("currentSearchId", sid); } catch { /* quota / private mode */ }
             }
             return finalData;
         },
-        enabled:   !searchData && !!hotelIds && !!checkIn && !!checkOut && rooms.length > 0 && !isLoadingDetails,
+        enabled:   !hasMergedSearchResults && !!hotelIds && !!checkIn && !!checkOut && rooms.length > 0 && !isLoadingDetails,
         staleTime: 2 * 60 * 1000, retry: 1,
     });
 
-    useEffect(() => {
-        if (isError && error) { setDataLoadError(error.message); return; }
-        if (!searchData && fetchedData) { setSearchData(fetchedData); return; }
-        if (!(isLoadingDetails || isLoadingSearch) && !searchData && !fetchedData && !dataLoadError && !hotelIds && !stateData)
-            navigate("/", { replace: true });
-    }, [isError, error, fetchedData, searchData, isLoadingDetails, isLoadingSearch, dataLoadError, hotelIds, stateData, navigate]);
+    const searchData =
+        fetchedData ?? fromNavigation.data ?? null;
+    const dataLoadError =
+        fromNavigation.storageError ?? (isError ? (error?.message ?? null) : null);
+
+    const shouldRedirectHome =
+        !isLoadingDetails &&
+        !isLoadingSearch &&
+        !searchData &&
+        !fetchedData &&
+        !dataLoadError &&
+        !hotelIds &&
+        !stateData;
 
     const allHotels        = useMemo(() => searchData?.searchResults?.map((r) => r.Hotel) ?? [], [searchData]);
     const getTarifForHotel = useCallback((hotelId) => {
@@ -244,6 +247,8 @@ function HotelsSearchResultsPage() {
         if (sid) { sessionStorage.removeItem(sid); sessionStorage.removeItem("currentSearchId"); }
         navigate("/");
     }, [navigate]);
+
+    if (shouldRedirectHome) return <Navigate to="/" replace />;
 
     const { searchId = null, countResults = 0, searchCriteria = null } = searchData ?? {};
 

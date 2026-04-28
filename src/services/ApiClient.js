@@ -540,6 +540,34 @@ class ApiClient {
         };
     }
 
+    // ==================== BOOKING MUTATIONS ====================
+    async createBooking(hotelBookingPayload) {
+        try {
+            // Strictly enforce API isolation: inject credentials here, never in the UI
+            const requestPayload = {
+                Credential: {
+                    Login: CREDENTIALS.Login,
+                    Password: CREDENTIALS.Password
+                },
+                // PreBooking is intentionally omitted to perform a final confirmation
+                HotelBooking: hotelBookingPayload
+            };
+
+            const response = await axios.post(`${CONFIG.BASE_URL}/BookingCreation`, requestPayload, {
+                timeout: CONFIG.TIMEOUT.DEFAULT
+            });
+
+            // Assuming iPro returns the booking Id in the root of the Response
+            if (!response.data || !response.data.Id) {
+                throw new ApiError('Failed to validate booking on iPro servers.', response.status);
+            }
+
+            return response.data;
+        } catch (error) {
+            throw new ApiError('Error executing BookingCreation mutation', error.response?.status, error);
+        }
+    }
+
     clearCache() { this.cache.clear(); }
     getCacheStats() { return this.cache.getStats(); }
 }

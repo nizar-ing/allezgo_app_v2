@@ -1,6 +1,7 @@
 // src/pages/HomePage.jsx
 import Carousel from "../ui/Carrousel.jsx";
-import { carouselImages, testimonials } from "../data";
+import { carouselImages } from "../data";
+import useTestimonials from "../custom-hooks/useTestimonials.js";
 import BookingHotels from "../components/booking/BookingHotels.jsx";
 import TestimonialCarousel from "../components/TestimonialsCarousel.jsx";
 import Gallery from "../ui/Gallery.jsx";
@@ -8,6 +9,8 @@ import PartnerCarrousel from "../ui/PartnerCarrousel.jsx";
 import HotelShowcase from "../components/HotelShowcase.jsx";
 
 function HomePage() {
+    const { data: testimonials, loading, error } = useTestimonials();
+
     return (
         <section
             id="nos-atouts"
@@ -18,7 +21,11 @@ function HomePage() {
             {/* ✅ Ce composant utilise listHotelEnhanced */}
             <HotelShowcase cityId={34} />
             <Gallery />
-            <TestimonialCarousel testimonials={testimonials} />
+            <TestimonialCarousel
+                testimonials={testimonials}
+                loading={loading}
+                error={error}
+            />
             <PartnerCarrousel />
         </section>
     );

@@ -6,18 +6,18 @@ import { useCities, useHotels } from '../../custom-hooks/useHotelQueries';
 import useDebounce from '../../custom-hooks/useDebounce';
 
 function LocationSearch({
-                            selectedCity,
-                            selectedHotel,
-                            onCitySelect,
-                            onHotelSelect,
-                            onClear,
-                        }) {
-    const [inputValue,       setInputValue]       = useState('');
+    selectedCity,
+    selectedHotel,
+    onCitySelect,
+    onHotelSelect,
+    onClear,
+}) {
+    const [inputValue, setInputValue] = useState('');
     const [showCityDropdown, setShowCityDropdown] = useState(false);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     // ✅ isEditing state REMOVED — no longer needed
 
-    const cityDropdownRef  = useRef(null);
+    const cityDropdownRef = useRef(null);
     const locationInputRef = useRef(null);
     // Tracks previous selection to detect EXTERNAL changes (e.g. default city)
     const prevSelectionRef = useRef({ city: null, hotel: null });
@@ -36,13 +36,13 @@ function LocationSearch({
     // ✅ selectedHotel checked first — prevents city name overriding hotel name
     const computeLabel = useCallback((city, hotel) => {
         if (hotel) {
-            const name     = hotel.Name          || '';
-            const cityName = hotel.City?.Name    || '';
+            const name = hotel.Name || '';
+            const cityName = hotel.City?.Name || '';
             return `${name}${cityName ? `, ${cityName}` : ''}`;
         }
         if (city) {
-            const name        = city.Name             || '';
-            const countryName = city.Country?.Name    || '';
+            const name = city.Name || '';
+            const countryName = city.Country?.Name || '';
             return `${name}${countryName ? `, ${countryName}` : ''}`;
         }
         return '';
@@ -86,11 +86,11 @@ function LocationSearch({
 
         const filteredCities = (cities || [])
             .filter(city => {
-                const cityName    = city.Name?.toLowerCase()          || '';
+                const cityName = city.Name?.toLowerCase() || '';
                 const countryName = city.Country?.Name?.toLowerCase() || '';
-                const regionName  = city.Region?.toLowerCase()        || '';
+                const regionName = city.Region?.toLowerCase() || '';
                 return (
-                    cityName.includes(searchLower)    ||
+                    cityName.includes(searchLower) ||
                     countryName.includes(searchLower) ||
                     regionName.includes(searchLower)
                 );
@@ -101,12 +101,12 @@ function LocationSearch({
 
         const filteredHotels = (hotels || [])
             .filter(hotel => {
-                const hotelName   = hotel.Name?.toLowerCase()               || '';
-                const cityName    = hotel.City?.Name?.toLowerCase()          || '';
+                const hotelName = hotel.Name?.toLowerCase() || '';
+                const cityName = hotel.City?.Name?.toLowerCase() || '';
                 const countryName = hotel.City?.Country?.Name?.toLowerCase() || '';
                 return (
-                    hotelName.includes(searchLower)   ||
-                    cityName.includes(searchLower)    ||
+                    hotelName.includes(searchLower) ||
+                    cityName.includes(searchLower) ||
                     countryName.includes(searchLower)
                 );
             })
@@ -116,8 +116,8 @@ function LocationSearch({
 
         return {
             combinedResults: results,
-            citiesCount:     filteredCities.length,
-            hotelsCount:     filteredHotels.length,
+            citiesCount: filteredCities.length,
+            hotelsCount: filteredHotels.length,
         };
     }, [cities, hotels, debouncedSearch]);
 
@@ -216,7 +216,7 @@ function LocationSearch({
     ]);
 
     const isLoadingAny = citiesLoading || hotelsLoading;
-    const hasError     = citiesError   || hotelsError;
+    const hasError = citiesError || hotelsError;
     const hasSelection = !!(selectedCity || selectedHotel);
 
     // ── Render ─────────────────────────────────────────────────────────────────
@@ -227,8 +227,8 @@ function LocationSearch({
             <div className={`
         flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 bg-white transition-all
         ${showCityDropdown
-                ? 'border-sky-500 ring-2 ring-sky-200'
-                : 'border-gray-200 hover:border-sky-300'}
+                    ? 'border-sky-500 ring-2 ring-sky-200'
+                    : 'border-gray-200 hover:border-sky-300'}
       `}>
                 <MapPin size={18} className="text-sky-500 flex-shrink-0" />
 
@@ -292,8 +292,8 @@ function LocationSearch({
                                 const isHighlighted = index === highlightedIndex;
 
                                 if (item.type === 'city') {
-                                    const city        = item.data;
-                                    const cityName    = city.Name || '';
+                                    const city = item.data;
+                                    const cityName = city.Name || '';
                                     const countryName = city.Country?.Name || '';
                                     return (
                                         <li
@@ -321,9 +321,9 @@ function LocationSearch({
                                 }
 
                                 if (item.type === 'hotel') {
-                                    const hotel     = item.data;
+                                    const hotel = item.data;
                                     const hotelName = hotel.Name || '';
-                                    const cityName  = hotel.City?.Name || '';
+                                    const cityName = hotel.City?.Name || '';
                                     return (
                                         <li
                                             key={`hotel-${hotel.Id ?? index}`}

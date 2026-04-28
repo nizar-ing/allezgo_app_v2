@@ -12,9 +12,10 @@ import {
     FaPlane,
 } from "react-icons/fa";
 import HotelsPopup from "./HotelsPopup";
-import { LogIn, Plane } from "lucide-react";
+import { LogIn, Plane, LogOut, User, Shield } from "lucide-react";
 import { NavLink, Link } from "react-router-dom";
 import { useCities } from "../custom-hooks/useHotelQueries";
+import useAuth from "../custom-hooks/useAuth.js";
 
 // Hotels data configuration
 const HOTELS_DATA = [
@@ -43,15 +44,15 @@ const HOTELS_DATA = [
 
 // Separate component for menu items with submenu
 const MenuItemWithSubmenu = ({
-                                 item,
-                                 hoveredMenu,
-                                 setHoveredMenu,
-                                 isSubmenuVisible,
-                                 setIsSubmenuVisible,
-                                 enrichedCountries,
-                                 citiesLoading,
-                                 citiesError,
-                             }) => {
+    item,
+    hoveredMenu,
+    setHoveredMenu,
+    isSubmenuVisible,
+    setIsSubmenuVisible,
+    enrichedCountries,
+    citiesLoading,
+    citiesError,
+}) => {
     const Icon = item.icon;
     const isHovered = hoveredMenu === item.name;
 
@@ -69,9 +70,8 @@ const MenuItemWithSubmenu = ({
         >
             <button
                 type="button"
-                className={`relative flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-300 text-gray-700 ${
-                    isHovered ? "text-sky-800" : ""
-                }`}
+                className={`relative flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-300 text-gray-700 ${isHovered ? "text-sky-800" : ""
+                    }`}
                 style={{
                     transform: isHovered ? "translateY(-2px)" : "translateY(0)",
                     boxShadow: isHovered
@@ -88,18 +88,16 @@ const MenuItemWithSubmenu = ({
             >
                 <Icon
                     size={20}
-                    className={`text-lg transition-all duration-300 ${
-                        isHovered ? "scale-125 rotate-12" : "scale-100"
-                    }`}
+                    className={`text-lg transition-all duration-300 ${isHovered ? "scale-125 rotate-12" : "scale-100"
+                        }`}
                 />
                 <span className="font-medium text-sm whitespace-nowrap">
                     {item.name}
                 </span>
                 <FaChevronDown
                     size={12}
-                    className={`transition-transform duration-200 ${
-                        isSubmenuVisible ? "transform rotate-180" : ""
-                    }`}
+                    className={`transition-transform duration-200 ${isSubmenuVisible ? "transform rotate-180" : ""
+                        }`}
                 />
                 {isHovered && (
                     <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-sky-600 to-transparent animate-pulse" />
@@ -128,8 +126,7 @@ const RegularMenuItem = ({ item, hoveredMenu, setHoveredMenu }) => {
             onMouseEnter={() => setHoveredMenu(item.name)}
             onMouseLeave={() => setHoveredMenu(null)}
             className={({ isActive }) =>
-                `relative flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-300 ${
-                    isActive ? "text-white" : "text-gray-700"
+                `relative flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-300 ${isActive ? "text-white" : "text-gray-700"
                 }`
             }
             style={({ isActive }) => ({
@@ -151,13 +148,12 @@ const RegularMenuItem = ({ item, hoveredMenu, setHoveredMenu }) => {
                 <>
                     <Icon
                         size={20}
-                        className={`text-lg transition-all duration-300 ${
-                            isActive
-                                ? "scale-110"
-                                : isHovered
-                                    ? "scale-125 rotate-12"
-                                    : "scale-100"
-                        } ${isHovered && !isActive ? "text-sky-800" : ""}`}
+                        className={`text-lg transition-all duration-300 ${isActive
+                            ? "scale-110"
+                            : isHovered
+                                ? "scale-125 rotate-12"
+                                : "scale-100"
+                            } ${isHovered && !isActive ? "text-sky-800" : ""}`}
                         style={{
                             filter: isActive
                                 ? "drop-shadow(0 2px 4px rgba(255, 255, 255, 0.3))"
@@ -165,9 +161,8 @@ const RegularMenuItem = ({ item, hoveredMenu, setHoveredMenu }) => {
                         }}
                     />
                     <span
-                        className={`font-medium text-sm whitespace-nowrap transition-all duration-300 ${
-                            isHovered && !isActive ? "text-sky-800 font-semibold" : ""
-                        }`}
+                        className={`font-medium text-sm whitespace-nowrap transition-all duration-300 ${isHovered && !isActive ? "text-sky-800 font-semibold" : ""
+                            }`}
                     >
                         {item.name}
                     </span>
@@ -181,6 +176,7 @@ const RegularMenuItem = ({ item, hoveredMenu, setHoveredMenu }) => {
 };
 
 function Header() {
+    const { isAuthenticated, user, logout } = useAuth();
     const [isScrolled, setIsScrolled] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [hoveredMenu, setHoveredMenu] = useState(null);
@@ -229,9 +225,8 @@ function Header() {
 
     return (
         <header
-            className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-                isScrolled ? "shadow-2xl" : "shadow-xl"
-            }`}
+            className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? "shadow-2xl" : "shadow-xl"
+                }`}
             style={{
                 background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
                 borderBottom: "1px solid rgba(0, 0, 0, 0.05)",
@@ -239,10 +234,9 @@ function Header() {
         >
             <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
 
-                {/* ✅ ONLY CHANGE: flex items-center (no justify-between) */}
                 <div className="flex items-center h-20">
 
-                    {/* ✅ COLUMN 1 — flex-1 justify-start → Logo extreme LEFT */}
+                    {/* COLUMN 1 — Logo */}
                     <div className="flex-1 flex justify-start">
                         <NavLink
                             to="/"
@@ -274,7 +268,7 @@ function Header() {
                         </NavLink>
                     </div>
 
-                    {/* ✅ COLUMN 2 — flex-1 justify-center → Nav+Phone perfectly CENTERED */}
+                    {/* COLUMN 2 — Navigation */}
                     <nav className="flex-2 hidden md:flex justify-center items-center gap-5">
                         {menuItems.map((item) =>
                             item.hasSubmenu ? (
@@ -300,30 +294,78 @@ function Header() {
                         )}
                     </nav>
 
-                    {/* ✅ COLUMN 3 — flex-1 justify-end → Connecter extreme RIGHT */}
+                    {/* COLUMN 3 — Desktop CTA */}
                     <div className="flex-1 flex justify-end items-center">
 
-                        {/* CTA Button - Desktop */}
-                        <Link
-                            to="/sign-in"
-                            className="hidden md:block relative px-6 py-2.5 bg-gradient-to-r from-red-500 via-red-600 to-red-700 text-white font-semibold rounded-lg overflow-hidden group"
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.boxShadow =
-                                    "0 8px 25px rgba(249, 115, 22, 0.5), inset 0 -2px 4px rgba(0, 0, 0, 0.2)";
-                                e.currentTarget.style.transform = "translateY(-2px)";
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.boxShadow =
-                                    "0 6px 20px rgba(249, 115, 22, 0.4), inset 0 -2px 4px rgba(0, 0, 0, 0.2)";
-                                e.currentTarget.style.transform = "translateY(0)";
-                            }}
-                        >
-                            <span className="flex justify-center items-center gap-2 relative z-10">
-                                <LogIn size={26} strokeWidth={2} />
-                                Connecter
-                            </span>
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-20 transform -skew-x-12 group-hover:translate-x-full transition-all duration-700" />
-                        </Link>
+                        {isAuthenticated ? (
+                            <div className="hidden md:flex items-center gap-3">
+                                <div className="flex items-center gap-2 bg-sky-50 text-sky-900 px-4 py-2 rounded-full font-medium text-sm">
+                                    <User size={18} />
+                                    <span>Bonjour, {user?.firstName || 'Client'}</span>
+                                </div>
+
+                                {/* 1. Admin ONLY - Dashboard Link */}
+                                {user?.role === "admin" && (
+                                    <Link 
+                                        to="/admin" 
+                                        className="relative flex justify-center items-center gap-2 bg-gradient-to-r from-purple-600 to-purple-800 px-4 py-2 rounded-lg font-semibold text-white overflow-hidden shadow-md"
+                                    >
+                                        <Shield size={18} strokeWidth={2} />
+                                        <span className="relative z-10">Dashboard Admin</span>
+                                    </Link>
+                                )}
+
+                                {/* 2. Client ONLY - Mon Profil Link */}
+                                {user?.role !== "admin" && (
+                                    <Link
+                                        to="/profile"
+                                        className="relative flex justify-center items-center gap-2 bg-white text-sky-700 border border-sky-200 px-4 py-2 rounded-lg font-semibold hover:bg-sky-50 transition-colors shadow-sm"
+                                    >
+                                        <User size={18} strokeWidth={2} />
+                                        <span className="relative z-10">Mon Profil</span>
+                                    </Link>
+                                )}
+
+                                <button
+                                    onClick={logout}
+                                    className="relative p-2.5 bg-gradient-to-r from-red-500 via-red-600 to-red-700 text-white font-semibold rounded-lg overflow-hidden group flex justify-center items-center"
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.boxShadow =
+                                            "0 8px 25px rgba(249, 115, 22, 0.5), inset 0 -2px 4px rgba(0, 0, 0, 0.2)";
+                                        e.currentTarget.style.transform = "translateY(-2px)";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.boxShadow =
+                                            "0 6px 20px rgba(249, 115, 22, 0.4), inset 0 -2px 4px rgba(0, 0, 0, 0.2)";
+                                        e.currentTarget.style.transform = "translateY(0)";
+                                    }}
+                                >
+                                    <LogOut size={22} strokeWidth={2} className="relative z-10" />
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-20 transform -skew-x-12 group-hover:translate-x-full transition-all duration-700" />
+                                </button>
+                            </div>
+                        ) : (
+                            <Link
+                                to="/sign-in"
+                                className="hidden md:block relative px-6 py-2.5 bg-gradient-to-r from-red-500 via-red-600 to-red-700 text-white font-semibold rounded-lg overflow-hidden group"
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.boxShadow =
+                                        "0 8px 25px rgba(249, 115, 22, 0.5), inset 0 -2px 4px rgba(0, 0, 0, 0.2)";
+                                    e.currentTarget.style.transform = "translateY(-2px)";
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.boxShadow =
+                                        "0 6px 20px rgba(249, 115, 22, 0.4), inset 0 -2px 4px rgba(0, 0, 0, 0.2)";
+                                    e.currentTarget.style.transform = "translateY(0)";
+                                }}
+                            >
+                                <span className="flex justify-center items-center gap-2 relative z-10">
+                                    <LogIn size={26} strokeWidth={2} />
+                                    Connecter
+                                </span>
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-20 transform -skew-x-12 group-hover:translate-x-full transition-all duration-700" />
+                            </Link>
+                        )}
 
                         {/* Mobile Menu Button */}
                         <button
@@ -347,13 +389,12 @@ function Header() {
 
                 </div>
 
-                {/* Mobile Navigation — UNTOUCHED */}
+                {/* Mobile Navigation */}
                 <div
-                    className={`md:hidden transition-all duration-300 ease-in-out overflow-hidden ${
-                        isMobileMenuOpen
-                            ? "max-h-screen opacity-100 mb-4"
-                            : "max-h-0 opacity-0"
-                    }`}
+                    className={`md:hidden transition-all duration-300 ease-in-out overflow-hidden ${isMobileMenuOpen
+                        ? "max-h-screen opacity-100 mb-4"
+                        : "max-h-0 opacity-0"
+                        }`}
                 >
                     <nav className="flex flex-col space-y-2 py-4">
                         {menuItems.map((item) => {
@@ -371,18 +412,16 @@ function Header() {
                                             <span className="font-medium">{item.name}</span>
                                             <FaChevronDown
                                                 size={14}
-                                                className={`ml-auto transition-transform duration-200 ${
-                                                    mobileHotelsOpen ? "transform rotate-180" : ""
-                                                }`}
+                                                className={`ml-auto transition-transform duration-200 ${mobileHotelsOpen ? "transform rotate-180" : ""
+                                                    }`}
                                             />
                                         </button>
 
                                         <div
-                                            className={`overflow-y-auto transition-all duration-300 ${
-                                                mobileHotelsOpen
-                                                    ? "max-h-[500px] opacity-100"
-                                                    : "max-h-0 opacity-0"
-                                            }`}
+                                            className={`overflow-y-auto transition-all duration-300 ${mobileHotelsOpen
+                                                ? "max-h-[500px] opacity-100"
+                                                : "max-h-0 opacity-0"
+                                                }`}
                                         >
                                             <div className="pl-4 pr-2 py-2 space-y-1">
                                                 {enrichedCountries.map((country) => (
@@ -392,7 +431,7 @@ function Header() {
                                                             {country.name}
                                                         </h4>
                                                         {country.citiesData &&
-                                                        country.citiesData.length > 0 ? (
+                                                            country.citiesData.length > 0 ? (
                                                             <div className="grid grid-cols-2 gap-1">
                                                                 {country.citiesData.map((city) => (
                                                                     <Link
@@ -429,8 +468,7 @@ function Header() {
                                     to={item.path}
                                     onClick={() => setIsMobileMenuOpen(false)}
                                     className={({ isActive }) =>
-                                        `flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-300 ${
-                                            isActive ? "text-white" : "text-gray-700"
+                                        `flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-300 ${isActive ? "text-white" : "text-gray-700"
                                         }`
                                     }
                                     style={({ isActive }) => ({
@@ -449,18 +487,66 @@ function Header() {
                         })}
 
                         {/* Mobile CTA */}
-                        <Link
-                            to="/sign-in"
-                            className="relative flex justify-center items-center gap-2 bg-gradient-to-r from-red-500 via-red-600 to-red-700 px-4 py-3 rounded-lg font-semibold text-white mt-2 overflow-hidden group"
-                            style={{
-                                boxShadow:
-                                    "0 6px 20px rgba(249, 115, 22, 0.4), inset 0 -2px 4px rgba(0, 0, 0, 0.2)",
-                            }}
-                            onClick={() => setIsMobileMenuOpen(false)}
-                        >
-                            <span className="relative z-10">Connecter</span>
-                            <LogIn size={20} strokeWidth={2} />
-                        </Link>
+                        {isAuthenticated ? (
+                            <div className="flex flex-col gap-2 w-full mt-2">
+                                <div className="flex items-center justify-center gap-2 bg-sky-50 text-sky-900 px-4 py-3 rounded-lg font-medium">
+                                    <User size={20} />
+                                    <span>Bonjour, {user?.firstName || 'Client'}</span>
+                                </div>
+
+                                {/* 1. Admin ONLY - Dashboard Link */}
+                                {user?.role === "admin" && (
+                                    <Link 
+                                        to="/admin" 
+                                        className="relative flex justify-center items-center gap-2 bg-gradient-to-r from-purple-600 to-purple-800 px-4 py-3 rounded-lg font-semibold text-white overflow-hidden shadow-md"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                        <Shield size={20} strokeWidth={2} />
+                                        <span className="relative z-10">Dashboard Admin</span>
+                                    </Link>
+                                )}
+
+                                {/* 2. Client ONLY - Mon Profil Link */}
+                                {user?.role !== "admin" && (
+                                    <Link
+                                        to="/profile"
+                                        className="relative flex justify-center items-center gap-2 bg-white text-sky-700 border border-sky-200 px-4 py-3 rounded-lg font-semibold hover:bg-sky-50 transition-colors shadow-sm"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                        <User size={20} strokeWidth={2} />
+                                        <span className="relative z-10">Mon Profil</span>
+                                    </Link>
+                                )}
+
+                                <button
+                                    onClick={() => {
+                                        logout();
+                                        setIsMobileMenuOpen(false);
+                                    }}
+                                    className="relative flex justify-center items-center gap-2 bg-gradient-to-r from-red-500 via-red-600 to-red-700 px-4 py-3 rounded-lg font-semibold text-white overflow-hidden group"
+                                    style={{
+                                        boxShadow:
+                                            "0 6px 20px rgba(249, 115, 22, 0.4), inset 0 -2px 4px rgba(0, 0, 0, 0.2)",
+                                    }}
+                                >
+                                    <span className="relative z-10">Déconnexion</span>
+                                    <LogOut size={20} strokeWidth={2} />
+                                </button>
+                            </div>
+                        ) : (
+                            <Link
+                                to="/sign-in"
+                                className="relative flex justify-center items-center gap-2 bg-gradient-to-r from-red-500 via-red-600 to-red-700 px-4 py-3 rounded-lg font-semibold text-white mt-2 overflow-hidden group"
+                                style={{
+                                    boxShadow:
+                                        "0 6px 20px rgba(249, 115, 22, 0.4), inset 0 -2px 4px rgba(0, 0, 0, 0.2)",
+                                }}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                            >
+                                <span className="relative z-10">Connecter</span>
+                                <LogIn size={20} strokeWidth={2} />
+                            </Link>
+                        )}
                     </nav>
                 </div>
 

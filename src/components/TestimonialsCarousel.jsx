@@ -2,7 +2,11 @@ import { useState, useEffect } from "react";
 import TestimonialCard from "./TestimonialCard.jsx";
 import { IoChevronBack, IoChevronForward } from "react-icons/io5";
 
-function TestimonialCarousel({ testimonials = [] }) {
+function TestimonialCarousel({
+  testimonials = [],
+  loading = false,
+  error = null,
+}) {
   const [activeIndex, setActiveIndex] = useState(1);
   const [windowWidth, setWindowWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1024
@@ -16,6 +20,9 @@ function TestimonialCarousel({ testimonials = [] }) {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  const maxIndex = Math.max(0, testimonials.length - 1);
+  const safeActiveIndex = Math.min(activeIndex, maxIndex);
 
   return (
     <section className="relative min-h-screen w-full bg-linear-to-br from-slate-900 via-blue-900 to-slate-900 flex flex-col items-center justify-center py-6 sm:py-8 md:py-10 px-4 sm:px-6 overflow-hidden">
@@ -116,109 +123,137 @@ function TestimonialCarousel({ testimonials = [] }) {
       {/* Main Carousel Container - Full width utilization */}
       <div className="w-full max-w-7xl flex-1 flex items-center justify-center px-2 sm:px-4">
         <div className="relative w-full h-[400px] sm:h-[500px] md:h-[550px] lg:h-[600px] flex items-center justify-center overflow-hidden">
-          {/* Overlapping Cards with Enhanced Effects */}
-          {testimonials.map((testimonial, index) => {
-            const position = index - activeIndex;
-            const isActive = index === activeIndex;
+          {loading ? (
+            <div
+              className="flex flex-col items-center gap-4 text-white/90"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="h-12 w-12 rounded-full border-2 border-orange-400 border-t-transparent animate-spin" />
+              <p className="text-sm sm:text-base">Chargement des avis…</p>
+            </div>
+          ) : error ? (
+            <div
+              className="max-w-md rounded-2xl border border-red-400/40 bg-red-950/40 px-6 py-5 text-center text-red-100"
+              role="alert"
+            >
+              <p className="font-semibold">Impossible de charger les témoignages</p>
+              <p className="mt-2 text-sm text-red-200/90">{error.message}</p>
+            </div>
+          ) : testimonials.length === 0 ? (
+            <p className="text-center text-white/80 text-sm sm:text-base px-4">
+              Aucun témoignage pour le moment.
+            </p>
+          ) : (
+            testimonials.map((testimonial, index) => {
+              const position = index - safeActiveIndex;
+              const isActive = index === safeActiveIndex;
 
-            // Responsive card spacing based on window width
-            const cardSpacing =
-              windowWidth < 640
-                ? 280
-                : windowWidth < 768
-                ? 320
-                : windowWidth < 1024
-                ? 350
-                : 380;
-            const cardScale = isActive
-              ? windowWidth < 640
-                ? 1
-                : 1.05
-              : windowWidth < 640
-              ? 0.9
-              : 0.85;
-            const translateY = isActive
-              ? windowWidth < 640
-                ? "-5px"
-                : "-10px"
-              : "0px";
-            const opacity =
-              Math.abs(position) > 1
-                ? 0
-                : isActive
-                ? 1
+              const cardSpacing =
+                windowWidth < 640
+                  ? 280
+                  : windowWidth < 768
+                  ? 320
+                  : windowWidth < 1024
+                  ? 350
+                  : 380;
+              const cardScale = isActive
+                ? windowWidth < 640
+                  ? 1
+                  : 1.05
                 : windowWidth < 640
-                ? 0.6
-                : 0.4;
-            const blur = isActive ? 0 : windowWidth < 640 ? 1 : 2;
-            const brightness = isActive ? 1 : windowWidth < 640 ? 0.8 : 0.7;
+                ? 0.9
+                : 0.85;
+              const translateY = isActive
+                ? windowWidth < 640
+                  ? "-5px"
+                  : "-10px"
+                : "0px";
+              const opacity =
+                Math.abs(position) > 1
+                  ? 0
+                  : isActive
+                  ? 1
+                  : windowWidth < 640
+                  ? 0.6
+                  : 0.4;
+              const blur = isActive ? 0 : windowWidth < 640 ? 1 : 2;
+              const brightness = isActive ? 1 : windowWidth < 640 ? 0.8 : 0.7;
 
-            return (
-              <div
-                key={index}
-                onClick={() => setActiveIndex(index)}
-                className="absolute transition-all duration-700 ease-in-out cursor-pointer"
-                style={{
-                  transform: `translateX(${
-                    position * cardSpacing
-                  }px) scale(${cardScale}) translateY(${translateY})`,
-                  zIndex: isActive ? 40 : 30 - Math.abs(position),
-                  opacity: opacity,
-                  pointerEvents: Math.abs(position) > 1 ? "none" : "auto",
-                  filter: `brightness(${brightness}) blur(${blur}px)`,
-                }}
-              >
-                <TestimonialCard {...testimonial} isActive={isActive} />
-              </div>
-            );
-          })}
+              return (
+                <div
+                  key={testimonial.id ?? index}
+                  onClick={() => setActiveIndex(index)}
+                  className="absolute transition-all duration-700 ease-in-out cursor-pointer"
+                  style={{
+                    transform: `translateX(${
+                      position * cardSpacing
+                    }px) scale(${cardScale}) translateY(${translateY})`,
+                    zIndex: isActive ? 40 : 30 - Math.abs(position),
+                    opacity: opacity,
+                    pointerEvents: Math.abs(position) > 1 ? "none" : "auto",
+                    filter: `brightness(${brightness}) blur(${blur}px)`,
+                  }}
+                >
+                  <TestimonialCard {...testimonial} isActive={isActive} />
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 
       {/* Navigation Controls - Enhanced Design */}
-      <div className="mt-6 sm:mt-8 md:mt-12 space-y-4 sm:space-y-6">
-        {/* Navigation Dots */}
-        <div className="flex justify-center gap-2 sm:gap-3">
-          {testimonials.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => setActiveIndex(index)}
-              className={`rounded-full transition-all duration-300 ${
-                index === activeIndex
-                  ? "bg-orange-500 w-8 h-3 sm:w-10 sm:h-3.5 md:w-12 md:h-4 shadow-lg shadow-orange-500/50"
-                  : "bg-orange-300/60 hover:bg-orange-400 w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 hover:scale-110 hover:shadow-md hover:shadow-orange-400/50"
-              }`}
-              aria-label={`Go to testimonial ${index + 1}`}
-            />
-          ))}
-        </div>
+      {!loading && !error && testimonials.length > 0 && (
+        <div className="mt-6 sm:mt-8 md:mt-12 space-y-4 sm:space-y-6">
+          <div className="flex justify-center gap-2 sm:gap-3">
+            {testimonials.map((t, index) => (
+              <button
+                key={t.id ?? index}
+                type="button"
+                onClick={() => setActiveIndex(index)}
+                className={`rounded-full transition-all duration-300 ${
+                  index === safeActiveIndex
+                    ? "bg-orange-500 w-8 h-3 sm:w-10 sm:h-3.5 md:w-12 md:h-4 shadow-lg shadow-orange-500/50"
+                    : "bg-orange-300/60 hover:bg-orange-400 w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 hover:scale-110 hover:shadow-md hover:shadow-orange-400/50"
+                }`}
+                aria-label={`Go to testimonial ${index + 1}`}
+              />
+            ))}
+          </div>
 
-        {/* Navigation Arrows */}
-        <div className="flex justify-center gap-3 sm:gap-4">
-          <button
-            onClick={() => setActiveIndex((prev) => Math.max(0, prev - 1))}
-            disabled={activeIndex === 0}
-            className="group flex items-center gap-1.5 sm:gap-2 px-4 py-2.5 sm:px-5 sm:py-2.5 md:px-6 md:py-3 bg-[#F5F5F5] rounded-lg sm:rounded-xl border border-gray-300/50 text-gray-800 font-semibold text-sm sm:text-base transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-orange-500 hover:text-white hover:border-orange-500 hover:shadow-xl hover:shadow-orange-500/40 hover:-translate-y-0.5 active:translate-y-0 disabled:hover:bg-[#F5F5F5] disabled:hover:text-gray-800 disabled:hover:border-gray-300/50 disabled:hover:shadow-none disabled:hover:translate-y-0"
-          >
-            <IoChevronBack className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:-translate-x-1" />
-            <span className="hidden sm:inline">Previous</span>
-            <span className="sm:hidden">Prev</span>
-          </button>
-          <button
-            onClick={() =>
-              setActiveIndex((prev) =>
-                Math.min(testimonials.length - 1, prev + 1)
-              )
-            }
-            disabled={activeIndex === testimonials.length - 1}
-            className="group flex items-center gap-1.5 sm:gap-2 px-4 py-2.5 sm:px-5 sm:py-2.5 md:px-6 md:py-3 bg-[#F5F5F5] rounded-lg sm:rounded-xl border border-gray-300/50 text-gray-800 font-semibold text-sm sm:text-base transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-orange-500 hover:text-white hover:border-orange-500 hover:shadow-xl hover:shadow-orange-500/40 hover:-translate-y-0.5 active:translate-y-0 disabled:hover:bg-[#F5F5F5] disabled:hover:text-gray-800 disabled:hover:border-gray-300/50 disabled:hover:shadow-none disabled:hover:translate-y-0"
-          >
-            <span className="hidden sm:inline">Next</span>
-            <span className="sm:hidden">Next</span>
-            <IoChevronForward className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:translate-x-1" />
-          </button>
+          <div className="flex justify-center gap-3 sm:gap-4">
+            <button
+              type="button"
+              onClick={() =>
+                setActiveIndex((prev) =>
+                  Math.max(0, Math.min(prev, maxIndex) - 1)
+                )
+              }
+              disabled={safeActiveIndex === 0}
+              className="group flex items-center gap-1.5 sm:gap-2 px-4 py-2.5 sm:px-5 sm:py-2.5 md:px-6 md:py-3 bg-[#F5F5F5] rounded-lg sm:rounded-xl border border-gray-300/50 text-gray-800 font-semibold text-sm sm:text-base transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-orange-500 hover:text-white hover:border-orange-500 hover:shadow-xl hover:shadow-orange-500/40 hover:-translate-y-0.5 active:translate-y-0 disabled:hover:bg-[#F5F5F5] disabled:hover:text-gray-800 disabled:hover:border-gray-300/50 disabled:hover:shadow-none disabled:hover:translate-y-0"
+            >
+              <IoChevronBack className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:-translate-x-1" />
+              <span className="hidden sm:inline">Previous</span>
+              <span className="sm:hidden">Prev</span>
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setActiveIndex((prev) =>
+                  Math.min(maxIndex, Math.min(prev, maxIndex) + 1)
+                )
+              }
+              disabled={safeActiveIndex >= maxIndex}
+              className="group flex items-center gap-1.5 sm:gap-2 px-4 py-2.5 sm:px-5 sm:py-2.5 md:px-6 md:py-3 bg-[#F5F5F5] rounded-lg sm:rounded-xl border border-gray-300/50 text-gray-800 font-semibold text-sm sm:text-base transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-orange-500 hover:text-white hover:border-orange-500 hover:shadow-xl hover:shadow-orange-500/40 hover:-translate-y-0.5 active:translate-y-0 disabled:hover:bg-[#F5F5F5] disabled:hover:text-gray-800 disabled:hover:border-gray-300/50 disabled:hover:shadow-none disabled:hover:translate-y-0"
+            >
+              <span className="hidden sm:inline">Next</span>
+              <span className="sm:hidden">Next</span>
+              <IoChevronForward className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:translate-x-1" />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }

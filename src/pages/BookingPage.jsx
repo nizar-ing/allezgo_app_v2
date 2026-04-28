@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { User, CreditCard, CheckCircle2, ChevronLeft, AlertCircle } from "lucide-react";
 import GuestInfoForm from "../components/booking/GuestInfoForm.jsx";
 import BookingSummaryCard from "../components/booking/BookingSummaryCard.jsx";
+import { useBooking } from "../custom-hooks/useBooking.js";
 
 // ─── Progress Stepper ─────────────────────────────────────────────────────────
 const STEPS = [
@@ -65,24 +66,21 @@ export default function BookingPage() {
             ...locationState,
             totalPrice,
             currency:   locationState.currency   ?? "DZD",
+            hotelName: locationState.hotel?.name || 'Hôtel inconnu', // Injection du nom de l'hôtel
         };
     }, [locationState]);
 
     const [currentStep, setCurrentStep] = useState(1);
-    const [guestData,   setGuestData]   = useState(null);
     const [bookingRef,  setBookingRef]  = useState(null);
 
-    const handleGuestSubmit = (data) => {
-        setGuestData(data);
-        setCurrentStep(2);
-        window.scrollTo({ top: 0, behavior: "smooth" });
-    };
-
-    const handleBookingConfirmed = (ref) => {
-        setBookingRef(ref);
-        setCurrentStep(3);
-        window.scrollTo({ top: 0, behavior: "smooth" });
-    };
+    const { mutate: createBooking, isPending } = useBooking({
+        onSuccess: (data) => {
+            const ref = data?.bookingReference ?? data?.reference ?? data?.id ?? "ALG-CONFIRMED";
+            setBookingRef(ref);
+            setCurrentStep(3);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        },
+    });
 
     const handleBack = () => {
         if (currentStep > 1) {
@@ -111,13 +109,12 @@ export default function BookingPage() {
                 </button>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                     <div className="lg:col-span-2">
-                        {currentStep === 1 && <GuestInfoForm bookingState={bookingState} onSubmit={handleGuestSubmit} />}
-                        {currentStep === 2 && (
-                            <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
-                                <CreditCard size={30} className="text-sky-400 mx-auto mb-4" />
-                                <p className="text-gray-700 font-extrabold text-lg">Confirmation & Paiement</p>
-                                <button onClick={() => handleBookingConfirmed('REF-' + Math.random().toString(36).substr(2, 9).toUpperCase())} className="mt-8 px-8 py-3 bg-sky-600 text-white font-bold rounded-xl shadow-lg">Simuler Confirmation</button>
-                            </div>
+                        {currentStep === 1 && (
+                            <GuestInfoForm
+                                bookingState={bookingState}
+                                onSubmit={createBooking}
+                                isPending={isPending}
+                            />
                         )}
                         {currentStep === 3 && (
                             <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">

@@ -1,70 +1,70 @@
 // src/pages/HotelsPerCityPage.jsx
-import {useState, useEffect, useRef, useMemo, useCallback} from 'react';
-import {useParams, useNavigate} from 'react-router-dom';
-import {useQuery} from '@tanstack/react-query';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
     MapPin, X, ChevronDown, Search, Hotel, AlertCircle,
     Filter, ArrowUpDown, CheckCircle, Calendar, Users, RefreshCw,
 } from 'lucide-react';
-import {IoAddOutline, IoTrashOutline} from 'react-icons/io5';
+import { IoAddOutline, IoTrashOutline } from 'react-icons/io5';
 import toast from 'react-hot-toast';
-import {DayPicker} from 'react-day-picker';
+import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/style.css';
 import apiClient from '../services/ApiClient';
 import HotelsFiltering from '../components/HotelsFiltering.jsx';
 import HotelLightCard from '../components/HotelLightCard.jsx';
 import DateRoomsPickerBanner from '../components/DateRoomsPickerBanner.jsx';
 import Loader from '../ui/Loader.jsx';
-import {normalizeHotelForCard} from '../utils/normalizeHotel';
+import { normalizeHotelForCard } from '../utils/normalizeHotel';
 
 const COUNTRY_BANNERS = {
-    tunisie:  '/images/tunisie_hotels.jpeg',
-    algerie:  '/images/algerie_hotels.jpeg',
+    tunisie: '/images/tunisie_hotels.jpeg',
+    algerie: '/images/algerie_hotels.jpeg',
 };
 
 const FALLBACK_BANNER = '/images/tunisie_hotels.jpeg';
 
 const getDefaultDates = () => {
-    const today    = new Date();
+    const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dayAfter = new Date(tomorrow);
     dayAfter.setDate(dayAfter.getDate() + 1);
     return {
-        checkIn:  tomorrow.toISOString().split('T')[0],
+        checkIn: tomorrow.toISOString().split('T')[0],
         checkOut: dayAfter.toISOString().split('T')[0],
     };
 };
 
-const defaultDates    = getDefaultDates();
+const defaultDates = getDefaultDates();
 const HOTELS_PER_PAGE = 10;
 
 function HotelsPerCityPage() {
-    const {cityId: cityIdParam} = useParams();
-    const cityId  = Number(cityIdParam);
+    const { cityId: cityIdParam } = useParams();
+    const cityId = Number(cityIdParam);
     const navigate = useNavigate();
 
     // ── State ──────────────────────────────────────────────────────────────────
-    const [filters,          setFilters]          = useState({});
-    const [sortBy,           setSortBy]           = useState('recommended');
-    const [showFilters,      setShowFilters]      = useState(false);
-    const [cityInfo,         setCityInfo]         = useState(null);
-    const [showDatePicker,   setShowDatePicker]   = useState(false);
-    const [currentMonth,     setCurrentMonth]     = useState(new Date());
-    const [searchParams,     setSearchParams]     = useState({
-        checkIn:  defaultDates.checkIn,
+    const [filters, setFilters] = useState({});
+    const [sortBy, setSortBy] = useState('recommended');
+    const [showFilters, setShowFilters] = useState(false);
+    const [cityInfo, setCityInfo] = useState(null);
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [currentMonth, setCurrentMonth] = useState(new Date());
+    const [searchParams, setSearchParams] = useState({
+        checkIn: defaultDates.checkIn,
         checkOut: defaultDates.checkOut,
-        rooms:    [{adults: 2, children: []}],
+        rooms: [{ adults: 2, children: [] }],
     });
     const [tempSearchParams, setTempSearchParams] = useState({
-        checkIn:  defaultDates.checkIn,
+        checkIn: defaultDates.checkIn,
         checkOut: defaultDates.checkOut,
-        rooms:    [{adults: 2, children: []}],
+        rooms: [{ adults: 2, children: [] }],
     });
     const [dateRange, setDateRange] = useState({
         from: new Date(defaultDates.checkIn),
-        to:   new Date(defaultDates.checkOut),
+        to: new Date(defaultDates.checkOut),
     });
     const [favoriteIds, setFavoriteIds] = useState(() =>
         JSON.parse(localStorage.getItem('favoriteHotels') ?? '[]')
@@ -74,48 +74,48 @@ function HotelsPerCityPage() {
 
     // ── Step 1 — Fetch hotels ──────────────────────────────────────────────────
     const {
-        data:      allHotelsData,
+        data: allHotelsData,
         isLoading: isLoadingAll,
-        isError:   isErrorAll,
-        error:     errorAll,
+        isError: isErrorAll,
+        error: errorAll,
     } = useQuery({
         queryKey: ['hotels-enhanced', cityId],
-        queryFn:  async () =>
+        queryFn: async () =>
             await apiClient.listHotelEnhanced(cityId, {
-                batchSize:           5,
+                batchSize: 5,
                 delayBetweenBatches: 150,
                 onProgress: (current, total) => {
                     if (import.meta.env.DEV)
                         console.log(`Loading hotels ${current}/${total}`);
                 },
             }),
-        enabled:   !!cityId,
+        enabled: !!cityId,
         staleTime: 10 * 60 * 1000,
-        retry:     2,
+        retry: 2,
     });
 
     // ── Step 2 — Fetch pricing + extract preloaded room availability ───────────
     const {
-        data:      pricingData,
+        data: pricingData,
         isLoading: isLoadingPricing,
-        isError:   isErrorPricing,
+        isError: isErrorPricing,
     } = useQuery({
         queryKey: ['hotel-pricing', cityId,
             searchParams.checkIn, searchParams.checkOut, searchParams.rooms],
-        queryFn:  async () => {
+        queryFn: async () => {
             if (!allHotelsData?.length || !searchParams.checkIn || !searchParams.checkOut)
                 return null;
 
             const hotelIds = allHotelsData.map(h => h.Id);
-            const result   = await apiClient.searchHotel({
-                checkIn:  searchParams.checkIn,
+            const result = await apiClient.searchHotel({
+                checkIn: searchParams.checkIn,
                 checkOut: searchParams.checkOut,
-                hotels:   hotelIds,
+                hotels: hotelIds,
                 rooms: searchParams.rooms.map(room => ({
-                    adult:     room.adults,
-                    child:     room.children, // ApiClient handles array or count transformation
+                    adult: room.adults,
+                    child: room.children, // ApiClient handles array or count transformation
                 })),
-                filters: {keywords: '', category: '', onlyAvailable: false, tags: ''},
+                filters: { keywords: '', category: '', onlyAvailable: false, tags: '' },
             });
 
             const pricingMap = {};
@@ -123,26 +123,26 @@ function HotelsPerCityPage() {
             // ✅ Utilisation de transformedHotels pour récupérer isAvailable et paxGroups synchronisés
             result.transformedHotels.forEach(th => {
                 pricingMap[th.id] = {
-                    minPrice:           th.minPrice,
-                    currency:           th.currency,
-                    isAvailable:        th.isAvailable, // ✅ Fix: Synchronisé avec HotelLightCard status
+                    minPrice: th.minPrice,
+                    currency: th.currency,
+                    isAvailable: th.isAvailable, // ✅ Fix: Synchronisé avec HotelLightCard status
                     availabilityStatus: th.availabilityStatus, // ✅ NOUVEAU: Transmet le statut "Sur demande" ou "Complet"
-                    token:              th.token,
-                    discountPercent:    th.maxDiscount,
-                    paxGroups:          th.paxGroups,   // ✅ Fix: Données injectées pour affichage immédiat
+                    token: th.token,
+                    discountPercent: th.maxDiscount,
+                    paxGroups: th.paxGroups,   // ✅ Fix: Données injectées pour affichage immédiat
                 };
             });
 
             return pricingMap;
         },
-        enabled:   !!allHotelsData && !!searchParams.checkIn && !!searchParams.checkOut,
+        enabled: !!allHotelsData && !!searchParams.checkIn && !!searchParams.checkOut,
         staleTime: 2 * 60 * 1000,
     });
 
     // ── Cities ─────────────────────────────────────────────────────────────────
-    const {data: citiesData} = useQuery({
+    const { data: citiesData } = useQuery({
         queryKey: ['cities'],
-        queryFn:  async () => apiClient.listCity(),
+        queryFn: async () => apiClient.listCity(),
         staleTime: 10 * 60 * 1000,
     });
 
@@ -153,7 +153,7 @@ function HotelsPerCityPage() {
 
     useEffect(() => {
         if (isErrorPricing)
-            toast.error('Impossible de charger les prix. Réessayez.', {duration: 4000});
+            toast.error('Impossible de charger les prix. Réessayez.', { duration: 4000 });
     }, [isErrorPricing]);
 
     // ── Derived data ───────────────────────────────────────────────────────────
@@ -220,16 +220,16 @@ function HotelsPerCityPage() {
     }, [sortedHotels.length, filters, sortBy]);
 
     const displayedHotels = sortedHotels.slice(0, displayCount);
-    const hasNextPage     = displayCount < sortedHotels.length;
-    const loadMore        = () => setDisplayCount(prev => prev + HOTELS_PER_PAGE);
+    const hasNextPage = displayCount < sortedHotels.length;
+    const loadMore = () => setDisplayCount(prev => prev + HOTELS_PER_PAGE);
 
     // Intersection observer for infinite scroll
     useEffect(() => {
         if (!loadMoreRef.current || !hasNextPage) return;
-        const el       = loadMoreRef.current;
+        const el = loadMoreRef.current;
         const observer = new IntersectionObserver(
             entries => { if (entries[0].isIntersecting) loadMore(); },
-            {threshold: 0.1, rootMargin: '100px'}
+            { threshold: 0.1, rootMargin: '100px' }
         );
         observer.observe(el);
         return () => observer.unobserve(el);
@@ -259,7 +259,7 @@ function HotelsPerCityPage() {
         setDateRange(range);
         setTempSearchParams(prev => ({
             ...prev,
-            checkIn:  range?.from ? range.from.toISOString().split('T')[0] : '',
+            checkIn: range?.from ? range.from.toISOString().split('T')[0] : '',
             checkOut: range?.to ? range.to.toISOString().split('T')[0] : '',
         }));
     };
@@ -267,36 +267,38 @@ function HotelsPerCityPage() {
     const handleSearchPricing = () => {
         if (!tempSearchParams.checkIn || !tempSearchParams.checkOut)
             return toast.error('Veuillez sélectionner les dates de séjour',
-                {duration: 4000, position: 'top-center'});
+                { duration: 4000, position: 'top-center' });
         if (new Date(tempSearchParams.checkIn) >= new Date(tempSearchParams.checkOut))
             return toast.error("La date de départ doit être après la date d'arrivée",
-                {duration: 4000, position: 'top-center'});
+                { duration: 4000, position: 'top-center' });
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         if (new Date(tempSearchParams.checkIn) < today)
             return toast.error("La date d'arrivée ne peut pas être dans le passé",
-                {duration: 4000, position: 'top-center'});
+                { duration: 4000, position: 'top-center' });
         setSearchParams({
-            checkIn:  tempSearchParams.checkIn,
+            checkIn: tempSearchParams.checkIn,
             checkOut: tempSearchParams.checkOut,
-            rooms:    tempSearchParams.rooms,
+            rooms: tempSearchParams.rooms,
         });
         setShowDatePicker(false);
-        toast.loading('Recherche des prix en cours...', {duration: 2000});
+        toast.loading('Recherche des prix en cours...', { duration: 2000 });
     };
 
     const buildHotelUrl = useCallback((hotelId) => {
         const p = new URLSearchParams();
-        if (searchParams.checkIn)  p.set('checkin',  searchParams.checkIn);
+        if (searchParams.checkIn) p.set('checkin', searchParams.checkIn);
         if (searchParams.checkOut) p.set('checkout', searchParams.checkOut);
         if (searchParams.rooms?.length) {
-            try { p.set('rooms', encodeURIComponent(JSON.stringify(
-                searchParams.rooms.map(r => ({
-                    adults:    r.adults,
-                    children:  r.children.length,
-                    childAges: r.children,
-                }))
-            ))); } catch {}
+            try {
+                p.set('rooms', encodeURIComponent(JSON.stringify(
+                    searchParams.rooms.map(r => ({
+                        adults: r.adults,
+                        children: r.children.length,
+                        childAges: r.children,
+                    }))
+                )));
+            } catch { }
         }
         const qs = p.toString();
         return `/hotel/${hotelId}${qs ? `?${qs}` : ''}`;
@@ -307,27 +309,27 @@ function HotelsPerCityPage() {
     }, [navigate, buildHotelUrl]);
 
     const handleBookHotel = useCallback((hotel, selectedRooms) => {
-        const roomsList  = Array.isArray(selectedRooms)
+        const roomsList = Array.isArray(selectedRooms)
             ? selectedRooms
             : selectedRooms ? [selectedRooms] : [];
         const totalPrice = roomsList.reduce((acc, r) => acc + (r.price ?? 0), 0);
         navigate(`/booking/${hotel.Id}`, {
             state: {
                 hotel,
-                hotelId:      hotel.Id,
-                hotelName:    hotel.Name,
-                checkIn:      searchParams.checkIn,
-                checkOut:     searchParams.checkOut,
+                hotelId: hotel.Id,
+                hotelName: hotel.Name,
+                checkIn: searchParams.checkIn,
+                checkOut: searchParams.checkOut,
                 nights,
                 boardingType: roomsList[0]?.boardingCode ?? null,
-                rooms:        roomsList,
+                rooms: roomsList,
                 totalPrice,
-                currency:     hotel.pricing?.currency ?? 'DZD',
+                currency: hotel.pricing?.currency ?? 'DZD',
                 selectedRooms: roomsList,
                 searchParams: {
-                    checkIn:  searchParams.checkIn,
+                    checkIn: searchParams.checkIn,
                     checkOut: searchParams.checkOut,
-                    rooms:    searchParams.rooms,
+                    rooms: searchParams.rooms,
                 },
             },
         });
@@ -336,7 +338,7 @@ function HotelsPerCityPage() {
     // ── Room management ────────────────────────────────────────────────────────
     const handleAddRoom = () =>
         setTempSearchParams(prev => ({
-            ...prev, rooms: [...prev.rooms, {adults: 1, children: []}],
+            ...prev, rooms: [...prev.rooms, { adults: 1, children: [] }],
         }));
 
     const handleRemoveRoom = (index) => {
@@ -352,7 +354,7 @@ function HotelsPerCityPage() {
         if (n < 1 || n > 6) return;
         setTempSearchParams(prev => ({
             ...prev,
-            rooms: prev.rooms.map((room, i) => i === index ? {...room, adults: n} : room),
+            rooms: prev.rooms.map((room, i) => i === index ? { ...room, adults: n } : room),
         }));
     };
 
@@ -365,7 +367,7 @@ function HotelsPerCityPage() {
                     toast.error('Maximum 4 enfants par chambre');
                     return room;
                 }
-                return {...room, children: [...room.children, 1]};
+                return { ...room, children: [...room.children, 1] };
             }),
         }));
 
@@ -374,7 +376,7 @@ function HotelsPerCityPage() {
             ...prev,
             rooms: prev.rooms.map((room, i) =>
                 i === roomIndex
-                    ? {...room, children: room.children.filter((_, ci) => ci !== childIndex)}
+                    ? { ...room, children: room.children.filter((_, ci) => ci !== childIndex) }
                     : room),
         }));
 
@@ -396,16 +398,16 @@ function HotelsPerCityPage() {
 
     // ── Rendering Helpers ──────────────────────────────────────────────────────
     const sortOptions = [
-        {value: 'recommended', label: 'Recommandés'},
-        {value: 'price-asc',   label: 'Prix croissant',   disabled: !pricingData},
-        {value: 'price-desc',  label: 'Prix décroissant',  disabled: !pricingData},
-        {value: 'rating',      label: 'Meilleures notes'},
-        {value: 'name-asc',    label: 'Nom A-Z'},
+        { value: 'recommended', label: 'Recommandés' },
+        { value: 'price-asc', label: 'Prix croissant', disabled: !pricingData },
+        { value: 'price-desc', label: 'Prix décroissant', disabled: !pricingData },
+        { value: 'rating', label: 'Meilleures notes' },
+        { value: 'name-asc', label: 'Nom A-Z' },
     ];
 
     const getBannerImage = () => {
-        const countryName  = cityInfo?.Country?.Name ?? '';
-        const countryKey   = countryName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const countryName = cityInfo?.Country?.Name ?? '';
+        const countryKey = countryName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         const countryMatch = Object.keys(COUNTRY_BANNERS).find((key) => countryKey.includes(key));
         if (countryMatch) return COUNTRY_BANNERS[countryMatch];
         return FALLBACK_BANNER;
@@ -414,26 +416,26 @@ function HotelsPerCityPage() {
     const formatDate = (dateString) => {
         if (!dateString) return 'Sélectionner';
         return new Date(dateString).toLocaleDateString('fr-FR',
-            {weekday: 'short', day: 'numeric', month: 'short'});
+            { weekday: 'short', day: 'numeric', month: 'short' });
     };
 
     const hotelCards = useMemo(() =>
-            displayedHotels.map(hotel => (
-                <HotelLightCard
-                    key={hotel.Id}
-                    hotel={hotel}
-                    onFavoriteToggle={handleFavoriteToggle}
-                    pricing={hotel.pricing}
-                    // ✅ FIX: Passage de paxGroups pour affichage instantané et badge correct
-                    paxGroups={hotel.pricing?.paxGroups ?? null}
-                    onBook={handleBookHotel}
-                    onViewDetail={handleViewHotelDetail}
-                    showBookButton={true}
-                    nights={nights}
-                    searchParams={searchParams}
-                    initialIsFavorite={favoriteIds.includes(hotel.Id)}
-                />
-            )),
+        displayedHotels.map(hotel => (
+            <HotelLightCard
+                key={hotel.Id}
+                hotel={hotel}
+                onFavoriteToggle={handleFavoriteToggle}
+                pricing={hotel.pricing}
+                // ✅ FIX: Passage de paxGroups pour affichage instantané et badge correct
+                paxGroups={hotel.pricing?.paxGroups ?? null}
+                onBook={handleBookHotel}
+                onViewDetail={handleViewHotelDetail}
+                showBookButton={true}
+                nights={nights}
+                searchParams={searchParams}
+                initialIsFavorite={favoriteIds.includes(hotel.Id)}
+            />
+        )),
         [displayedHotels, handleFavoriteToggle, handleBookHotel,
             handleViewHotelDetail, nights, searchParams, favoriteIds]
     );
@@ -443,7 +445,7 @@ function HotelsPerCityPage() {
         return (
             <div className="min-h-screen w-full bg-gradient-to-br from-sky-50 via-blue-50 to-sky-100">
                 <div className="relative h-48 sm:h-56 md:h-64 lg:h-80 overflow-hidden bg-gray-200 animate-pulse mx-2 sm:mx-4 lg:mx-8 mt-2 sm:mt-4 rounded-xl sm:rounded-2xl">
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-black/10 to-transparent"/>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-black/10 to-transparent" />
                 </div>
                 <Loader
                     message={`Chargement des hôtels ${cityInfo?.Name ?? ''}...`}
@@ -467,11 +469,11 @@ function HotelsPerCityPage() {
                     onError={e =>
                         e.target.src = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200'}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent"/>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 md:p-6 lg:p-8">
                     <div className="max-w-7xl mx-auto">
                         <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
-                            <MapPin className="text-white flex-shrink-0" size={20}/>
+                            <MapPin className="text-white flex-shrink-0" size={20} />
                             <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-white drop-shadow-2xl leading-tight">
                                 Hôtels {cityInfo?.Name ?? '...'}
                             </h1>
@@ -526,7 +528,7 @@ function HotelsPerCityPage() {
                 {isErrorPricing && (
                     <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-4">
                         <div className="flex items-center gap-3">
-                            <AlertCircle className="text-red-600 flex-shrink-0" size={24}/>
+                            <AlertCircle className="text-red-600 flex-shrink-0" size={24} />
                             <div className="flex-1">
                                 <p className="font-semibold text-red-800">Erreur lors de la recherche des prix</p>
                                 <p className="text-sm text-red-600">Impossible de récupérer les prix pour les dates sélectionnées.</p>
@@ -546,7 +548,7 @@ function HotelsPerCityPage() {
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
                         <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
                             <div className="p-1.5 sm:p-2 bg-sky-50 border border-sky-100 rounded-xl flex-shrink-0">
-                                <Hotel className="text-sky-600" size={20}/>
+                                <Hotel className="text-sky-600" size={20} />
                             </div>
                             <div className="min-w-0 flex-1">
                                 <p className="text-xs sm:text-sm text-gray-500 font-medium">Résultats trouvés</p>
@@ -563,7 +565,7 @@ function HotelsPerCityPage() {
                                 onClick={() => setShowFilters(!showFilters)}
                                 className="lg:hidden flex items-center gap-1.5 sm:gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:border-sky-300 hover:bg-sky-50 text-gray-700 hover:text-sky-700 text-sm sm:text-base font-bold rounded-xl transition-all shadow-sm active:scale-95 flex-1 sm:flex-initial justify-center focus:outline-none focus:ring-4 focus:ring-sky-100"
                             >
-                                <Filter size={18}/>
+                                <Filter size={18} />
                                 <span className="hidden xs:inline">Filtres</span>
                             </button>
                             <div className="relative flex-1 sm:flex-initial min-w-[140px] sm:min-w-[160px]">
@@ -578,7 +580,7 @@ function HotelsPerCityPage() {
                                         </option>
                                     ))}
                                 </select>
-                                <ArrowUpDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>
+                                <ArrowUpDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                             </div>
                         </div>
                     </div>
@@ -603,7 +605,7 @@ function HotelsPerCityPage() {
 
                         {isErrorAll && (
                             <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 lg:p-12 text-center border border-gray-100">
-                                <AlertCircle size={48} className="sm:w-16 sm:h-16 mx-auto text-red-500 mb-3 sm:mb-4"/>
+                                <AlertCircle size={48} className="sm:w-16 sm:h-16 mx-auto text-red-500 mb-3 sm:mb-4" />
                                 <h3 className="text-xl sm:text-2xl font-extrabold text-gray-800 mb-2 sm:mb-3">Erreur de chargement</h3>
                                 <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 px-4">
                                     {errorAll?.message ?? 'Impossible de charger les hôtels. Veuillez réessayer.'}
@@ -619,7 +621,7 @@ function HotelsPerCityPage() {
 
                         {!isLoadingAll && !isErrorAll && sortedHotels.length === 0 && (
                             <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 lg:p-12 text-center border border-gray-100">
-                                <Search size={48} className="sm:w-16 sm:h-16 mx-auto text-gray-300 mb-3 sm:mb-4"/>
+                                <Search size={48} className="sm:w-16 sm:h-16 mx-auto text-gray-300 mb-3 sm:mb-4" />
                                 <h3 className="text-xl sm:text-2xl font-extrabold text-gray-800 mb-2 sm:mb-3">Aucun hôtel trouvé</h3>
                                 <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 px-4">
                                     Essayez de modifier vos filtres ou critères de recherche.
@@ -646,7 +648,7 @@ function HotelsPerCityPage() {
                                         onClick={loadMore}
                                         className="w-full sm:w-auto px-6 sm:px-8 py-3.5 bg-sky-50 text-sky-700 hover:bg-sky-100 font-bold text-sm sm:text-base rounded-xl transition-all flex items-center justify-center gap-2 active:scale-95 focus:outline-none focus:ring-4 focus:ring-sky-100"
                                     >
-                                        <ChevronDown size={20} className="sm:w-5 sm:h-5"/>
+                                        <ChevronDown size={20} className="sm:w-5 sm:h-5" />
                                         Charger plus d'hôtels
                                     </button>
                                 </div>
@@ -657,7 +659,7 @@ function HotelsPerCityPage() {
                             <div className="text-center py-6 sm:py-8 mt-4 sm:mt-6">
                                 <div className="inline-flex items-center gap-3 px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl shadow-sm max-w-full mx-2">
                                     <div className="p-2 bg-green-100 rounded-full flex-shrink-0">
-                                        <CheckCircle className="w-5 h-5 text-green-600"/>
+                                        <CheckCircle className="w-5 h-5 text-green-600" />
                                     </div>
                                     <div className="text-left">
                                         <p className="text-gray-800 font-extrabold text-sm sm:text-base">Tous les hôtels affichés !</p>
@@ -678,11 +680,11 @@ function HotelsPerCityPage() {
                     <div className="bg-white rounded-t-3xl w-full max-h-[85vh] sm:max-h-[90vh] overflow-hidden flex flex-col animate-slide-up shadow-2xl">
                         <div className="sticky top-0 bg-white border-b border-gray-100 p-4 sm:p-5 flex items-center justify-between z-10 shadow-sm">
                             <h3 className="text-lg sm:text-xl font-extrabold text-gray-800 flex items-center gap-2">
-                                <Filter size={22} className="text-sky-600"/>
+                                <Filter size={22} className="text-sky-600" />
                                 Filtres
                             </h3>
                             <button onClick={() => setShowFilters(false)} className="p-2 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl transition-colors active:scale-95 focus:outline-none focus:ring-4 focus:ring-gray-200">
-                                <X size={20}/>
+                                <X size={20} />
                             </button>
                         </div>
                         <div className="flex-1 overflow-y-auto filter-scroll p-4 sm:p-5">
@@ -721,7 +723,8 @@ function HotelsPerCityPage() {
             )}
 
             {/* DayPicker custom styles */}
-            <style dangerouslySetInnerHTML={{__html: `
+            <style dangerouslySetInnerHTML={{
+                __html: `
                 .custom-day-picker { --rdp-accent-color: #0284c7; --rdp-background-color: #e0f2fe; font-family: inherit; }
                 .custom-day-picker .rdp-month { margin: 0; }
                 .custom-day-picker .rdp-nav { display: none !important; }
@@ -740,7 +743,7 @@ function HotelsPerCityPage() {
                 .animate-fade-in { animation: fade-in 0.2s ease-out; }
                 .animate-slide-up { animation: slide-up 0.3s ease-out; }
                 @media (max-width: 1024px) { .custom-day-picker .rdp-months { flex-direction: column; } }
-            `}}/>
+            `}} />
         </div>
     );
 }

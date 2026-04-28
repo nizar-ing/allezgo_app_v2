@@ -386,6 +386,7 @@ function SearchResultsPage() {
                     rooms: roomsList,
                     totalPrice,
                     currency: hotel.pricing?.currency ?? "DZD",
+                    token: hotel.pricing?.token ?? hotel.Token,
                     selectedRooms: roomsList,
                     searchParams: { checkIn, checkOut, rooms },
                 },
@@ -434,6 +435,7 @@ function SearchResultsPage() {
                 rooms: selectedRoomsList,
                 totalPrice,
                 currency: hotel.pricing?.currency ?? "DZD",
+                token: hotel.pricing?.token ?? hotel.Token,
             },
         });
     }, [navigate, buildHotelUrl, rooms, checkIn, checkOut, nights]);
