@@ -13,6 +13,7 @@ const BOARDING_LABELS = {
     SC: "Self Catering",
 };
 
+// eslint-disable-next-line no-unused-vars
 function Row({ icon: Icon, label, value }) {
     return (
         <div className="flex items-start justify-between gap-3 py-2.5 border-b border-gray-50 last:border-0">

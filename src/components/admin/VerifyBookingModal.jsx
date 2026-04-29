@@ -153,6 +153,7 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
         const iPayload = typeof bookingEntity.iproPayload === 'string' ? JSON.parse(bookingEntity.iproPayload) : (bookingEntity.iproPayload || {});
 
         const token = iPayload.Token || iPayload.token || bData.Token || bData.token;
+        const toYmd = (dateValue) => (dateValue || "").toString().substring(0, 10);
 
         // 1. Passenger Mapping (Strict string Civility as per example)
         const mappedAdults = (iPayload.Adult || []).map((a, index) => ({
@@ -196,16 +197,35 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
              };
         });
 
+        const normalizeOptionIds = (optionSource) => {
+            if (!Array.isArray(optionSource)) return [];
+            return optionSource
+                .map((opt) => {
+                    if (typeof opt === "number" || typeof opt === "string") {
+                        return parseInt(opt, 10);
+                    }
+                    return parseInt(opt?.Id ?? opt?.id, 10);
+                })
+                .filter((id) => Number.isFinite(id));
+        };
+
+        const rawOptions = bData?.hotel?.Option || bData?.Option || iPayload?.Option || [];
+        const hotelId = parseInt(
+            bData.Hotel || bookingEntity.hotelId || bData.hotelId || bData.hotel?.Id,
+            10
+        );
+        const cityId = bData.City || bData.hotel?.City?.Id || iPayload.City || bookingEntity?.cityId || "10";
+
         // 4. Final Root Payload (Matching working example types/casing exactly)
         return {
             Token: token,
             PreBooking: false,
-            City: (bData.City || bData.hotel?.City?.Id || iPayload.City || "10").toString(), // String ID
-            Hotel: parseInt(bData.Hotel || bookingEntity.hotelId || bData.hotelId || bData.hotel?.Id, 10), // Integer ID
-            CheckIn: (bookingEntity.checkIn || bData.CheckIn || bData.checkIn).substring(0, 10), // 🔴 STRICT YYYY-MM-DD
-            CheckOut: (bookingEntity.checkOut || bData.CheckOut || bData.checkOut).substring(0, 10), // 🔴 STRICT YYYY-MM-DD
+            City: cityId.toString(), // String ID
+            Hotel: Number.isFinite(hotelId) ? hotelId : 0, // Integer ID
+            CheckIn: toYmd(bookingEntity.checkIn || bData.CheckIn || bData.checkIn), // STRICT YYYY-MM-DD
+            CheckOut: toYmd(bookingEntity.checkOut || bData.CheckOut || bData.checkOut), // STRICT YYYY-MM-DD
             Source: "ReactAllezGo-Admin",
-            Option: [],
+            Option: normalizeOptionIds(rawOptions),
             Rooms: mappedRooms
         };
     };

@@ -15,6 +15,7 @@ export function useBooking({ onSuccess: externalOnSuccess, onError: externalOnEr
             const iproPayload = {
                 Token: bookingState?.Token || bookingState?.token,
                 City: bookingState?.hotel?.City?.Id || bookingState?.hotel?.City || "1",
+                Option: bookingState?.hotel?.Option || bookingState?.Option || [],
                 rawRooms: bookingState?.selectedRooms || bookingState?.rooms || [],
                 boardingType: bookingState?.boardingType || "1",
                 PreBooking: true,

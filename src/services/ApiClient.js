@@ -543,6 +543,10 @@ class ApiClient {
     // ==================== BOOKING MUTATIONS ====================
     async createBooking(hotelBookingPayload) {
         try {
+            const normalizedHotelBooking = hotelBookingPayload?.HotelBooking
+                ? hotelBookingPayload.HotelBooking
+                : hotelBookingPayload;
+
             // Strictly enforce API isolation: inject credentials here, never in the UI
             const requestPayload = {
                 Credential: {
@@ -550,7 +554,7 @@ class ApiClient {
                     Password: CREDENTIALS.Password
                 },
                 // PreBooking is intentionally omitted to perform a final confirmation
-                HotelBooking: hotelBookingPayload
+                HotelBooking: normalizedHotelBooking
             };
 
             const response = await axios.post(`${CONFIG.BASE_URL}/BookingCreation`, requestPayload, {

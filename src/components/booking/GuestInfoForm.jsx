@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { createElement, useState, useCallback } from "react";
 import {
     User, Mail, Phone, MapPin,
     CreditCard, Landmark,
@@ -157,6 +157,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
         });
 
         clearError('rooms.0.adults.0.fullName');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formData.contact.fullName, clearError]);
 
     const validate = useCallback(() => {
@@ -346,11 +347,11 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                 <SectionHeader number="3" title="Mode de Paiement" gradient="from-orange-400 to-rose-500" />
                 <div className="flex flex-col sm:flex-row gap-3">
-                    {PAYMENT_METHODS.map(({ id, label, icon: Icon }) => {
+                    {PAYMENT_METHODS.map(({ id, label, icon }) => {
                         const isActive = formData.paymentMethod === id;
                         return (
                             <button key={id} type="button" disabled={id === 'online'} onClick={() => setFormData(p => ({ ...p, paymentMethod: id }))} className={`flex-1 flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-xl border-2 font-bold text-sm transition-all ${isActive ? "bg-orange-600 text-white border-transparent shadow-lg" : "bg-white text-gray-600 border-gray-200"}`}>
-                                <Icon size={16} /> {label}
+                                {createElement(icon, { size: 16 })} {label}
                             </button>
                         );
                     })}
