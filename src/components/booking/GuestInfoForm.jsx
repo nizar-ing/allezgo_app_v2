@@ -60,7 +60,7 @@ function TextInput({ error, ...props }) {
                 : error
                     ? "bg-red-50/40 border-red-300 focus:border-red-400 focus:ring-red-100"
                     : "bg-white border-gray-200 focus:border-sky-400 focus:ring-sky-100"
-                }`}
+            }`}
         />
     );
 }

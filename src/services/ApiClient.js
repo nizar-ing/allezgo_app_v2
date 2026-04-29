@@ -568,6 +568,30 @@ class ApiClient {
         }
     }
 
+    async cancelBooking(bookingId, onlyFees = false) {
+        try {
+            const requestPayload = {
+                Credential: {
+                    Login: CREDENTIALS.Login,
+                    Password: CREDENTIALS.Password
+                },
+                OnlyCancellationFees: onlyFees,
+                Booking: parseInt(bookingId, 10)
+            };
+
+            const response = await axios.post(`${CONFIG.BASE_URL}/BookingCancellation`, requestPayload, {
+                timeout: CONFIG.TIMEOUT.DEFAULT
+            });
+
+            if (!response.data) {
+                throw new ApiError('Failed to cancel booking on iPro servers.', response.status);
+            }
+            return response.data;
+        } catch (error) {
+            throw new ApiError('Error executing BookingCancellation mutation', error.response?.status, error);
+        }
+    }
+
     clearCache() { this.cache.clear(); }
     getCacheStats() { return this.cache.getStats(); }
 }
