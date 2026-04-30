@@ -94,7 +94,6 @@ function ReceiptImage({ filename, isOpen }) {
     }
 
     return (
-        /* Robust Receipt Image Enlarge */
         <div className="mt-4">
             <p className="text-sm font-semibold text-slate-700 mb-2">Reçu de paiement :</p>
             <a
@@ -109,7 +108,6 @@ function ReceiptImage({ filename, isOpen }) {
                     alt="Reçu de paiement"
                     className="w-full h-auto max-h-96 object-contain bg-slate-50"
                 />
-                {/* Hover Overlay */}
                 <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <span className="bg-white/90 text-slate-800 px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg">
                         <ZoomIn size={18} /> Agrandir le reçu
@@ -147,15 +145,28 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
     const queryClient = useQueryClient();
     const { updateBookingStatus } = useAdminBookings();
 
+    // ─── Type-coercion helpers ─────────────────────────────────────────────────
+    const toStr = (val) => (val == null ? "" : String(val));
+    const toInt = (val) => parseInt(val, 10);
+
+    // ─── Boarding resolver (shared by buildIProPayload & handleAction) ─────────
+    const resolveBoardingId = (rawBoarding) => {
+        if (typeof rawBoarding === 'object' && rawBoarding?.Id) return rawBoarding.Id.toString();
+        const b = (rawBoarding || "").toString().toUpperCase();
+        if (b.includes("LPD") || b === "BB") return "2";
+        if (b.includes("DP")  || b === "HB") return "3";
+        if (b.includes("PC")  || b === "FB") return "4";
+        if (b.includes("ALL") || b === "AI") return "5";
+        return b || "1";
+    };
+
     // ─── Payload Mapper ────────────────────────────────────────────────────────
     const buildIProPayload = (bookingEntity) => {
         const bData = typeof bookingEntity.bookingData === 'string' ? JSON.parse(bookingEntity.bookingData) : (bookingEntity.bookingData || {});
         const iPayload = typeof bookingEntity.iproPayload === 'string' ? JSON.parse(bookingEntity.iproPayload) : (bookingEntity.iproPayload || {});
 
         const token = iPayload.Token || iPayload.token || bData.Token || bData.token;
-        const toYmd = (dateValue) => (dateValue || "").toString().substring(0, 10);
 
-        // 1. Passenger Mapping (Strict string Civility as per example)
         const mappedAdults = (iPayload.Adult || []).map((a, index) => ({
             Civility: a.Civility === 2 || a.Civility === "2" || a.Civility === "Ms" ? "Ms" : "Mr",
             Name: a.Name || "Client",
@@ -166,66 +177,34 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
         const mappedChildren = (iPayload.Child || []).map(c => ({
             Name: c.Name || "Child",
             Surname: c.Surname || "Child",
-            Age: c.Age?.toString() || "5" 
+            Age: c.Age?.toString() || "5"
         }));
 
-        // 2. Boarding Resolver (MUST RETURN STRING "4" as per example)
-        const resolveBoardingId = (rawBoarding) => {
-            if (typeof rawBoarding === 'object' && rawBoarding?.Id) return rawBoarding.Id.toString();
-            const b = (rawBoarding || "").toString().toUpperCase();
-            if (b.includes("LPD") || b === "BB") return "2";
-            if (b.includes("DP") || b === "HB") return "3";
-            if (b.includes("PC") || b === "FB") return "4";
-            if (b.includes("ALL") || b === "AI") return "5";
-            return "1";
-        };
-
-        // 3. Map Rooms (Flat structure with string IDs as per example)
         const rawRooms = bData.selectedRooms || bData.rooms || iPayload.rawRooms || [];
         const mappedRooms = rawRooms.map((room, index) => {
-             const extractedBoarding = room.Boarding || bData.boardingType || iPayload.boardingType || "1";
+            const extractedBoarding = room.Boarding || bData.boardingType || iPayload.boardingType || "1";
 
-             return {
-                 Id: (room.Id || room.id || (index + 1)).toString(),
-                 Boarding: resolveBoardingId(extractedBoarding),
-                 View: room.View || [],
-                 Supplement: room.Supplement || [],
-                 Pax: {
-                     Adult: mappedAdults,
-                     ...(mappedChildren.length > 0 ? { Child: mappedChildren } : {})
-                 }
-             };
+            return {
+                // 🔴 CRITICAL: Use index based Id for search-to-book sync
+                Id: (index + 1).toString(),
+                Boarding: resolveBoardingId(extractedBoarding),
+                View: room.View || [],
+                Supplement: room.Supplement || [],
+                Pax: {
+                    Adult: mappedAdults,
+                    ...(mappedChildren.length > 0 ? { Child: mappedChildren } : {})
+                }
+            };
         });
 
-        const normalizeOptionIds = (optionSource) => {
-            if (!Array.isArray(optionSource)) return [];
-            return optionSource
-                .map((opt) => {
-                    if (typeof opt === "number" || typeof opt === "string") {
-                        return parseInt(opt, 10);
-                    }
-                    return parseInt(opt?.Id ?? opt?.id, 10);
-                })
-                .filter((id) => Number.isFinite(id));
-        };
-
-        const rawOptions = bData?.hotel?.Option || bData?.Option || iPayload?.Option || [];
-        const hotelId = parseInt(
-            bData.Hotel || bookingEntity.hotelId || bData.hotelId || bData.hotel?.Id,
-            10
-        );
-        const cityId = bData.City || bData.hotel?.City?.Id || iPayload.City || bookingEntity?.cityId || "10";
-
-        // 4. Final Root Payload (Matching working example types/casing exactly)
         return {
             Token: token,
-            PreBooking: false,
-            City: cityId.toString(), // String ID
-            Hotel: Number.isFinite(hotelId) ? hotelId : 0, // Integer ID
-            CheckIn: toYmd(bookingEntity.checkIn || bData.CheckIn || bData.checkIn), // STRICT YYYY-MM-DD
-            CheckOut: toYmd(bookingEntity.checkOut || bData.CheckOut || bData.checkOut), // STRICT YYYY-MM-DD
-            Source: "ReactAllezGo-Admin",
-            Option: normalizeOptionIds(rawOptions),
+            PreBooking: true,
+            City: (bData.City || bData.hotel?.City?.Id || iPayload.City || 10),
+            Hotel: parseInt(bData.Hotel || bookingEntity.hotelId || bData.hotelId || bData.hotel?.Id, 10),
+            CheckIn: (bookingEntity.checkIn || bData.CheckIn || bData.checkIn).substring(0, 10),
+            CheckOut: (bookingEntity.checkOut || bData.CheckOut || bData.checkOut).substring(0, 10),
+            // Source: iPayload.Source || bData.Source || "local-2",
             Rooms: mappedRooms
         };
     };
@@ -233,29 +212,77 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
     // ─── Action Orchestrator ───────────────────────────────────────────────────
     const handleAction = async (newStatus) => {
         if (!booking) return;
-        
         try {
             setIsPending(true);
             let iProResponseId = null;
 
-            // 🟢 Branch A: Validating & Booking (External Creation)
             if (newStatus === "CONFIRMED") {
-                const iProPayload = buildIProPayload(booking);
-                
-                if (!iProPayload.Token) {
-                    toast.error("Échec : Le 'Token' iPro est manquant.");
-                    setIsPending(false);
-                    return;
+                const bData = typeof booking.bookingData === 'string' ? JSON.parse(booking.bookingData) : (booking.bookingData || {});
+                const iPayload = typeof booking.iproPayload === 'string' ? JSON.parse(booking.iproPayload) : (booking.iproPayload || {});
+
+                // ─── THE DEFINITIVE iPRO SCHEMA ───────────────────────
+                const payloadToIpro = {
+                    // 🔴 CRITICAL: The API needs credentials to "lock" the rate in the session
+                    Credential: {
+                        Login: import.meta.env.VITE_API_LOGIN,
+                        Password: import.meta.env.VITE_API_PASSWORD
+                    },
+                    HotelBooking: {
+                        // 🔴 FIX 1: Token MUST be inside HotelBooking — createBooking() only forwards
+                        //           the HotelBooking object; a root-level Token gets silently discarded.
+                        Token: iPayload.Token || bData.Token || bData.token,
+                        PreBooking: false,
+                        City: toStr(iPayload.City || bData.City),
+                        Hotel: toInt(iPayload.Hotel || bData.Hotel || booking.hotelId),
+                        CheckIn: toStr(iPayload.CheckIn || bData.CheckIn || booking.checkIn).substring(0, 10),
+                        CheckOut: toStr(iPayload.CheckOut || bData.CheckOut || booking.checkOut).substring(0, 10),
+                        // 🔴 FIX 2: Filter out null/undefined entries before mapping to int.
+                        // Option: Array.isArray(iPayload.Option)
+                        //     ? iPayload.Option.filter(o => o != null).map(o => toInt(o))
+                        //     : [],
+                        //Source: toStr(iPayload.Source || bData.Source || "local-2"),
+                        Rooms: (iPayload.rawRooms || iPayload.Rooms || bData.rooms || []).map((room, index) => ({
+                            Id: toStr(room.Id || room.roomId || (index + 1)),
+                            // 🔴 FIX 3: Use resolveBoardingId — room.Boarding can be an object like
+                            //           { Id: "3" }; calling toStr() on it produces "[object Object]".
+                            Boarding: resolveBoardingId(room.Boarding || iPayload.boardingType || "1"),
+                            View: Array.isArray(room.View) ? room.View.map(v => toInt(v)) : [],
+                            Supplement: Array.isArray(room.Supplement) ? room.Supplement.map(s => toInt(s)) : [],
+                            Pax: {
+                                // 🔴 FIX 4: First adult must be Holder:true so iPro knows the lead guest.
+                                Adult: (room.Adult || iPayload.Adult || []).map((pax, i) => ({
+                                    Civility: toStr(pax.Civility || "Mr"),
+                                    Name: pax.Name || "Client",
+                                    Surname: pax.Surname || "Traveler",
+                                    Holder: i === 0
+                                })),
+                                // Only include Child if array is non-empty
+                                ...((room.Child || iPayload.Child || []).length > 0 && {
+                                    Child: (room.Child || iPayload.Child || []).map(pax => ({
+                                        Name: pax.Name || "Child",
+                                        Surname: pax.Surname || "Traveler",
+                                        Age: String(pax.Age || "5")
+                                    }))
+                                })
+                            }
+                        }))
+                    }
+                };
+
+                console.log("🚀 FINAL ATTEMPT PAYLOAD:", JSON.stringify(payloadToIpro, null, 2));
+
+                // Call createBooking - apiClient.js handles the actual axios.post
+                const iProResponse = await apiClient.createBooking(payloadToIpro);
+
+                // Map the response ID
+                iProResponseId = iProResponse.Id || iProResponse.BookingCreation?.Id || iProResponse.BookingCreation?.[0]?.Id;
+
+                if (!iProResponseId) {
+                    throw new Error("La réservation a été acceptée mais aucun ID n'a été retourné.");
                 }
 
-                console.log("🚀 FINAL CLEAN PAYLOAD:", JSON.stringify(iProPayload, null, 2));
-
-                // REMOVE THE EXTRA { HotelBooking: ... } WRAPPER HERE:
-                const iProResponse = await apiClient.createBooking(iProPayload);
-                iProResponseId = iProResponse.Id; 
                 toast.success("Réservation externe iPro confirmée !");
-            } 
-            // Branch B: Rejecting / Cancelling (External Deletion)
+            }
             else if (newStatus === "REJECTED") {
                 const externalId = booking.externalId || booking.bookingData?.iProId;
 
@@ -270,14 +297,12 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
                 }
             }
 
-            // Internal NestJS Sync 
-            const updatePayload = newStatus === "CONFIRMED" && iProResponseId 
-                ? { status: newStatus, externalId: iProResponseId } 
+            const updatePayload = newStatus === "CONFIRMED" && iProResponseId
+                ? { status: newStatus, externalId: iProResponseId }
                 : { status: newStatus };
 
             await AllezGoApi.updateBooking(booking.id, updatePayload);
-            
-            // UI Cleanup & State Sync
+
             toast.success(`Statut mis à jour : ${newStatus}`);
             queryClient.invalidateQueries({ queryKey: ["adminBookings"] });
             onClose();
@@ -296,36 +321,30 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
     try { parsedIpro = typeof booking?.iproPayload === 'string' ? JSON.parse(booking.iproPayload) : (booking?.iproPayload || {}); } catch (e) { }
     try { parsedBooking = typeof booking?.bookingData === 'string' ? JSON.parse(booking.bookingData) : (booking?.bookingData || {}); } catch (e) { }
 
-    // 2. Extract Hotel Name (mega-fallback)
     const hotelDisplayName = booking?.hotelName
         || parsedIpro?.hotelName
         || parsedBooking?.hotelName
         || booking?.hotel?.name
         || `Hôtel (ID: ${booking?.hotelId || 'Inconnu'})`;
 
-    // 3. Detect if the mega-fallback failed and we only have an ID
     const isNameMissing = hotelDisplayName?.startsWith('Hôtel (ID:');
 
-    // 4. Conditionally fetch from iPro API (hook called unconditionally, guarded by `enabled`)
     const { data: fetchedHotel, isLoading: isFetchingHotel } = useQuery({
         queryKey: ['ipro-hotel', booking?.hotelId],
         queryFn: () => apiClient.getHotel(booking?.hotelId),
         enabled: !!isOpen && !!booking?.hotelId && isNameMissing,
-        staleTime: 1000 * 60 * 60, // Cache for 1 hour to prevent redundant API calls
+        staleTime: 1000 * 60 * 60,
     });
 
-    // 5. Resolve the final display name
     const finalHotelName = isNameMissing && fetchedHotel?.Name
         ? fetchedHotel.Name
         : hotelDisplayName;
 
     if (!isOpen || !booking) return null;
 
-    // 3. Binary Payment Method Logic
     const hasReceipt = Boolean(booking?.receipt || booking?.receiptFilename || booking?.receiptUrl);
     const derivedPaymentMethod = hasReceipt ? "Virement bancaire" : "Espèce (En agence)";
 
-    // Client Full Name
     let clientFullName = booking?.clientName || parsedBooking?.clientName;
     if (!clientFullName && parsedIpro?.Adult?.[0]) {
         const p = parsedIpro.Adult[0];
@@ -333,40 +352,31 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
     }
     clientFullName = clientFullName || 'Client inconnu';
 
-    // Client Phone
     const clientPhone = booking?.clientPhone
         || parsedBooking?.clientPhone
         || parsedBooking?.bookingState?.passengers?.[0]?.phone
         || 'Non renseigné';
 
-    // Client Email
     const clientEmail = booking?.clientEmail
         || parsedBooking?.clientEmail
         || parsedBooking?.bookingState?.passengers?.[0]?.email
         || null;
 
-    // Action handler moved above
-
     const displayRef = booking?.reference || `ALG-${String(booking?.id || 0).padStart(3, '0')}`;
     const formattedPrice = new Intl.NumberFormat("fr-DZ").format(booking.clientPrice);
 
-    // Add extra details logic
     const checkIn = booking?.checkIn || "N/A";
     const checkOut = booking?.checkOut || "N/A";
     const nights = (checkIn !== "N/A" && checkOut !== "N/A") ? Math.max(1, Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24))) : 0;
-    const boardBasis = booking?.boardBasis || booking?.BoardBasis || "Demi-pension"; // Placeholder fallback
-    const roomType = booking?.roomType || booking?.RoomType || "Chambre Standard"; // Placeholder fallback
+    const boardBasis = booking?.boardBasis || booking?.BoardBasis || "Demi-pension";
+    const roomType = booking?.roomType || booking?.RoomType || "Chambre Standard";
 
     return (
-        /* Backdrop — click outside to close */
         <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-sky-950/60 backdrop-blur-sm font-sans"
             onClick={(e) => { if (e.target === e.currentTarget && !isPending) onClose(); }}
         >
-            {/* Panel — Invoice/Summary Card */}
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200">
-
-                {/* ── Header with Status Badge ── */}
                 <div className="relative px-6 py-5 border-b border-sky-800/30 bg-gradient-to-r from-sky-950 via-sky-900 to-sky-950">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -396,13 +406,8 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
                     </div>
                 </div>
 
-                {/* ── Body ── */}
                 <div className="px-6 py-5 flex flex-col gap-5 overflow-y-auto flex-1">
-
-                    {/* ── Grid: Client + Séjour Details ── */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-                        {/* Détails du Client */}
                         <div className="bg-gradient-to-br from-slate-50 to-sky-50/50 border border-sky-100 rounded-xl p-4">
                             <h4 className="text-xs font-extrabold text-sky-900 uppercase tracking-widest mb-4 flex items-center gap-2">
                                 <User size={14} className="text-sky-600" />
@@ -423,7 +428,6 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
                             </div>
                         </div>
 
-                        {/* Détails du Séjour */}
                         <div className="bg-gradient-to-br from-slate-50 to-sky-50/50 border border-sky-100 rounded-xl p-4">
                             <h4 className="text-xs font-extrabold text-sky-900 uppercase tracking-widest mb-4 flex items-center gap-2">
                                 <FileText size={14} className="text-sky-600" />
@@ -448,12 +452,10 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
                         </div>
                     </div>
 
-                    {/* ── Payment Verification Section ── */}
                     <DetailRow icon={CreditCard} label="Mode de Paiement">
                         {derivedPaymentMethod}
                     </DetailRow>
 
-                    {/* VIREMENT BANCAIRE — Receipt present */}
                     {hasReceipt && (
                         <div className="flex flex-col gap-3">
                             <div className="flex items-center gap-2 px-4 py-2.5 bg-purple-50 border border-purple-200 rounded-xl">
@@ -464,7 +466,6 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
                         </div>
                     )}
 
-                    {/* PAIEMENT AGENCE — No receipt */}
                     {!hasReceipt && (
                         <div className="flex items-start gap-3 p-4 bg-sky-50 border border-sky-200 rounded-xl">
                             <Home size={18} className="text-sky-500 shrink-0 mt-0.5" />
@@ -479,10 +480,8 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
                     )}
                 </div>
 
-                {/* ── Footer — Actions ── */}
                 <div className="px-6 py-4 border-t border-gray-100 bg-slate-50">
                     <div className="flex items-center justify-end gap-3">
-                        {/* Cancel */}
                         <button
                             onClick={onClose}
                             disabled={isPending}
@@ -491,7 +490,6 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
                             Annuler
                         </button>
 
-                        {/* Reject */}
                         <button
                             onClick={() => handleAction("REJECTED")}
                             disabled={isPending}
@@ -504,7 +502,6 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
                             Rejeter
                         </button>
 
-                        {/* Confirm */}
                         <button
                             onClick={() => handleAction("CONFIRMED")}
                             disabled={isPending}

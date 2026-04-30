@@ -349,6 +349,8 @@ function HotelLightCard({
         const roomsData = [{
             roomType: room.name,
             roomId: room.id,
+            Id: room.Id ?? room.id ?? null,
+            Boarding: room.Boarding ?? (room.boardingId != null ? { Id: room.boardingId } : null),
             adults: originalPax.adults ?? 2,
             children: childrenCount,
             childAges: childAgesArray,
@@ -356,6 +358,7 @@ function HotelLightCard({
             total: room.price,
             boardingCode: room.boardingCode,
             boardingName: room.boardingName,
+            Option: room.Option ?? hotel?.Option ?? [],
         }];
 
         if (onBook) {
@@ -373,8 +376,11 @@ function HotelLightCard({
             rooms: roomsData,
             totalPrice: room.price,
             currency: room.currency || hotel.currency || "DZD",
+            Token: room?._raw?.Token || hotel?.Token || currentToken,
             token: currentToken,
-            hotel: {...hotel, paxGroups, token: currentToken}
+            selectedRooms: roomsData,
+            Option: hotel?.Option ?? [],
+            hotel: {...hotel, paxGroups, token: currentToken, Token: hotel?.Token || currentToken}
         };
         navigate(`/booking/${Id}`, {state: bookingData});
     }, [onBook, hotel, navigate, Id, Name, searchParams, nights, currentToken, paxGroups]);
@@ -393,6 +399,8 @@ function HotelLightCard({
                 return {
                     roomType: room.name,
                     roomId: room.id,
+                    Id: room.Id ?? room.id ?? null,
+                    Boarding: room.Boarding ?? (room.boardingId != null ? { Id: room.boardingId } : null),
                     boardingCode: room.boardingCode,
                     boardingName: room.boardingName,
                     adults: pax.adults,
@@ -400,6 +408,7 @@ function HotelLightCard({
                     childAges: pax.childAges,
                     price: room.price,
                     total: room.price,
+                    Option: room.Option ?? hotel?.Option ?? [],
                 };
             })
             .filter(Boolean);
@@ -424,8 +433,11 @@ function HotelLightCard({
             rooms: selectedRoomsList,
             totalPrice: computedTotalPrice,
             currency: hotel.currency || pricing?.currency || "DZD",
+            Token: hotel?.Token || currentToken,
             token: currentToken,
-            hotel: {...hotel, paxGroups, token: currentToken}
+            selectedRooms: selectedRoomsList,
+            Option: hotel?.Option ?? [],
+            hotel: {...hotel, paxGroups, token: currentToken, Token: hotel?.Token || currentToken}
         };
         navigate(`/booking/${Id}`, {state: bookingData});
     }, [effectiveRoomsByPax, selectedRooms, selectedBoarding, onBook, hotel, navigate, Id, Name, searchParams, nights, computedTotalPrice, currentToken, paxGroups, pricing?.currency]);

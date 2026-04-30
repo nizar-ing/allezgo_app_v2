@@ -1,7 +1,7 @@
 # AllezGo Frontend Context
 
 Automated context generation of the AllezGo React architecture.
-Generated on: 4/28/2026, 11:46:06 PM
+Generated on: 4/29/2026, 7:18:16 PM
 
 File: package.json
 ```json
@@ -188,7 +188,8 @@ import {
     Calendar, Hotel, User, CreditCard,
     Clock, BadgeDollarSign, FileText, ZoomIn
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import toast from "react-hot-toast";
 import useAdminBookings from "../../custom-hooks/useAdminBookings.js";
 import AllezGoApi from "../../services/allezgo-api/allezGoApi.js";
 import apiClient from "../../services/ApiClient.js";
@@ -324,8 +325,132 @@ function DetailRow({ icon: Icon, label, children, href }) {
 
 // ─── Main Modal ───────────────────────────────────────────────────────────────
 export default function VerifyBookingModal({ isOpen, booking, onClose }) {
+    const [isPending, setIsPending] = useState(false);
+    const queryClient = useQueryClient();
     const { updateBookingStatus } = useAdminBookings();
-    const isPending = updateBookingStatus.isPending;
+
+    // ─── Payload Mapper ────────────────────────────────────────────────────────
+    const buildIProPayload = (bookingEntity) => {
+        const bData = typeof bookingEntity.bookingData === 'string' ? JSON.parse(bookingEntity.bookingData) : (bookingEntity.bookingData || {});
+        const iPayload = typeof bookingEntity.iproPayload === 'string' ? JSON.parse(bookingEntity.iproPayload) : (bookingEntity.iproPayload || {});
+
+        const token = iPayload.Token || iPayload.token || bData.Token || bData.token;
+        const toYmd = (dateValue) => (dateValue || "").toString().substring(0, 10);
+
+        // 1. Passenger Mapping (Strict string Civility as per example)
+        const mappedAdults = (iPayload.Adult || []).map((a, index) => ({
+            Civility: a.Civility === 2 || a.Civility === "2" || a.Civility === "Ms" ? "Ms" : "Mr",
+            Name: a.Name || "Client",
+            Surname: a.Surname || "Client",
+            Holder: index === 0
+        }));
+
+        const mappedChildren = (iPayload.Child || []).map(c => ({
+            Name: c.Name || "Child",
+            Surname: c.Surname || "Child",
+            Age: c.Age?.toString() || "5" 
+        }));
+
+        const resolveBoardingId = (rawBoarding) => {
+            if (typeof rawBoarding === 'object' && rawBoarding?.Id) return rawBoarding.Id.toString();
+            const b = (rawBoarding || "").toString().toUpperCase();
+            if (b.includes("LPD") || b === "BB") return "2";
+            if (b.includes("DP") || b === "HB") return "3";
+            if (b.includes("PC") || b === "FB") return "4";
+            if (b.includes("ALL") || b === "AI") return "5";
+            return "1";
+        };
+
+        // 3. Map Rooms
+        const rawRooms = bData.selectedRooms || bData.rooms || iPayload.rawRooms || [];
+        const mappedRooms = rawRooms.map((room, index) => {
+             const extractedBoarding = room.Boarding || bData.boardingType || iPayload.boardingType || "1";
+
+             return {
+                 Id: (room.Id || room.id || (index + 1)).toString(),
+                 Boarding: resolveBoardingId(extractedBoarding),
+                 View: room.View || [],
+                 Supplement: room.Supplement || [],
+                 // 🔴 CRITICAL: Removed 'Option' key completely
+                 Pax: {
+                     Adult: mappedAdults,
+                     ...(mappedChildren.length > 0 ? { Child: mappedChildren } : {})
+                 }
+             };
+        });
+
+        // 4. Final Root Payload
+        return {
+            Token: token,
+            PreBooking: true, // 🔴 CRITICAL: This MUST be true to prevent the PHP fatal error
+            City: (bData.City || bData.hotel?.City?.Id || iPayload.City || "10").toString(),
+            Hotel: parseInt(bData.Hotel || bookingEntity.hotelId || bData.hotelId || bData.hotel?.Id, 10),
+            CheckIn: (bookingEntity.checkIn || bData.CheckIn || bData.checkIn).substring(0, 10),
+            CheckOut: (bookingEntity.checkOut || bData.CheckOut || bData.checkOut).substring(0, 10),
+            Source: iPayload.Source || bData.Source || "local-2", // 🔴 CRITICAL: Must match the search source
+            Rooms: mappedRooms
+        };
+    };
+
+    // ─── Action Orchestrator ───────────────────────────────────────────────────
+    const handleAction = async (newStatus) => {
+        if (!booking) return;
+        
+        try {
+            setIsPending(true);
+            let iProResponseId = null;
+
+            // 🟢 Branch A: Validating & Booking (External Creation)
+            if (newStatus === "CONFIRMED") {
+                const iProPayload = buildIProPayload(booking);
+                
+                if (!iProPayload.Token) {
+                    toast.error("Échec : Le 'Token' iPro est manquant.");
+                    setIsPending(false);
+                    return;
+                }
+
+                console.log("🚀 FINAL CLEAN PAYLOAD:", JSON.stringify(iProPayload, null, 2));
+
+                // REMOVE THE EXTRA { HotelBooking: ... } WRAPPER HERE:
+                const iProResponse = await apiClient.createBooking(iProPayload);
+                iProResponseId = iProResponse.Id; 
+                toast.success("Réservation externe iPro confirmée !");
+            } 
+            // Branch B: Rejecting / Cancelling (External Deletion)
+            else if (newStatus === "REJECTED") {
+                const externalId = booking.externalId || booking.bookingData?.iProId;
+
+                if (booking.status === "CONFIRMED" || externalId) {
+                    if (!externalId) {
+                        toast.error("Impossible d'annuler côté iPro : ID externe introuvable.");
+                        setIsPending(false);
+                        return;
+                    }
+                    await apiClient.cancelBooking(externalId, false);
+                    toast.success("Réservation externe iPro annulée avec succès !");
+                }
+            }
+
+            // Internal NestJS Sync 
+            const updatePayload = newStatus === "CONFIRMED" && iProResponseId 
+                ? { status: newStatus, externalId: iProResponseId } 
+                : { status: newStatus };
+
+            await AllezGoApi.updateBooking(booking.id, updatePayload);
+            
+            // UI Cleanup & State Sync
+            toast.success(`Statut mis à jour : ${newStatus}`);
+            queryClient.invalidateQueries({ queryKey: ["adminBookings"] });
+            onClose();
+
+        } catch (error) {
+            console.error("Booking Orchestration Failed:", error);
+            toast.error(error.message || "Erreur lors de la synchronisation de la réservation.");
+        } finally {
+            setIsPending(false);
+        }
+    };
 
     // 1. Aggressively parse all possible JSON payload columns
     let parsedIpro = {};
@@ -382,16 +507,7 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
         || parsedBooking?.bookingState?.passengers?.[0]?.email
         || null;
 
-    const handleAction = (status) => {
-        updateBookingStatus.mutate(
-            {
-                id: booking.id,
-                status,
-                iproPayload: booking.iproPayload,
-            },
-            { onSuccess: () => onClose() }
-        );
-    };
+    // Action handler moved above
 
     const displayRef = booking?.reference || `ALG-${String(booking?.id || 0).padStart(3, '0')}`;
     const formattedPrice = new Intl.NumberFormat("fr-DZ").format(booking.clientPrice);
@@ -1101,6 +1217,7 @@ const BOARDING_LABELS = {
     SC: "Self Catering",
 };
 
+// eslint-disable-next-line no-unused-vars
 function Row({ icon: Icon, label, value }) {
     return (
         <div className="flex items-start justify-between gap-3 py-2.5 border-b border-gray-50 last:border-0">
@@ -1512,7 +1629,7 @@ export default DateRangePicker;
 
 File: src/components/booking/GuestInfoForm.jsx
 ```jsx
-import { useState, useCallback } from "react";
+import { createElement, useState, useCallback } from "react";
 import {
     User, Mail, Phone, MapPin,
     CreditCard, Landmark,
@@ -1574,7 +1691,7 @@ function TextInput({ error, ...props }) {
                 : error
                     ? "bg-red-50/40 border-red-300 focus:border-red-400 focus:ring-red-100"
                     : "bg-white border-gray-200 focus:border-sky-400 focus:ring-sky-100"
-                }`}
+            }`}
         />
     );
 }
@@ -1671,6 +1788,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
         });
 
         clearError('rooms.0.adults.0.fullName');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formData.contact.fullName, clearError]);
 
     const validate = useCallback(() => {
@@ -1860,11 +1978,11 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                 <SectionHeader number="3" title="Mode de Paiement" gradient="from-orange-400 to-rose-500" />
                 <div className="flex flex-col sm:flex-row gap-3">
-                    {PAYMENT_METHODS.map(({ id, label, icon: Icon }) => {
+                    {PAYMENT_METHODS.map(({ id, label, icon }) => {
                         const isActive = formData.paymentMethod === id;
                         return (
                             <button key={id} type="button" disabled={id === 'online'} onClick={() => setFormData(p => ({ ...p, paymentMethod: id }))} className={`flex-1 flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-xl border-2 font-bold text-sm transition-all ${isActive ? "bg-orange-600 text-white border-transparent shadow-lg" : "bg-white text-gray-600 border-gray-200"}`}>
-                                <Icon size={16} /> {label}
+                                {createElement(icon, { size: 16 })} {label}
                             </button>
                         );
                     })}
@@ -1888,7 +2006,6 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
         </form>
     );
 }
-
 ```
 
 File: src/components/booking/GuestRoomSelector.jsx
@@ -4722,6 +4839,8 @@ function HotelLightCard({
         const roomsData = [{
             roomType: room.name,
             roomId: room.id,
+            Id: room.Id ?? room.id ?? null,
+            Boarding: room.Boarding ?? (room.boardingId != null ? { Id: room.boardingId } : null),
             adults: originalPax.adults ?? 2,
             children: childrenCount,
             childAges: childAgesArray,
@@ -4729,6 +4848,7 @@ function HotelLightCard({
             total: room.price,
             boardingCode: room.boardingCode,
             boardingName: room.boardingName,
+            Option: room.Option ?? hotel?.Option ?? [],
         }];
 
         if (onBook) {
@@ -4746,8 +4866,11 @@ function HotelLightCard({
             rooms: roomsData,
             totalPrice: room.price,
             currency: room.currency || hotel.currency || "DZD",
+            Token: room?._raw?.Token || hotel?.Token || currentToken,
             token: currentToken,
-            hotel: {...hotel, paxGroups, token: currentToken}
+            selectedRooms: roomsData,
+            Option: hotel?.Option ?? [],
+            hotel: {...hotel, paxGroups, token: currentToken, Token: hotel?.Token || currentToken}
         };
         navigate(`/booking/${Id}`, {state: bookingData});
     }, [onBook, hotel, navigate, Id, Name, searchParams, nights, currentToken, paxGroups]);
@@ -4766,6 +4889,8 @@ function HotelLightCard({
                 return {
                     roomType: room.name,
                     roomId: room.id,
+                    Id: room.Id ?? room.id ?? null,
+                    Boarding: room.Boarding ?? (room.boardingId != null ? { Id: room.boardingId } : null),
                     boardingCode: room.boardingCode,
                     boardingName: room.boardingName,
                     adults: pax.adults,
@@ -4773,6 +4898,7 @@ function HotelLightCard({
                     childAges: pax.childAges,
                     price: room.price,
                     total: room.price,
+                    Option: room.Option ?? hotel?.Option ?? [],
                 };
             })
             .filter(Boolean);
@@ -4797,8 +4923,11 @@ function HotelLightCard({
             rooms: selectedRoomsList,
             totalPrice: computedTotalPrice,
             currency: hotel.currency || pricing?.currency || "DZD",
+            Token: hotel?.Token || currentToken,
             token: currentToken,
-            hotel: {...hotel, paxGroups, token: currentToken}
+            selectedRooms: selectedRoomsList,
+            Option: hotel?.Option ?? [],
+            hotel: {...hotel, paxGroups, token: currentToken, Token: hotel?.Token || currentToken}
         };
         navigate(`/booking/${Id}`, {state: bookingData});
     }, [effectiveRoomsByPax, selectedRooms, selectedBoarding, onBook, hotel, navigate, Id, Name, searchParams, nights, computedTotalPrice, currentToken, paxGroups, pricing?.currency]);
@@ -6743,7 +6872,13 @@ export function useBooking({ onSuccess: externalOnSuccess, onError: externalOnEr
             const clientPrice = basePrice * 1.08;
 
             // Ipro Payload Formatting
+            const selectedRooms = bookingState?.selectedRooms || bookingState?.rooms || [];
             const iproPayload = {
+                Token: bookingState?.Token || bookingState?.token,
+                City: bookingState?.hotel?.City?.Id || bookingState?.hotel?.City,
+                Option: bookingState?.hotel?.Option || bookingState?.Option || selectedRooms?.[0]?.Option || [],
+                rawRooms: selectedRooms,
+                boardingType: bookingState?.boardingType,
                 PreBooking: true,
                 Adult: [],
                 Child: []
@@ -6773,15 +6908,17 @@ export function useBooking({ onSuccess: externalOnSuccess, onError: externalOnEr
             const checkIn = bookingState?.checkIn;
             const checkOut = bookingState?.checkOut;
 
-            // Stringify the core data
+            // Stringify the core data, keeping all B2C state intact!
             formData.append('bookingData', JSON.stringify({ 
+                ...bookingState, // 🔴 CRITICAL: Spreads hotel, rooms, and boarding details
+                Token: bookingState?.Token || bookingState?.token, 
                 hotelId, 
                 hotelName,
                 checkIn, 
                 checkOut, 
                 clientPrice, 
                 paymentMethod, 
-                clientPhone, // Injecté directement depuis le formulaire !
+                clientPhone, 
                 iproPayload 
             }));
 
@@ -11447,9 +11584,13 @@ function HotelDetails() {
             const sel = pax.rooms.find(
                 (r) => String(r.id) === String(selectedRoomTypes[i]) && r.boardingCode === activeBoardingTab
             );
+            const normalizedRoomId = sel?.Id ?? sel?.id ?? sel?.roomId ?? null;
+            const normalizedBoarding = sel?.Boarding ?? (sel?.boardingId != null ? { Id: sel.boardingId } : null);
             return {
                 roomType:  sel?.name,
                 roomId:    sel?.id,
+                Id: normalizedRoomId,
+                Boarding: normalizedBoarding,
                 boardingCode: sel?.boardingCode,
                 boardingName: sel?.boardingName,
                 adults:    pax.adults,
@@ -11457,6 +11598,7 @@ function HotelDetails() {
                 childAges: rooms[i]?.children.map((c) => c.age) ?? [],
                 price:     sel?.price,
                 total:     sel?.price ?? 0,
+                Option: sel?.Option ?? hotelData?.Option ?? [],
             };
         });
 
@@ -11470,8 +11612,11 @@ function HotelDetails() {
             rooms:        selectedRoomsList,
             totalPrice:   computedTotalPrice,
             currency:     "DZD",
+            Token:        currentToken || hotelData?.Token,
             token:        currentToken,
-            hotel:        { ...hotelData, paxGroups: roomsByPax, token: currentToken }
+            selectedRooms: selectedRoomsList,
+            Option: hotelData?.Option ?? [],
+            hotel:        { ...hotelData, paxGroups: roomsByPax, token: currentToken, Token: hotelData?.Token || currentToken }
         };
         navigate(`/booking/${hotelId}`, { state: bookingData });
         toast.success("Redirection vers la réservation...");
@@ -15209,6 +15354,8 @@ function SearchResultsPage() {
                     rooms: roomsList,
                     totalPrice,
                     currency: hotel.pricing?.currency ?? "DZD",
+                    Token: hotel.Token || hotel.pricing?.token,
+                    token: hotel.pricing?.token ?? hotel.Token,
                     selectedRooms: roomsList,
                     searchParams: { checkIn, checkOut, rooms },
                 },
@@ -15235,11 +15382,14 @@ function SearchResultsPage() {
             return {
                 roomType: bestRoom?.name ?? null,
                 roomId: bestRoom?.id ?? null,
+                Id: bestRoom?.Id ?? bestRoom?.id ?? null,
+                Boarding: bestRoom?.Boarding ?? (bestRoom?.boardingId != null ? { Id: bestRoom.boardingId } : null),
                 adults: adultCount,
                 children: Array.isArray(room.children) ? room.children.length : 0,
                 childAges: Array.isArray(room.children) ? room.children : [],
                 price: bestRoom?.price ?? 0,
                 total: bestRoom ? (bestRoom.price ?? 0) * nights : 0,
+                Option: bestRoom?.Option ?? hotel?.Option ?? [],
             };
         });
 
@@ -15257,6 +15407,10 @@ function SearchResultsPage() {
                 rooms: selectedRoomsList,
                 totalPrice,
                 currency: hotel.pricing?.currency ?? "DZD",
+                Token: hotel.Token || hotel.pricing?.token,
+                token: hotel.pricing?.token ?? hotel.Token,
+                selectedRooms: selectedRoomsList,
+                Option: hotel?.Option ?? [],
             },
         });
     }, [navigate, buildHotelUrl, rooms, checkIn, checkOut, nights]);
@@ -17819,11 +17973,18 @@ class ApiClient {
                         pax.Rooms?.forEach(room => {
                             const price = Number(room.Price);
                             if (!isNaN(price)) {
+                                const normalizedRoomId = room.Id ?? room.id ?? room.Code ?? `${boarding.Code}-${paxKey}-${room.Name}`;
+                                const normalizedBoardingId = boarding?.Id ?? room?.Boarding?.Id ?? room?.Boarding ?? null;
+                                const normalizedBoarding = room?.Boarding ?? (normalizedBoardingId != null ? { Id: normalizedBoardingId } : null);
                                 roomsByPaxKey.get(paxKey).push({
-                                    id: room.Id ?? room.Code ?? `${boarding.Code}-${paxKey}-${room.Name}`,
+                                    id: normalizedRoomId,
+                                    Id: normalizedRoomId,
                                     name: room.Name || room.RoomName || 'Chambre Standard',
                                     boardingCode: boarding.Code,
                                     boardingName: boarding.Name,
+                                    boardingId: normalizedBoardingId,
+                                    Boarding: normalizedBoarding,
+                                    Option: room?.Option ?? [],
                                     price: price,
                                     basePrice: Number(room.BasePrice) || price,
                                     stopReservation: room.StopReservation === true || room.StopReservation === "true",
@@ -17982,15 +18143,23 @@ class ApiClient {
             if (boardingType && b.Code !== boardingType) return;
             b.Pax?.forEach((p, pIdx) => {
                 p.Rooms?.forEach((r, rIdx) => {
+                    const normalizedRoomId = r.Id ?? r.id ?? `${hotelResult.Hotel?.Id}_${bIdx}_${pIdx}_${rIdx}`;
+                    const normalizedBoardingId = b?.Id ?? r?.Boarding?.Id ?? r?.Boarding ?? null;
+                    const normalizedBoarding = r?.Boarding ?? (normalizedBoardingId != null ? { Id: normalizedBoardingId } : null);
                     rooms.push({
-                        id: r.Id ?? `${hotelResult.Hotel?.Id}_${bIdx}_${pIdx}_${rIdx}`,
+                        id: normalizedRoomId,
+                        Id: normalizedRoomId,
                         name: r.Name || r.RoomName || 'Chambre Standard',
                         price: Number(r.Price),
                         basePrice: Number(r.BasePrice || r.Price),
                         boardingCode: b.Code,
                         boardingName: b.Name,
+                        boardingId: normalizedBoardingId,
+                        Boarding: normalizedBoarding,
+                        Option: r?.Option ?? [],
                         stopReservation: r.StopReservation === true || r.StopReservation === "true",
                         onRequest: r.OnRequest === true || r.OnRequest === "true",
+                        _raw: r,
                     });
                 });
             });
@@ -18028,6 +18197,62 @@ class ApiClient {
             City: { ...listData.City, ...detailData.City },
             _enhanced: true, _mergedAt: new Date().toISOString(),
         };
+    }
+
+    // ==================== BOOKING MUTATIONS ====================
+    async createBooking(hotelBookingPayload) {
+        try {
+            const normalizedHotelBooking = hotelBookingPayload?.HotelBooking
+                ? hotelBookingPayload.HotelBooking
+                : hotelBookingPayload;
+
+            // Strictly enforce API isolation: inject credentials here, never in the UI
+            const requestPayload = {
+                Credential: {
+                    Login: CREDENTIALS.Login,
+                    Password: CREDENTIALS.Password
+                },
+                // PreBooking is intentionally omitted to perform a final confirmation
+                HotelBooking: normalizedHotelBooking
+            };
+
+            const response = await axios.post(`${CONFIG.BASE_URL}/BookingCreation`, requestPayload, {
+                timeout: CONFIG.TIMEOUT.DEFAULT
+            });
+
+            // Assuming iPro returns the booking Id in the root of the Response
+            if (!response.data || !response.data.Id) {
+                throw new ApiError('Failed to validate booking on iPro servers.', response.status);
+            }
+
+            return response.data;
+        } catch (error) {
+            throw new ApiError('Error executing BookingCreation mutation', error.response?.status, error);
+        }
+    }
+
+    async cancelBooking(bookingId, onlyFees = false) {
+        try {
+            const requestPayload = {
+                Credential: {
+                    Login: CREDENTIALS.Login,
+                    Password: CREDENTIALS.Password
+                },
+                OnlyCancellationFees: onlyFees,
+                Booking: parseInt(bookingId, 10)
+            };
+
+            const response = await axios.post(`${CONFIG.BASE_URL}/BookingCancellation`, requestPayload, {
+                timeout: CONFIG.TIMEOUT.DEFAULT
+            });
+
+            if (!response.data) {
+                throw new ApiError('Failed to cancel booking on iPro servers.', response.status);
+            }
+            return response.data;
+        } catch (error) {
+            throw new ApiError('Error executing BookingCancellation mutation', error.response?.status, error);
+        }
     }
 
     clearCache() { this.cache.clear(); }

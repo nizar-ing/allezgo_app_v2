@@ -307,11 +307,12 @@ function Header() {
                                 {/* 1. Admin ONLY - Dashboard Link */}
                                 {user?.role === "admin" && (
                                     <Link 
-                                        to="/admin" 
-                                        className="relative flex justify-center items-center gap-2 bg-gradient-to-r from-purple-600 to-purple-800 px-4 py-2 rounded-lg font-semibold text-white overflow-hidden shadow-md"
+                                        to="/admin"
+                                        className="relative flex justify-center items-center gap-2 bg-gradient-to-b from-sky-800 via-sky-700 to-sky-800
+                                         px-4 py-2 rounded-lg font-semibold text-white overflow-hidden shadow-md"
                                     >
                                         <Shield size={18} strokeWidth={2} />
-                                        <span className="relative z-10">Dashboard Admin</span>
+                                        <span className="relative z-10">Admin Panel</span>
                                     </Link>
                                 )}
 
@@ -498,11 +499,11 @@ function Header() {
                                 {user?.role === "admin" && (
                                     <Link 
                                         to="/admin" 
-                                        className="relative flex justify-center items-center gap-2 bg-gradient-to-r from-purple-600 to-purple-800 px-4 py-3 rounded-lg font-semibold text-white overflow-hidden shadow-md"
+                                        className="relative flex justify-center items-center gap-2 bg-gradient-to-b from-sky-800 via-sky-700 to-sky-800 px-4 py-3 rounded-lg font-semibold text-white overflow-hidden shadow-md"
                                         onClick={() => setIsMobileMenuOpen(false)}
                                     >
                                         <Shield size={20} strokeWidth={2} />
-                                        <span className="relative z-10">Dashboard Admin</span>
+                                        <span className="relative z-10">Admin Panel</span>
                                     </Link>
                                 )}
 

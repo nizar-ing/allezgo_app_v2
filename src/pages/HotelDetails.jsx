@@ -391,9 +391,13 @@ function HotelDetails() {
             const sel = pax.rooms.find(
                 (r) => String(r.id) === String(selectedRoomTypes[i]) && r.boardingCode === activeBoardingTab
             );
+            const normalizedRoomId = sel?.Id ?? sel?.id ?? sel?.roomId ?? null;
+            const normalizedBoarding = sel?.Boarding ?? (sel?.boardingId != null ? { Id: sel.boardingId } : null);
             return {
                 roomType:  sel?.name,
                 roomId:    sel?.id,
+                Id: normalizedRoomId,
+                Boarding: normalizedBoarding,
                 boardingCode: sel?.boardingCode,
                 boardingName: sel?.boardingName,
                 adults:    pax.adults,
@@ -401,6 +405,7 @@ function HotelDetails() {
                 childAges: rooms[i]?.children.map((c) => c.age) ?? [],
                 price:     sel?.price,
                 total:     sel?.price ?? 0,
+                Option: sel?.Option ?? hotelData?.Option ?? [],
             };
         });
 
@@ -414,8 +419,11 @@ function HotelDetails() {
             rooms:        selectedRoomsList,
             totalPrice:   computedTotalPrice,
             currency:     "DZD",
+            Token:        currentToken || hotelData?.Token,
             token:        currentToken,
-            hotel:        { ...hotelData, paxGroups: roomsByPax, token: currentToken }
+            selectedRooms: selectedRoomsList,
+            Option: hotelData?.Option ?? [],
+            hotel:        { ...hotelData, paxGroups: roomsByPax, token: currentToken, Token: hotelData?.Token || currentToken }
         };
         navigate(`/booking/${hotelId}`, { state: bookingData });
         toast.success("Redirection vers la réservation...");

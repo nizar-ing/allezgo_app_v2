@@ -386,6 +386,7 @@ function SearchResultsPage() {
                     rooms: roomsList,
                     totalPrice,
                     currency: hotel.pricing?.currency ?? "DZD",
+                    Token: hotel.Token || hotel.pricing?.token,
                     token: hotel.pricing?.token ?? hotel.Token,
                     selectedRooms: roomsList,
                     searchParams: { checkIn, checkOut, rooms },
@@ -413,11 +414,14 @@ function SearchResultsPage() {
             return {
                 roomType: bestRoom?.name ?? null,
                 roomId: bestRoom?.id ?? null,
+                Id: bestRoom?.Id ?? bestRoom?.id ?? null,
+                Boarding: bestRoom?.Boarding ?? (bestRoom?.boardingId != null ? { Id: bestRoom.boardingId } : null),
                 adults: adultCount,
                 children: Array.isArray(room.children) ? room.children.length : 0,
                 childAges: Array.isArray(room.children) ? room.children : [],
                 price: bestRoom?.price ?? 0,
                 total: bestRoom ? (bestRoom.price ?? 0) * nights : 0,
+                Option: bestRoom?.Option ?? hotel?.Option ?? [],
             };
         });
 
@@ -435,7 +439,10 @@ function SearchResultsPage() {
                 rooms: selectedRoomsList,
                 totalPrice,
                 currency: hotel.pricing?.currency ?? "DZD",
+                Token: hotel.Token || hotel.pricing?.token,
                 token: hotel.pricing?.token ?? hotel.Token,
+                selectedRooms: selectedRoomsList,
+                Option: hotel?.Option ?? [],
             },
         });
     }, [navigate, buildHotelUrl, rooms, checkIn, checkOut, nights]);

@@ -329,11 +329,18 @@ class ApiClient {
                         pax.Rooms?.forEach(room => {
                             const price = Number(room.Price);
                             if (!isNaN(price)) {
+                                const normalizedRoomId = room.Id ?? room.id ?? room.Code ?? `${boarding.Code}-${paxKey}-${room.Name}`;
+                                const normalizedBoardingId = boarding?.Id ?? room?.Boarding?.Id ?? room?.Boarding ?? null;
+                                const normalizedBoarding = room?.Boarding ?? (normalizedBoardingId != null ? { Id: normalizedBoardingId } : null);
                                 roomsByPaxKey.get(paxKey).push({
-                                    id: room.Id ?? room.Code ?? `${boarding.Code}-${paxKey}-${room.Name}`,
+                                    id: normalizedRoomId,
+                                    Id: normalizedRoomId,
                                     name: room.Name || room.RoomName || 'Chambre Standard',
                                     boardingCode: boarding.Code,
                                     boardingName: boarding.Name,
+                                    boardingId: normalizedBoardingId,
+                                    Boarding: normalizedBoarding,
+                                    Option: room?.Option ?? [],
                                     price: price,
                                     basePrice: Number(room.BasePrice) || price,
                                     stopReservation: room.StopReservation === true || room.StopReservation === "true",
@@ -492,15 +499,23 @@ class ApiClient {
             if (boardingType && b.Code !== boardingType) return;
             b.Pax?.forEach((p, pIdx) => {
                 p.Rooms?.forEach((r, rIdx) => {
+                    const normalizedRoomId = r.Id ?? r.id ?? `${hotelResult.Hotel?.Id}_${bIdx}_${pIdx}_${rIdx}`;
+                    const normalizedBoardingId = b?.Id ?? r?.Boarding?.Id ?? r?.Boarding ?? null;
+                    const normalizedBoarding = r?.Boarding ?? (normalizedBoardingId != null ? { Id: normalizedBoardingId } : null);
                     rooms.push({
-                        id: r.Id ?? `${hotelResult.Hotel?.Id}_${bIdx}_${pIdx}_${rIdx}`,
+                        id: normalizedRoomId,
+                        Id: normalizedRoomId,
                         name: r.Name || r.RoomName || 'Chambre Standard',
                         price: Number(r.Price),
                         basePrice: Number(r.BasePrice || r.Price),
                         boardingCode: b.Code,
                         boardingName: b.Name,
+                        boardingId: normalizedBoardingId,
+                        Boarding: normalizedBoarding,
+                        Option: r?.Option ?? [],
                         stopReservation: r.StopReservation === true || r.StopReservation === "true",
                         onRequest: r.OnRequest === true || r.OnRequest === "true",
+                        _raw: r,
                     });
                 });
             });
@@ -547,13 +562,11 @@ class ApiClient {
                 ? hotelBookingPayload.HotelBooking
                 : hotelBookingPayload;
 
-            // Strictly enforce API isolation: inject credentials here, never in the UI
             const requestPayload = {
                 Credential: {
                     Login: CREDENTIALS.Login,
                     Password: CREDENTIALS.Password
                 },
-                // PreBooking is intentionally omitted to perform a final confirmation
                 HotelBooking: normalizedHotelBooking
             };
 
@@ -561,14 +574,28 @@ class ApiClient {
                 timeout: CONFIG.TIMEOUT.DEFAULT
             });
 
-            // Assuming iPro returns the booking Id in the root of the Response
-            if (!response.data || !response.data.Id) {
-                throw new ApiError('Failed to validate booking on iPro servers.', response.status);
+            // 1. Intercept iPro internal logical errors (200 OK but with ErrorMessage object)
+            if (response.data?.ErrorMessage && !Array.isArray(response.data.ErrorMessage) && response.data.ErrorMessage.Code) {
+                console.error("🔴 iPro API Error:", response.data.ErrorMessage);
+                throw new ApiError(response.data.ErrorMessage.Description || 'Erreur API iPro', response.data.ErrorMessage.Code);
             }
 
-            return response.data;
+            // Extract the ID safely whether it's at the root, inside an object, or an array
+            const responseData = response.data;
+            const validId = responseData?.Id || responseData?.BookingCreation?.Id || responseData?.BookingCreation?.[0]?.Id;
+
+            if (!validId) {
+                console.error("🔴 iPro Unrecognized Response:", responseData);
+                throw new ApiError('Format de réponse iPro invalide ou ID manquant.', response.status);
+            }
+
+            return responseData; // Return the full data back to the caller
         } catch (error) {
-            throw new ApiError('Error executing BookingCreation mutation', error.response?.status, error);
+            // Prevent masking our custom ApiErrors
+            if (error.name === 'ApiError' || error instanceof ApiError) {
+                throw error;
+            }
+            throw new ApiError('Error executing BookingCreation mutation', error.response?.status || 500, error);
         }
     }
 

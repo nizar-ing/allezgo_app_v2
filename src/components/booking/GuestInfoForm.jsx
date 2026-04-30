@@ -17,6 +17,12 @@ const BANK_ACCOUNTS = [
     { id: "bdl", name: "BDL", details: "005 003260000002617", icon: "/images/icons/bdl.jpg" },
 ];
 
+const CIVILITY_OPTIONS = [
+    { value: "Mr", label: "Mr" },
+    { value: "Ms", label: "Mlle" },
+    { value: "Mde", label: "Mme" }
+];
+
 // ─── Local sub-components ─────────────────────────────────────────────────────
 function SectionHeader({ number, title, subtitle, gradient = "from-sky-500 to-blue-600" }) {
     return (
@@ -85,6 +91,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
             return {
                 adults: Array.from({ length: room.adults ?? 1 }, () => ({
                     fullName: "",
+                    civility: "Mr", // Default civility
                 })),
                 children: Array.from({ length: count }, (_, ci) => ({
                     firstName: "",
@@ -157,7 +164,6 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
         });
 
         clearError('rooms.0.adults.0.fullName');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formData.contact.fullName, clearError]);
 
     const validate = useCallback(() => {
@@ -205,17 +211,28 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
 
         const passengers = [];
         formData.rooms.forEach((room) => {
-            room.adults.forEach((adult) => {
+            room.adults.forEach((adult, ai) => {
                 const parts = adult.fullName.trim().split(' ');
                 const surname = parts.length > 1 ? parts.pop() : parts[0];
                 const name = parts.length > 0 ? parts.join(' ') : surname;
-                passengers.push({ Civility: 1, Name: name, Surname: surname, Age: 30 });
+                passengers.push({
+                    Civility: adult.civility, // Now uses Mr, Ms, or Mde string
+                    Name: name,
+                    Surname: surname,
+                    Age: 30,
+                    Holder: ai === 0 // Mark principal as holder
+                });
             });
             room.children.forEach((child) => {
                 const parts = child.firstName.trim().split(' ');
                 const surname = parts.length > 1 ? parts.pop() : parts[0];
                 const name = parts.length > 0 ? parts.join(' ') : surname;
-                passengers.push({ Civility: 1, Name: name, Surname: surname, Age: parseInt(child.age, 10) || 5 });
+                passengers.push({
+                    Civility: "Child",
+                    Name: name,
+                    Surname: surname,
+                    Age: parseInt(child.age, 10) || 5
+                });
             });
         });
 
@@ -228,7 +245,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
             },
             paymentMethod: formData.paymentMethod,
             receiptFile: formData.paymentMethod === 'home' ? formData.receiptFile : null,
-            clientPhone: formData.contact.phone, // Le téléphone est maintenant une propriété de haut niveau
+            clientPhone: formData.contact.phone,
         });
     }, [validate, formData, onSubmit, bookingState]);
 
@@ -251,7 +268,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                             {BANK_ACCOUNTS.map(bank => (
                                 <label key={bank.id} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${formData.selectedBank === bank.id ? 'bg-white border-orange-500 ring-2 ring-orange-200' : 'bg-white border-gray-200 hover:border-orange-300'}`}>
-                                    <input type="radio" className="sr-only" onChange={() => { setFormData(p => ({ ...p, selectedBank: bank.id })); clearError('payment.selectedBank'); }} />
+                                    <input type="radio" name="bank_selection" className="sr-only" onChange={() => { setFormData(p => ({ ...p, selectedBank: bank.id })); clearError('payment.selectedBank'); }} />
                                     <img src={bank.icon} alt={bank.name} className="w-10 h-10 rounded-lg object-cover" />
                                     <div><p className="font-bold text-sm text-gray-800">{bank.name}</p><p className="text-xs text-gray-500 font-mono">{bank.details}</p></div>
                                 </label>
@@ -275,11 +292,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
                     </div>
                 );
             default:
-                return (
-                    <div className="mt-4 p-5 bg-gray-50 border border-dashed border-gray-200 rounded-xl">
-                        <p className="text-sm text-gray-400 font-medium">Détails disponibles prochainement.</p>
-                    </div>
-                );
+                return null;
         }
     };
 
@@ -287,7 +300,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
 
     return (
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
-            {/* Contact Section */}
+            {/* 1. Contact Section */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                 <SectionHeader number="1" title="Informations Client" subtitle="Contact Principal pour la confirmation" />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -311,7 +324,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
                 </div>
             </div>
 
-            {/* Rooms Section */}
+            {/* 2. Rooms Section */}
             <div className="flex flex-col gap-4">
                 {formData.rooms.map((room, ri) => (
                     <div key={ri} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
@@ -326,9 +339,23 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
                         </div>
                         <div className="flex flex-col gap-6">
                             {room.adults.map((adult, ai) => (
-                                <Field key={ai} label={ai === 0 ? "Voyageur Principal" : `Adulte ${ai + 1}`} icon={User} error={errors[`rooms.${ri}.adults.${ai}.fullName`]}>
-                                    <TextInput value={adult.fullName} onChange={(e) => updateAdult(ri, ai, "fullName", e.target.value)} error={errors[`rooms.${ri}.adults.${ai}.fullName`]} />
-                                </Field>
+                                <div key={ai} className="flex flex-col gap-3">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        {CIVILITY_OPTIONS.map((opt) => (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                onClick={() => updateAdult(ri, ai, "civility", opt.value)}
+                                                className={`px-3 py-1 text-[10px] font-bold rounded-lg border-2 transition-all ${adult.civility === opt.value ? "bg-sky-500 border-sky-500 text-white shadow-sm" : "bg-white border-gray-100 text-gray-400 hover:border-gray-200"}`}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <Field label={ai === 0 ? "Voyageur Principal" : `Adulte ${ai + 1}`} icon={User} error={errors[`rooms.${ri}.adults.${ai}.fullName`]}>
+                                        <TextInput value={adult.fullName} onChange={(e) => updateAdult(ri, ai, "fullName", e.target.value)} error={errors[`rooms.${ri}.adults.${ai}.fullName`]} />
+                                    </Field>
+                                </div>
                             ))}
                             {room.children.map((child, ci) => (
                                 <div key={ci} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -343,7 +370,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
                 ))}
             </div>
 
-            {/* Payment Section */}
+            {/* 3. Payment Section */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                 <SectionHeader number="3" title="Mode de Paiement" gradient="from-orange-400 to-rose-500" />
                 <div className="flex flex-col sm:flex-row gap-3">
@@ -369,7 +396,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
                     </div>
                 </div>
             )}
-            <button type="submit" disabled={isPending} className="w-full flex items-center justify-center gap-2.5 py-4 bg-linear-to-r from-orange-500 to-orange-700 text-white font-extrabold rounded-2xl shadow-lg disabled:opacity-70">
+            <button type="submit" disabled={isPending} className="w-full flex items-center justify-center gap-2.5 py-4 bg-linear-to-r from-orange-500 to-orange-700 text-white font-extrabold rounded-2xl shadow-lg disabled:opacity-70 transition-all hover:scale-[1.01] active:scale-[0.99]">
                 {isPending ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>Confirmer la Réservation <ChevronRight size={18} /></>}
             </button>
         </form>

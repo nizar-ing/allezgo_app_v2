@@ -12,12 +12,13 @@ export function useBooking({ onSuccess: externalOnSuccess, onError: externalOnEr
             const clientPrice = basePrice * 1.08;
 
             // Ipro Payload Formatting
+            const selectedRooms = bookingState?.selectedRooms || bookingState?.rooms || [];
             const iproPayload = {
                 Token: bookingState?.Token || bookingState?.token,
-                City: bookingState?.hotel?.City?.Id || bookingState?.hotel?.City || "1",
-                Option: bookingState?.hotel?.Option || bookingState?.Option || [],
-                rawRooms: bookingState?.selectedRooms || bookingState?.rooms || [],
-                boardingType: bookingState?.boardingType || "1",
+                City: bookingState?.hotel?.City?.Id || bookingState?.hotel?.City,
+                Option: bookingState?.hotel?.Option || bookingState?.Option || selectedRooms?.[0]?.Option || [],
+                rawRooms: selectedRooms,
+                boardingType: bookingState?.boardingType,
                 PreBooking: true,
                 Adult: [],
                 Child: []
