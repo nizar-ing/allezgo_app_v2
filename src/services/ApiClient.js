@@ -614,12 +614,21 @@ class ApiClient {
                 timeout: CONFIG.TIMEOUT.DEFAULT
             });
 
-            if (!response.data) {
-                throw new ApiError('Failed to cancel booking on iPro servers.', response.status);
+            const data = response.data;
+
+            // iPro returns an Object for errors, and an empty Array [] for success.
+            if (data?.ErrorMessage && !Array.isArray(data.ErrorMessage)) {
+                throw new ApiError(`Erreur iPro: ${data.ErrorMessage.Description}`, data.ErrorMessage.Code);
             }
-            return response.data;
+
+            if (!data?.BookingCancellation) {
+                throw new ApiError('Format de réponse invalide pour l\'annulation.', response.status);
+            }
+
+            return data.BookingCancellation;
         } catch (error) {
-            throw new ApiError('Error executing BookingCancellation mutation', error.response?.status, error);
+            if (error.name === 'ApiError' || error instanceof ApiError) throw error;
+            throw new ApiError('Erreur d\'exécution de l\'annulation', error.response?.status, error);
         }
     }
 

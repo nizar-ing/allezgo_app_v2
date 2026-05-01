@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import {useState, useEffect} from "react";
 import {
     X, ShieldCheck, Home, Landmark,
     CheckCircle2, XCircle,
@@ -6,31 +6,50 @@ import {
     Calendar, Hotel, User, CreditCard,
     Clock, BadgeDollarSign, FileText, ZoomIn
 } from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {useQuery, useQueryClient} from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import useAdminBookings from "../../custom-hooks/useAdminBookings.js";
 import AllezGoApi from "../../services/allezgo-api/allezGoApi.js";
 import apiClient from "../../services/ApiClient.js";
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
-function StatusBadge({ status }) {
+function StatusBadge({status}) {
     const config = {
-        PENDING: { bg: 'bg-amber-400/15', text: 'text-amber-300', border: 'border-amber-400/30', label: 'En attente', icon: Clock },
-        CONFIRMED: { bg: 'bg-emerald-400/15', text: 'text-emerald-300', border: 'border-emerald-400/30', label: 'Confirmée', icon: CheckCircle2 },
-        REJECTED: { bg: 'bg-rose-400/15', text: 'text-rose-300', border: 'border-rose-400/30', label: 'Rejetée', icon: XCircle },
+        PENDING: {
+            bg: 'bg-amber-400/15',
+            text: 'text-amber-300',
+            border: 'border-amber-400/30',
+            label: 'En attente',
+            icon: Clock
+        },
+        CONFIRMED: {
+            bg: 'bg-emerald-400/15',
+            text: 'text-emerald-300',
+            border: 'border-emerald-400/30',
+            label: 'Confirmée',
+            icon: CheckCircle2
+        },
+        REJECTED: {
+            bg: 'bg-rose-400/15',
+            text: 'text-rose-300',
+            border: 'border-rose-400/30',
+            label: 'Rejetée',
+            icon: XCircle
+        },
     };
     const c = config[status] || config.PENDING;
     const Icon = c.icon;
     return (
-        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border ${c.bg} ${c.text} ${c.border}`}>
-            <Icon size={12} />
+        <span
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border ${c.bg} ${c.text} ${c.border}`}>
+            <Icon size={12}/>
             {c.label}
         </span>
     );
 }
 
 // ─── Receipt Image (fetched securely via Bearer token → blob URL) ─────────────
-function ReceiptImage({ filename, isOpen }) {
+function ReceiptImage({filename, isOpen}) {
     const [blobUrl, setBlobUrl] = useState(null);
     const [loading, setLoading] = useState(false);
     const [hasError, setHasError] = useState(false);
@@ -45,7 +64,7 @@ function ReceiptImage({ filename, isOpen }) {
             try {
                 const response = await AllezGoApi.client.get(
                     `/api/bookings/receipt/${filename}`,
-                    { responseType: "blob" }
+                    {responseType: "blob"}
                 );
                 objectUrl = URL.createObjectURL(response.data ?? response);
                 setBlobUrl(objectUrl);
@@ -68,8 +87,9 @@ function ReceiptImage({ filename, isOpen }) {
 
     if (!filename) {
         return (
-            <div className="w-full h-48 rounded-xl bg-slate-100 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 text-slate-400">
-                <ImageOff size={26} />
+            <div
+                className="w-full h-48 rounded-xl bg-slate-100 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 text-slate-400">
+                <ImageOff size={26}/>
                 <p className="text-sm font-medium">Aucun reçu fourni</p>
             </div>
         );
@@ -77,8 +97,9 @@ function ReceiptImage({ filename, isOpen }) {
 
     if (loading) {
         return (
-            <div className="w-full h-48 rounded-xl bg-slate-100 border border-slate-200 flex flex-col items-center justify-center gap-2 text-sky-600">
-                <Loader2 size={26} className="animate-spin" />
+            <div
+                className="w-full h-48 rounded-xl bg-slate-100 border border-slate-200 flex flex-col items-center justify-center gap-2 text-sky-600">
+                <Loader2 size={26} className="animate-spin"/>
                 <p className="text-sm font-medium">Chargement du reçu...</p>
             </div>
         );
@@ -86,8 +107,9 @@ function ReceiptImage({ filename, isOpen }) {
 
     if (hasError || !blobUrl) {
         return (
-            <div className="w-full h-48 rounded-xl bg-red-50 border-2 border-dashed border-red-200 flex flex-col items-center justify-center gap-2 text-red-400">
-                <ImageOff size={26} />
+            <div
+                className="w-full h-48 rounded-xl bg-red-50 border-2 border-dashed border-red-200 flex flex-col items-center justify-center gap-2 text-red-400">
+                <ImageOff size={26}/>
                 <p className="text-sm font-medium">Impossible de charger le reçu</p>
             </div>
         );
@@ -108,9 +130,11 @@ function ReceiptImage({ filename, isOpen }) {
                     alt="Reçu de paiement"
                     className="w-full h-auto max-h-96 object-contain bg-slate-50"
                 />
-                <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <span className="bg-white/90 text-slate-800 px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg">
-                        <ZoomIn size={18} /> Agrandir le reçu
+                <div
+                    className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <span
+                        className="bg-white/90 text-slate-800 px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg">
+                        <ZoomIn size={18}/> Agrandir le reçu
                     </span>
                 </div>
             </a>
@@ -119,16 +143,17 @@ function ReceiptImage({ filename, isOpen }) {
 }
 
 // ─── Detail Row ───────────────────────────────────────────────────────────────
-function DetailRow({ icon: Icon, label, children, href }) {
+function DetailRow({icon: Icon, label, children, href}) {
     return (
         <div className="flex items-start gap-3">
             <div className="mt-0.5 w-8 h-8 rounded-lg bg-sky-100/70 flex items-center justify-center shrink-0">
-                <Icon size={15} className="text-sky-600" />
+                <Icon size={15} className="text-sky-600"/>
             </div>
             <div className="min-w-0">
                 <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">{label}</p>
                 {href ? (
-                    <a href={href} className="text-sm font-semibold text-sky-700 hover:underline underline-offset-2 transition-colors">
+                    <a href={href}
+                       className="text-sm font-semibold text-sky-700 hover:underline underline-offset-2 transition-colors">
                         {children}
                     </a>
                 ) : (
@@ -140,10 +165,10 @@ function DetailRow({ icon: Icon, label, children, href }) {
 }
 
 // ─── Main Modal ───────────────────────────────────────────────────────────────
-export default function VerifyBookingModal({ isOpen, booking, onClose }) {
+export default function VerifyBookingModal({isOpen, booking, onClose}) {
     const [isPending, setIsPending] = useState(false);
     const queryClient = useQueryClient();
-    const { updateBookingStatus } = useAdminBookings();
+    const {updateBookingStatus} = useAdminBookings();
 
     // ─── Type-coercion helpers ─────────────────────────────────────────────────
     const toStr = (val) => (val == null ? "" : String(val));
@@ -154,8 +179,8 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
         if (typeof rawBoarding === 'object' && rawBoarding?.Id) return rawBoarding.Id.toString();
         const b = (rawBoarding || "").toString().toUpperCase();
         if (b.includes("LPD") || b === "BB") return "2";
-        if (b.includes("DP")  || b === "HB") return "3";
-        if (b.includes("PC")  || b === "FB") return "4";
+        if (b.includes("DP") || b === "HB") return "3";
+        if (b.includes("PC") || b === "FB") return "4";
         if (b.includes("ALL") || b === "AI") return "5";
         return b || "1";
     };
@@ -192,7 +217,7 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
                 Supplement: room.Supplement || [],
                 Pax: {
                     Adult: mappedAdults,
-                    ...(mappedChildren.length > 0 ? { Child: mappedChildren } : {})
+                    ...(mappedChildren.length > 0 ? {Child: mappedChildren} : {})
                 }
             };
         });
@@ -282,8 +307,7 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
                 }
 
                 toast.success("Réservation externe iPro confirmée !");
-            }
-            else if (newStatus === "REJECTED") {
+            } else if (newStatus === "REJECTED") {
                 const externalId = booking.externalId || booking.bookingData?.iProId;
 
                 if (booking.status === "CONFIRMED" || externalId) {
@@ -298,13 +322,14 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
             }
 
             const updatePayload = newStatus === "CONFIRMED" && iProResponseId
-                ? { status: newStatus, externalId: iProResponseId }
-                : { status: newStatus };
+                ? {status: newStatus, externalId: iProResponseId}
+                : {status: newStatus};
 
-            await AllezGoApi.updateBooking(booking.id, updatePayload);
+            // 🟢 Direct patch using the exposed Axios client
+            await AllezGoApi.client.patch(`/api/bookings/${booking.id}`, updatePayload);
 
             toast.success(`Statut mis à jour : ${newStatus}`);
-            queryClient.invalidateQueries({ queryKey: ["adminBookings"] });
+            queryClient.invalidateQueries({queryKey: ["adminBookings"]});
             onClose();
 
         } catch (error) {
@@ -318,8 +343,14 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
     // 1. Aggressively parse all possible JSON payload columns
     let parsedIpro = {};
     let parsedBooking = {};
-    try { parsedIpro = typeof booking?.iproPayload === 'string' ? JSON.parse(booking.iproPayload) : (booking?.iproPayload || {}); } catch (e) { }
-    try { parsedBooking = typeof booking?.bookingData === 'string' ? JSON.parse(booking.bookingData) : (booking?.bookingData || {}); } catch (e) { }
+    try {
+        parsedIpro = typeof booking?.iproPayload === 'string' ? JSON.parse(booking.iproPayload) : (booking?.iproPayload || {});
+    } catch (e) {
+    }
+    try {
+        parsedBooking = typeof booking?.bookingData === 'string' ? JSON.parse(booking.bookingData) : (booking?.bookingData || {});
+    } catch (e) {
+    }
 
     const hotelDisplayName = booking?.hotelName
         || parsedIpro?.hotelName
@@ -329,7 +360,7 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
 
     const isNameMissing = hotelDisplayName?.startsWith('Hôtel (ID:');
 
-    const { data: fetchedHotel, isLoading: isFetchingHotel } = useQuery({
+    const {data: fetchedHotel, isLoading: isFetchingHotel} = useQuery({
         queryKey: ['ipro-hotel', booking?.hotelId],
         queryFn: () => apiClient.getHotel(booking?.hotelId),
         enabled: !!isOpen && !!booking?.hotelId && isNameMissing,
@@ -374,14 +405,19 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
     return (
         <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-sky-950/60 backdrop-blur-sm font-sans"
-            onClick={(e) => { if (e.target === e.currentTarget && !isPending) onClose(); }}
+            onClick={(e) => {
+                if (e.target === e.currentTarget && !isPending) onClose();
+            }}
         >
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200">
-                <div className="relative px-6 py-5 border-b border-sky-800/30 bg-gradient-to-r from-sky-950 via-sky-900 to-sky-950">
+            <div
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200">
+                <div
+                    className="relative px-6 py-5 border-b border-sky-800/30 bg-gradient-to-r from-sky-950 via-sky-900 to-sky-950">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-orange-500/20 border border-orange-400/30 flex items-center justify-center">
-                                <ShieldCheck size={20} className="text-orange-400" />
+                            <div
+                                className="w-10 h-10 rounded-xl bg-orange-500/20 border border-orange-400/30 flex items-center justify-center">
+                                <ShieldCheck size={20} className="text-orange-400"/>
                             </div>
                             <div>
                                 <h2 className="text-white font-extrabold text-base leading-tight tracking-tight">
@@ -393,14 +429,14 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
-                            <StatusBadge status={booking.status} />
+                            <StatusBadge status={booking.status}/>
                             <button
                                 onClick={onClose}
                                 disabled={isPending}
                                 className="p-1.5 rounded-lg text-sky-300 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-40"
                                 title="Fermer"
                             >
-                                <X size={18} />
+                                <X size={18}/>
                             </button>
                         </div>
                     </div>
@@ -408,9 +444,10 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
 
                 <div className="px-6 py-5 flex flex-col gap-5 overflow-y-auto flex-1">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <div className="bg-gradient-to-br from-slate-50 to-sky-50/50 border border-sky-100 rounded-xl p-4">
+                        <div
+                            className="bg-gradient-to-br from-slate-50 to-sky-50/50 border border-sky-100 rounded-xl p-4">
                             <h4 className="text-xs font-extrabold text-sky-900 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                <User size={14} className="text-sky-600" />
+                                <User size={14} className="text-sky-600"/>
                                 Détails du Client
                             </h4>
                             <div className="flex flex-col gap-3">
@@ -428,9 +465,10 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
                             </div>
                         </div>
 
-                        <div className="bg-gradient-to-br from-slate-50 to-sky-50/50 border border-sky-100 rounded-xl p-4">
+                        <div
+                            className="bg-gradient-to-br from-slate-50 to-sky-50/50 border border-sky-100 rounded-xl p-4">
                             <h4 className="text-xs font-extrabold text-sky-900 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                <FileText size={14} className="text-sky-600" />
+                                <FileText size={14} className="text-sky-600"/>
                                 Détails du Séjour
                             </h4>
                             <div className="flex flex-col gap-3">
@@ -458,17 +496,18 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
 
                     {hasReceipt && (
                         <div className="flex flex-col gap-3">
-                            <div className="flex items-center gap-2 px-4 py-2.5 bg-purple-50 border border-purple-200 rounded-xl">
-                                <Landmark size={16} className="text-purple-500 shrink-0" />
+                            <div
+                                className="flex items-center gap-2 px-4 py-2.5 bg-purple-50 border border-purple-200 rounded-xl">
+                                <Landmark size={16} className="text-purple-500 shrink-0"/>
                                 <span className="text-sm font-bold text-purple-700">Virement Bancaire</span>
                             </div>
-                            <ReceiptImage filename={booking.receiptFilename} isOpen={isOpen} />
+                            <ReceiptImage filename={booking.receiptFilename} isOpen={isOpen}/>
                         </div>
                     )}
 
                     {!hasReceipt && (
                         <div className="flex items-start gap-3 p-4 bg-sky-50 border border-sky-200 rounded-xl">
-                            <Home size={18} className="text-sky-500 shrink-0 mt-0.5" />
+                            <Home size={18} className="text-sky-500 shrink-0 mt-0.5"/>
                             <div>
                                 <p className="text-sm font-bold text-sky-800 mb-1">Paiement à l'agence</p>
                                 <p className="text-sm text-sky-700 leading-relaxed">
@@ -496,8 +535,8 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
                             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-extrabold text-white bg-rose-600 hover:bg-rose-700 transition-colors shadow-sm disabled:opacity-50"
                         >
                             {isPending
-                                ? <Loader2 size={15} className="animate-spin" />
-                                : <XCircle size={15} />
+                                ? <Loader2 size={15} className="animate-spin"/>
+                                : <XCircle size={15}/>
                             }
                             Rejeter
                         </button>
@@ -508,8 +547,8 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
                             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-md disabled:opacity-50"
                         >
                             {isPending
-                                ? <Loader2 size={15} className="animate-spin" />
-                                : <CheckCircle2 size={15} />
+                                ? <Loader2 size={15} className="animate-spin"/>
+                                : <CheckCircle2 size={15}/>
                             }
                             Valider &amp; Réserver
                         </button>
