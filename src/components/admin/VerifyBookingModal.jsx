@@ -1,7 +1,7 @@
 import {useState, useEffect} from "react";
 import {
     X, ShieldCheck, Home, Landmark,
-    CheckCircle2, XCircle,
+    CheckCircle2, XCircle, Ban,
     ImageOff, Loader2, Phone, Mail,
     Calendar, Hotel, User, CreditCard,
     Clock, BadgeDollarSign, FileText, ZoomIn
@@ -15,29 +15,12 @@ import apiClient from "../../services/ApiClient.js";
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 function StatusBadge({status}) {
     const config = {
-        PENDING: {
-            bg: 'bg-amber-400/15',
-            text: 'text-amber-300',
-            border: 'border-amber-400/30',
-            label: 'En attente',
-            icon: Clock
-        },
-        CONFIRMED: {
-            bg: 'bg-emerald-400/15',
-            text: 'text-emerald-300',
-            border: 'border-emerald-400/30',
-            label: 'Confirmée',
-            icon: CheckCircle2
-        },
-        REJECTED: {
-            bg: 'bg-rose-400/15',
-            text: 'text-rose-300',
-            border: 'border-rose-400/30',
-            label: 'Rejetée',
-            icon: XCircle
-        },
+        PENDING: { bg: 'bg-amber-400/15', text: 'text-amber-500', border: 'border-amber-400/30', label: 'En attente', icon: Clock },
+        CONFIRMED: { bg: 'bg-emerald-400/15', text: 'text-emerald-500', border: 'border-emerald-400/30', label: 'Confirmée', icon: CheckCircle2 },
+        REJECTED: { bg: 'bg-rose-400/15', text: 'text-rose-500', border: 'border-rose-400/30', label: 'Rejetée', icon: XCircle },
+        CANCELLED: { bg: 'bg-slate-200', text: 'text-slate-600', border: 'border-slate-300', label: 'Annulée', icon: Ban },
     };
-    const c = config[status] || config.PENDING;
+    const c = config[status?.toUpperCase()] || config.PENDING;
     const Icon = c.icon;
     return (
         <span

@@ -16,7 +16,10 @@ import {
     Home,
     Landmark,
     Phone,
-    XCircle
+    XCircle,
+    Ban,
+    Clock,
+    CheckCircle2
 } from 'lucide-react';
 //import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -34,6 +37,25 @@ import useAdminBookings from '../../custom-hooks/useAdminBookings.js';
 import VerifyBookingModal from '../../components/admin/VerifyBookingModal.jsx';
 import VoucherModal from '../../components/admin/VoucherModal.jsx';
 import CancelBookingModal from "../../components/admin/CancelBookingModal.jsx";
+
+// ─── Status Badge ─────────────────────────────────────────────────────────────
+function StatusBadge({status}) {
+    const config = {
+        PENDING: { bg: 'bg-amber-400/15', text: 'text-amber-500', border: 'border-amber-400/30', label: 'En attente', icon: Clock },
+        CONFIRMED: { bg: 'bg-emerald-400/15', text: 'text-emerald-500', border: 'border-emerald-400/30', label: 'Confirmée', icon: CheckCircle2 },
+        REJECTED: { bg: 'bg-rose-400/15', text: 'text-rose-500', border: 'border-rose-400/30', label: 'Rejetée', icon: XCircle },
+        CANCELLED: { bg: 'bg-slate-200', text: 'text-slate-600', border: 'border-slate-300', label: 'Annulée', icon: Ban },
+    };
+    const c = config[status?.toUpperCase()] || config.PENDING;
+    const Icon = c.icon;
+    return (
+        <span
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border ${c.bg} ${c.text} ${c.border}`}>
+            <Icon size={12}/>
+            {c.label}
+        </span>
+    );
+}
 
 export default function AdminDashboard() {
     const [activeTab, setActiveTab] = useState('destinations');
@@ -577,21 +599,6 @@ export default function AdminDashboard() {
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-100">
                                     {bookings?.length > 0 ? bookings.map((booking) => {
-                                        let statusBadge = "";
-                                        switch (booking.status) {
-                                            case 'PENDING':
-                                                statusBadge = 'bg-amber-100 text-amber-700';
-                                                break;
-                                            case 'CONFIRMED':
-                                                statusBadge = 'bg-emerald-100 text-emerald-700';
-                                                break;
-                                            case 'REJECTED':
-                                                statusBadge = 'bg-rose-100 text-rose-700';
-                                                break;
-                                            default:
-                                                statusBadge = 'bg-slate-100 text-slate-700';
-                                        }
-
                                         // --- Data Sniper: Ultra-aggressive extraction ---
                                         let parsedIpro = {};
                                         let parsedBooking = {};
@@ -642,8 +649,8 @@ export default function AdminDashboard() {
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{hotelDisplayName}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{booking.checkIn} - {booking.checkOut}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-sky-700">{new Intl.NumberFormat("fr-DZ").format(booking.clientPrice)} DZD</td>
-                                                <td className="px-6 py-4 whitespace-nowrap"><span
-                                                    className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${statusBadge}`}>{booking.status}</span>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <StatusBadge status={booking.status}/>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
                                                     <div className="flex justify-end gap-2">
@@ -855,10 +862,7 @@ export default function AdminDashboard() {
             <CancelBookingModal
                 isOpen={isCancelModalOpen}
                 booking={selectedBooking}
-                onClose={() => {
-                    setIsCancelModalOpen(false);
-                    setStep(1);
-                }}
+                onClose={() => setIsCancelModalOpen(false)}
             />
 
             <VoucherModal
