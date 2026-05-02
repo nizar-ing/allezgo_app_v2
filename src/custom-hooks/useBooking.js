@@ -7,15 +7,17 @@ export function useBooking({ onSuccess: externalOnSuccess, onError: externalOnEr
 
     return useMutation({
         mutationFn: async ({ bookingState, paymentMethod, receiptFile, clientPhone }) => {
-            // Price Calculation: Extract base price and add 8% agency margin
-            const basePrice = bookingState?.totalPrice || bookingState?.basePrice || 0;
-            const clientPrice = basePrice * 1.08;
+            // The price coming from the bookingState (via ApiClient) already contains the 8% margin.
+            const clientPrice = bookingState?.totalPrice || bookingState?.basePrice || 0;
+
+            const cityId = Number(bookingState?.hotel?.City?.Id || bookingState?.hotel?.City);
+            const tunisianCityIds = [34, 35, 36, 37, 38]; // Force VIP Maghreb rates
 
             // Ipro Payload Formatting
             const selectedRooms = bookingState?.selectedRooms || bookingState?.rooms || [];
             const iproPayload = {
                 Token: bookingState?.Token || bookingState?.token,
-                City: bookingState?.hotel?.City?.Id || bookingState?.hotel?.City,
+                City: cityId,
                 Option: bookingState?.hotel?.Option || bookingState?.Option || selectedRooms?.[0]?.Option || [],
                 rawRooms: selectedRooms,
                 boardingType: bookingState?.boardingType,
@@ -23,6 +25,11 @@ export function useBooking({ onSuccess: externalOnSuccess, onError: externalOnEr
                 Adult: [],
                 Child: []
             };
+
+            if (tunisianCityIds.includes(cityId)) {
+                iproPayload.GuestNationality = 'DZ';
+                iproPayload.Currency = 'DZD';
+            }
 
             if (bookingState?.passengers && Array.isArray(bookingState.passengers)) {
                 bookingState.passengers.forEach(pax => {

@@ -128,6 +128,9 @@ function BookingHotels() {
             searchParams.append('cityName', selectedCity.Name);
             if (selectedCity.Country?.Name) {
                 searchParams.append('countryName', selectedCity.Country.Name);
+                // ✅ MODIFIER: Append countryCode for market-identity logic
+                const code = selectedCity.Country.Name.toLowerCase().includes('tunisie') ? 'TN' : 'DZ';
+                searchParams.append('countryCode', code);
             }
         } else if (selectionType === 'hotel') {
             searchParams.append('hotelId', String(Number(selectedHotel.Id)));
@@ -135,7 +138,12 @@ function BookingHotels() {
             // ✅ city info is read from selectedHotel.City (selectedCity is null by design)
             if (selectedHotel.City?.Id) searchParams.append('cityId', String(Number(selectedHotel.City.Id)));
             if (selectedHotel.City?.Name) searchParams.append('cityName', selectedHotel.City.Name);
-            if (selectedHotel.City?.Country?.Name) searchParams.append('countryName', selectedHotel.City.Country.Name);
+            if (selectedHotel.City?.Country?.Name) {
+                searchParams.append('countryName', selectedHotel.City.Country.Name);
+                // ✅ MODIFIER: Append countryCode for market-identity logic
+                const code = selectedHotel.City.Country.Name.toLowerCase().includes('tunisie') ? 'TN' : 'DZ';
+                searchParams.append('countryCode', code);
+            }
         }
 
         searchParams.append('checkIn', checkInFormatted);

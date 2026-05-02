@@ -176,11 +176,24 @@ export const useHotelSearch = (searchParams, options = {}) => {
         queryKey: QUERY_KEYS.hotelSearch(searchParams),
         queryFn:  async () => {
             try {
-                const data = await apiClient.searchHotel(searchParams);
-                if (data.errorMessage && data.errorMessage.Code) {
-                    throw new Error(data.errorMessage.Description || "Search failed");
+                // ✅ TARGET FIX: Inject guestNationality and currency for Tunisian inventory to unlock Maghreb rates.
+                const countryCode = searchParams?.countryCode || 'DZ';
+                const enhancedParams = {
+                    ...searchParams,
+                    ...(countryCode === 'TN' ? { guestNationality: 'DZ', currency: 'DZD' } : {})
+                };
+
+                const data = await apiClient.searchHotel(enhancedParams);
+                
+                // ✅ GRACEFUL ERROR HANDLING: Catch market-identity rejection errors
+                if (data.errorMessage && (data.errorMessage.Code || data.errorMessage.Description)) {
+                    const desc = data.errorMessage.Description || "";
+                    if (desc.includes("Tarifs non disponibles") || desc.includes("not available")) {
+                        // Return as partial success with a graceful error for the UI
+                        return { ...data, errorGraceful: desc, hotelSearch: [] };
+                    }
+                    throw new Error(desc || "Search failed");
                 }
-                // Retourne les résultats (avec 8% markup et transformation Number faite en amont)
                 return data;
             } catch (error) {
                 if (error.isCancelled) return null;
@@ -200,7 +213,14 @@ export const useHotelSearch = (searchParams, options = {}) => {
 export const useHotelSearchMutation = (options = {}) => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (searchParams) => apiClient.searchHotel(searchParams),
+        mutationFn: (searchParams) => {
+            const countryCode = searchParams?.countryCode || 'DZ';
+            const enhancedParams = {
+                ...searchParams,
+                ...(countryCode === 'TN' ? { guestNationality: 'DZ', currency: 'DZD' } : {})
+            };
+            return apiClient.searchHotel(enhancedParams);
+        },
         onSuccess:  (data, variables) => {
             // Met à jour manuellement le cache de recherche après une mutation réussie
             queryClient.setQueryData(QUERY_KEYS.hotelSearch(variables), data);

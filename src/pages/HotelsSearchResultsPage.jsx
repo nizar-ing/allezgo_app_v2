@@ -85,6 +85,7 @@ function HotelsSearchResultsPage() {
     const checkOut      = searchParams.get("checkOut");
     const roomsParam    = searchParams.get("rooms");
     const hotelIdsParam = searchParams.get("hotelIds");
+    const countryCode   = searchParams.get("countryCode") || "DZ";
 
     const hotelIds = useMemo(() => {
         if (!hotelIdsParam) return null;
@@ -127,8 +128,8 @@ function HotelsSearchResultsPage() {
     }, [stateData]);
 
     const hotelSearchQueryKey = useMemo(
-        () => ["hotelSearch", hotelIds, checkIn, checkOut, rooms],
-        [hotelIds, checkIn, checkOut, rooms],
+        () => ["hotelSearch", hotelIds, checkIn, checkOut, rooms, countryCode],
+        [hotelIds, checkIn, checkOut, rooms, countryCode],
     );
 
     const queryClient = useQueryClient();
@@ -167,6 +168,9 @@ function HotelsSearchResultsPage() {
             const result = await apiClient.searchHotel({
                 checkIn, checkOut,
                 hotels: hotelIds.slice(0, 100),
+                cityId: searchParams.get("cityId"),
+                guestNationality: countryCode === 'TN' ? 'DZ' : undefined,
+                currency: countryCode === 'TN' ? 'DZD' : undefined,
                 rooms:  rooms.map((room) => ({
                     adult: room.adults,
                     child: Array.isArray(room.children) ? room.children.length : (room.children ?? 0),

@@ -3,19 +3,20 @@ import axios from 'axios';
 
 // ==================== CONSTANTS ====================
 const MY_BENEFIT_CAUTION = 0.08;
+const TUNISIAN_CITY_IDS = [34, 35, 36, 37, 38]; // 34 is Sousse
 
 const CONFIG = {
     BASE_URL: 'https://admin.ipro-booking.com/api/hotel',
     TIMEOUT: { DEFAULT: 60000, SEARCH: 120000 },
-    BATCH:   { DEFAULT_SIZE: 5, DEFAULT_DELAY: 100 },
-    LIMITS:  { MAX_HOTELS_PER_SEARCH: 300 },
-    RETRY:   { MAX_ATTEMPTS: 3, BASE_DELAY: 1000, MAX_DELAY: 5000 },
-    CACHE:   { TTL: 5 * 60 * 1000, ENABLED: true },
+    BATCH: { DEFAULT_SIZE: 5, DEFAULT_DELAY: 100 },
+    LIMITS: { MAX_HOTELS_PER_SEARCH: 300 },
+    RETRY: { MAX_ATTEMPTS: 3, BASE_DELAY: 1000, MAX_DELAY: 5000 },
+    CACHE: { TTL: 5 * 60 * 1000, ENABLED: true },
 };
 
 // ==================== CREDENTIALS ====================
 const CREDENTIALS = {
-    Login:    import.meta.env.VITE_API_LOGIN,
+    Login: import.meta.env.VITE_API_LOGIN,
     Password: import.meta.env.VITE_API_PASSWORD,
 };
 
@@ -40,40 +41,40 @@ class ApiError extends Error {
 // ==================== ERROR MESSAGES ====================
 const ERROR_MESSAGES = {
     en: {
-        TIMEOUT:              (count) => `Search took too long (${count} hotels). Please reduce the number of hotels.`,
-        NETWORK:              'Network error: Unable to contact server. Check your connection.',
-        HOTEL_ID_REQUIRED:    'Hotel ID is required',
-        HOTEL_NOT_FOUND:      (id) => `Hotel with ID ${id} not found`,
-        CHECKIN_REQUIRED:     'checkIn is a required parameter',
-        CHECKOUT_REQUIRED:    'checkOut is a required parameter',
-        HOTELS_REQUIRED:      'hotels is a required parameter and must be a non-empty array',
-        ROOMS_REQUIRED:       'rooms is a required parameter and must be a non-empty array',
-        INVALID_DATE_FORMAT:  (field) => `${field} must be in YYYY-MM-DD format`,
-        UNAUTHORIZED:         'Unauthorized access - check credentials',
-        NOT_FOUND:            'Resource not found',
-        SERVER_ERROR:         'Internal server error',
-        REQUEST_FAILED:       'API request failed',
-        BOARDING_TYPE_INVALID:'Invalid boarding type. Must be one of: RO, BB, HB, FB, AI, SC',
-        INVALID_DATE_RANGE:   'Check-out date must be after check-in date',
-        NO_ROOMS_AVAILABLE:   'No rooms available for the selected dates and criteria',
+        TIMEOUT: (count) => `Search took too long (${count} hotels). Please reduce the number of hotels.`,
+        NETWORK: 'Network error: Unable to contact server. Check your connection.',
+        HOTEL_ID_REQUIRED: 'Hotel ID is required',
+        HOTEL_NOT_FOUND: (id) => `Hotel with ID ${id} not found`,
+        CHECKIN_REQUIRED: 'checkIn is a required parameter',
+        CHECKOUT_REQUIRED: 'checkOut is a required parameter',
+        HOTELS_REQUIRED: 'hotels is a required parameter and must be a non-empty array',
+        ROOMS_REQUIRED: 'rooms is a required parameter and must be a non-empty array',
+        INVALID_DATE_FORMAT: (field) => `${field} must be in YYYY-MM-DD format`,
+        UNAUTHORIZED: 'Unauthorized access - check credentials',
+        NOT_FOUND: 'Resource not found',
+        SERVER_ERROR: 'Internal server error',
+        REQUEST_FAILED: 'API request failed',
+        BOARDING_TYPE_INVALID: 'Invalid boarding type. Must be one of: RO, BB, HB, FB, AI, SC',
+        INVALID_DATE_RANGE: 'Check-out date must be after check-in date',
+        NO_ROOMS_AVAILABLE: 'No rooms available for the selected dates and criteria',
     },
     fr: {
-        TIMEOUT:              (count) => `La recherche a pris trop de temps (${count} hôtels). Veuillez réduire le nombre d'hôtels.`,
-        NETWORK:              'Erreur réseau: impossible de contacter le serveur. Vérifiez votre connexion.',
-        HOTEL_ID_REQUIRED:    "L'ID de l'hôtel est requis",
-        HOTEL_NOT_FOUND:      (id) => `Hôtel avec l'ID ${id} introuvable`,
-        CHECKIN_REQUIRED:     "La date d'arrivée est requise",
-        CHECKOUT_REQUIRED:    'La date de départ est requise',
-        HOTELS_REQUIRED:      "La liste des hôtels est requise et ne doit pas être vide",
-        ROOMS_REQUIRED:       'La liste des chambres est requise et ne doit pas être vide',
-        INVALID_DATE_FORMAT:  (field) => `${field} doit être au format YYYY-MM-DD`,
-        UNAUTHORIZED:         'Accès non autorisé - vérifiez les identifiants',
-        NOT_FOUND:            'Ressource introuvable',
-        SERVER_ERROR:         'Erreur interne du serveur',
-        REQUEST_FAILED:       'La requête API a échoué',
-        BOARDING_TYPE_INVALID:'Type de pension invalide. Doit être: RO, BB, HB, FB, AI, SC',
-        INVALID_DATE_RANGE:   "La date de départ doit être après la date d'arrivée",
-        NO_ROOMS_AVAILABLE:   'Aucune chambre disponible pour les dates et critères sélectionnés',
+        TIMEOUT: (count) => `La recherche a pris trop de temps (${count} hôtels). Veuillez réduire le nombre d'hôtels.`,
+        NETWORK: 'Erreur réseau: impossible de contacter le serveur. Vérifiez votre connexion.',
+        HOTEL_ID_REQUIRED: "L'ID de l'hôtel est requis",
+        HOTEL_NOT_FOUND: (id) => `Hôtel avec l'ID ${id} introuvable`,
+        CHECKIN_REQUIRED: "La date d'arrivée est requise",
+        CHECKOUT_REQUIRED: 'La date de départ est requise',
+        HOTELS_REQUIRED: "La liste des hôtels est requise et ne doit pas être vide",
+        ROOMS_REQUIRED: 'La liste des chambres est requise et ne doit pas être vide',
+        INVALID_DATE_FORMAT: (field) => `${field} doit être au format YYYY-MM-DD`,
+        UNAUTHORIZED: 'Accès non autorisé - vérifiez les identifiants',
+        NOT_FOUND: 'Ressource introuvable',
+        SERVER_ERROR: 'Erreur interne du serveur',
+        REQUEST_FAILED: 'La requête API a échoué',
+        BOARDING_TYPE_INVALID: 'Type de pension invalide. Doit être: RO, BB, HB, FB, AI, SC',
+        INVALID_DATE_RANGE: "La date de départ doit être après la date d'arrivée",
+        NO_ROOMS_AVAILABLE: 'Aucune chambre disponible pour les dates et critères sélectionnés',
     },
 };
 
@@ -81,33 +82,33 @@ const ERROR_MESSAGES = {
 class CacheManager {
     constructor(ttl = CONFIG.CACHE.TTL) {
         this.cache = new Map();
-        this.ttl   = ttl;
+        this.ttl = ttl;
     }
-    set(key, value)  { this.cache.set(key, { value, timestamp: Date.now() }); }
+    set(key, value) { this.cache.set(key, { value, timestamp: Date.now() }); }
     get(key) {
         const item = this.cache.get(key);
         if (!item) return null;
         if (Date.now() - item.timestamp > this.ttl) { this.cache.delete(key); return null; }
         return item.value;
     }
-    has(key)      { return this.get(key) !== null; }
-    clear()       { this.cache.clear(); }
-    delete(key)   { this.cache.delete(key); }
-    getStats()    { return { size: this.cache.size, keys: Array.from(this.cache.keys()) }; }
+    has(key) { return this.get(key) !== null; }
+    clear() { this.cache.clear(); }
+    delete(key) { this.cache.delete(key); }
+    getStats() { return { size: this.cache.size, keys: Array.from(this.cache.keys()) }; }
 }
 
 // ==================== API CLIENT ====================
 class ApiClient {
     constructor(language = 'en') {
-        this.language    = language;
-        this.messages    = ERROR_MESSAGES[language] || ERROR_MESSAGES.en;
-        this.client      = axios.create({
+        this.language = language;
+        this.messages = ERROR_MESSAGES[language] || ERROR_MESSAGES.en;
+        this.client = axios.create({
             baseURL: CONFIG.BASE_URL,
             headers: { 'Content-Type': 'application/json' },
             timeout: CONFIG.TIMEOUT.DEFAULT,
         });
-        this.credentials  = CREDENTIALS;
-        this.cache        = new CacheManager(CONFIG.CACHE.TTL);
+        this.credentials = CREDENTIALS;
+        this.cache = new CacheManager(CONFIG.CACHE.TTL);
         this.cancelTokens = new Map();
         this.setupInterceptors();
     }
@@ -438,13 +439,18 @@ class ApiClient {
                 Child: Array.isArray(room.child) ? room.child : (room.childAges || [])
             }));
 
+            const isTunisianCity = TUNISIAN_CITY_IDS.includes(Number(searchParams.cityId));
+
             const response = await this.retryRequest(async () => {
                 return await this.client.post('/HotelSearch', this.createRequestBody({
                     SearchDetails: {
                         BookingDetails: {
-                            CheckIn:  searchParams.checkIn,
+                            CheckIn: searchParams.checkIn,
                             CheckOut: searchParams.checkOut,
-                            Hotels:   searchParams.hotels.slice(0, CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH),
+                            Hotels: searchParams.hotels.slice(0, CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH),
+                            // ✅ MODIFIER: Support for Maghreb rates (force DZ/DZD for Tunisian cities)
+                            GuestNationality: isTunisianCity ? 'DZ' : searchParams.guestNationality,
+                            Currency: isTunisianCity ? 'DZD' : searchParams.currency,
                         },
                         Filters: searchParams.filters || {},
                         Rooms: roomsForRequest,
@@ -468,10 +474,19 @@ class ApiClient {
     async searchRoomAvailability(params = {}) {
         const cancelToken = this.createCancelToken('roomAvailability');
         try {
+            const isTunisianCity = TUNISIAN_CITY_IDS.includes(Number(params.cityId));
+
             const response = await this.retryRequest(async () => {
                 return await this.client.post('/HotelSearch', this.createRequestBody({
                     SearchDetails: {
-                        BookingDetails: { CheckIn: params.checkIn, CheckOut: params.checkOut, Hotels: [params.hotelId] },
+                        BookingDetails: {
+                            CheckIn: params.checkIn,
+                            CheckOut: params.checkOut,
+                            Hotels: [params.hotelId],
+                            // ✅ MODIFIER: Support for Maghreb rates (force DZ/DZD for Tunisian cities)
+                            GuestNationality: isTunisianCity ? 'DZ' : params.guestNationality,
+                            Currency: isTunisianCity ? 'DZD' : params.currency,
+                        },
                         // ✅ FIX CRITIQUE: OnlyAvailable passe à FALSE pour ne pas bloquer les "Sur demande"
                         Filters: { OnlyAvailable: false },
                         Rooms: params.rooms.map(r => ({ Adult: r.adults || 2, Child: r.childAges || [] }))
@@ -555,25 +570,60 @@ class ApiClient {
         };
     }
 
-    // ==================== BOOKING MUTATIONS ====================
+
+// ==================== BOOKING MUTATIONS ====================
     async createBooking(hotelBookingPayload) {
         try {
-            const normalizedHotelBooking = hotelBookingPayload?.HotelBooking
-                ? hotelBookingPayload.HotelBooking
-                : hotelBookingPayload;
+            // 🛑 1. THE UNWRAPPER: Defend against Double-Nesting (Matryoshka Bug)
+            // If the payload is wrapped in an outer { HotelBooking: {...} }, extract the pure data.
+            const rawBookingData = hotelBookingPayload.HotelBooking ? hotelBookingPayload.HotelBooking : hotelBookingPayload;
 
+            // 🛑 2. DEEP CLONE: Break the React Query Cache Freeze
+            // This creates a brand new, mutable object in memory
+            const mutablePayload = JSON.parse(JSON.stringify(rawBookingData));
+
+            const tunisianCityIds = [34, 35, 36, 37, 38];
+            const cityId = Number(mutablePayload.City || mutablePayload.cityId);
+
+            // 🛑 3. THE VIP PASSPORT: Inject Maghreb Contract Rules
+            if (tunisianCityIds.includes(cityId)) {
+                // Root level injection
+                mutablePayload.GuestNationality = "DZ";
+                mutablePayload.Currency = "DZD";
+
+                // Passenger level injection (Strict iPro validation)
+                if (Array.isArray(mutablePayload.Rooms)) {
+                    mutablePayload.Rooms.forEach(room => {
+                        if (room.Pax && Array.isArray(room.Pax.Adult)) {
+                            room.Pax.Adult.forEach(adult => { adult.Nationality = "DZ"; });
+                        }
+                        if (room.Pax && Array.isArray(room.Pax.Child)) {
+                            room.Pax.Child.forEach(child => { child.Nationality = "DZ"; });
+                        }
+                    });
+                }
+            }
+
+            // 🛑 4. STRICT SINGLE WRAPPING
             const requestPayload = {
                 Credential: {
                     Login: CREDENTIALS.Login,
                     Password: CREDENTIALS.Password
                 },
-                HotelBooking: normalizedHotelBooking
+                // Pass the unwrapped, deeply cloned, and properly mutated object
+                HotelBooking: mutablePayload
             };
 
+            if (import.meta.env.DEV) {
+                console.log("🚀 FINAL BULLETPROOF PAYLOAD:", JSON.stringify(requestPayload, null, 2));
+            }
+
+            // Execute API Call
             const response = await axios.post(`${CONFIG.BASE_URL}/BookingCreation`, requestPayload, {
                 timeout: CONFIG.TIMEOUT.DEFAULT
             });
 
+            // 🛑 5. ERROR HANDLING
             // 1. Intercept iPro internal logical errors (200 OK but with ErrorMessage object)
             if (response.data?.ErrorMessage && !Array.isArray(response.data.ErrorMessage) && response.data.ErrorMessage.Code) {
                 console.error("🔴 iPro API Error:", response.data.ErrorMessage);

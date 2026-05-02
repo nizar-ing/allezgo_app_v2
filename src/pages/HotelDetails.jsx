@@ -346,10 +346,16 @@ function HotelDetails() {
         if (range.from >= range.to)        { toast.error("La date de départ doit être après la date d'arrivée"); return; }
         setIsSearchingRooms(true); setHasSearched(false); setSelectedRoomTypes({});
         try {
+            // ✅ TARGET FIX: Inject guestNationality and currency for Tunisian inventory to unlock Maghreb rates.
+            const isTunisia = hotelData?.City?.Country?.Name?.toLowerCase().includes('tunisie');
+
             const response = await apiClient.searchRoomAvailability({
                 hotelId:  Number(hotelId),
+                cityId:   hotelData?.City?.Id,
                 checkIn:  checkInDate,
                 checkOut: checkOutDate,
+                guestNationality: isTunisia ? 'DZ' : undefined,
+                currency: isTunisia ? 'DZD' : undefined,
                 rooms:    rooms.map((r) => ({
                     adults:    r.adults,
                     children:  r.children.length,
@@ -373,7 +379,7 @@ function HotelDetails() {
             toast.error(err?.message ?? "Erreur lors de la recherche de chambres");
             setAvailableRooms([]); setHasSearched(true);
         } finally { setIsSearchingRooms(false); }
-    }, [checkInDate, checkOutDate, range, hotelId, rooms]);
+    }, [checkInDate, checkOutDate, range, hotelId, rooms, hotelData]);
 
     useEffect(() => {
         if (hotelData && !hasAutoSearched.current && !preloadedPricing?.paxGroups) {
