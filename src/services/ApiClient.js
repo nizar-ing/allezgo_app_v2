@@ -318,7 +318,7 @@ class ApiClient {
         };
 
         return response.HotelSearch.map(hotelData => {
-            const { Hotel, Token, Price, Currency } = hotelData;
+            const { Hotel, Token, Price, Currency, Source } = hotelData;
             const roomsByPaxKey = new Map();
 
             if (Price?.Boarding) {
@@ -417,6 +417,7 @@ class ApiClient {
                 id: Hotel.Id,
                 name: Hotel.Name,
                 token: Token,
+                source: Source,
                 image: Hotel.Image,
                 category: Hotel.Category,
                 city: Hotel.City,
@@ -441,18 +442,38 @@ class ApiClient {
 
             const isTunisianCity = TUNISIAN_CITY_IDS.includes(Number(searchParams.cityId));
 
+            // ✅ DUAL-MODE: City geo-targeting vs. explicit Hotel IDs
+            const useCityStrategy = !!searchParams.cityId && !searchParams.hotels?.length;
+
+            const bookingDetails = {
+                CheckIn: searchParams.checkIn,
+                CheckOut: searchParams.checkOut,
+                GuestNationality: isTunisianCity ? 'DZ' : searchParams.guestNationality,
+                Currency: isTunisianCity ? 'DZD' : searchParams.currency,
+            };
+
+            if (useCityStrategy) {
+                // ✅ GEO-TARGETING: Let iPro resolve all available hotels for this city
+                bookingDetails.City = String(searchParams.cityId);
+                bookingDetails.GroupingHotel = true;
+                bookingDetails.CombinationRooms = false;
+                if (import.meta.env.DEV) console.log('🌍 searchHotel: CITY geo-targeting mode — City:', searchParams.cityId);
+            } else {
+                // ✅ LEGACY: Explicit hotel ID array (single-hotel, legacy pages)
+                bookingDetails.Hotels = searchParams.hotels.slice(0, CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH);
+                if (import.meta.env.DEV) console.log('🏨 searchHotel: HOTELS array mode —', searchParams.hotels?.length, 'hotels');
+            }
+
+            // ✅ Inject Source: "all" for city strategy to search across all suppliers
+            const filters = useCityStrategy
+                ? { Source: "all", OnlyAvailable: false, ...(searchParams.filters || {}) }
+                : (searchParams.filters || {});
+
             const response = await this.retryRequest(async () => {
                 return await this.client.post('/HotelSearch', this.createRequestBody({
                     SearchDetails: {
-                        BookingDetails: {
-                            CheckIn: searchParams.checkIn,
-                            CheckOut: searchParams.checkOut,
-                            Hotels: searchParams.hotels.slice(0, CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH),
-                            // ✅ MODIFIER: Support for Maghreb rates (force DZ/DZD for Tunisian cities)
-                            GuestNationality: isTunisianCity ? 'DZ' : searchParams.guestNationality,
-                            Currency: isTunisianCity ? 'DZD' : searchParams.currency,
-                        },
-                        Filters: searchParams.filters || {},
+                        BookingDetails: bookingDetails,
+                        Filters: filters,
                         Rooms: roomsForRequest,
                     },
                 }), { timeout: CONFIG.TIMEOUT.SEARCH, cancelToken: cancelToken.token });
@@ -501,7 +522,8 @@ class ApiClient {
             return {
                 rooms: this._processRoomResults(hotelResult, params.boardingType),
                 roomsByPax: this._processRoomsByPax(hotelResult, params.rooms, params.boardingType),
-                token: hotelResult.Token
+                token: hotelResult.Token,
+                source: hotelResult.Source
             };
         } finally {
             this.cancelTokens.delete('roomAvailability');

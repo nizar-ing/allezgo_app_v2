@@ -212,7 +212,8 @@ export default function VerifyBookingModal({isOpen, booking, onClose}) {
             Hotel: parseInt(bData.Hotel || bookingEntity.hotelId || bData.hotelId || bData.hotel?.Id, 10),
             CheckIn: (bookingEntity.checkIn || bData.CheckIn || bData.checkIn).substring(0, 10),
             CheckOut: (bookingEntity.checkOut || bData.CheckOut || bData.checkOut).substring(0, 10),
-            // Source: iPayload.Source || bData.Source || "local-2",
+            // Source: iPro session identifier required for BookingCreation
+            Source: iPayload.Source || bData.Source || bData.source,
             Rooms: mappedRooms
         };
     };
@@ -248,7 +249,8 @@ export default function VerifyBookingModal({isOpen, booking, onClose}) {
                         // Option: Array.isArray(iPayload.Option)
                         //     ? iPayload.Option.filter(o => o != null).map(o => toInt(o))
                         //     : [],
-                        //Source: toStr(iPayload.Source || bData.Source || "local-2"),
+                        // 🟢 Source: iPro session identifier — required to resolve Code 421
+                        Source: toStr(iPayload.Source || bData.Source || bData.source),
                         Rooms: (iPayload.rawRooms || iPayload.Rooms || bData.rooms || []).map((room, index) => ({
                             Id: toStr(room.Id || room.roomId || (index + 1)),
                             // 🔴 FIX 3: Use resolveBoardingId — room.Boarding can be an object like
@@ -382,8 +384,29 @@ export default function VerifyBookingModal({isOpen, booking, onClose}) {
     const checkIn = booking?.checkIn || "N/A";
     const checkOut = booking?.checkOut || "N/A";
     const nights = (checkIn !== "N/A" && checkOut !== "N/A") ? Math.max(1, Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24))) : 0;
-    const boardBasis = booking?.boardBasis || booking?.BoardBasis || "Demi-pension";
-    const roomType = booking?.roomType || booking?.RoomType || "Chambre Standard";
+    // ── Resolve boarding label from parsed JSON data ───────────────────
+    const BOARDING_DISPLAY_LABELS = {
+        RO: "Chambre Seule", BB: "Petit-Déjeuner", HB: "Demi-Pension",
+        FB: "Pension Complète", AI: "Tout Inclus", SC: "Self Catering",
+    };
+    const rawBoardingCode = parsedBooking?.boardingType
+        || parsedIpro?.boardingType
+        || null;
+    const rawBoardingName = parsedBooking?.rooms?.[0]?.boardingName
+        || parsedBooking?.selectedRooms?.[0]?.boardingName
+        || parsedIpro?.rawRooms?.[0]?.boardingName
+        || null;
+    const boardBasis = rawBoardingName
+        || BOARDING_DISPLAY_LABELS[rawBoardingCode?.toUpperCase?.()]
+        || rawBoardingCode
+        || "Non spécifié";
+
+    // ── Resolve room type from parsed JSON data ───────────────────────
+    const roomType = parsedBooking?.rooms?.[0]?.roomType
+        || parsedBooking?.selectedRooms?.[0]?.roomType
+        || parsedIpro?.rawRooms?.[0]?.roomType
+        || parsedIpro?.rawRooms?.[0]?.name
+        || "Non spécifié";
 
     return (
         <div

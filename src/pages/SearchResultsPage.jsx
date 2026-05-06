@@ -86,6 +86,10 @@ function SearchResultsPage() {
     } = useQuery({
         queryKey: ["hotelDetails", cityId, hotelId, selectionType],
         queryFn: async () => {
+            // ✅ CITY SEARCH: Skip listHotel — iPro resolves hotels via geo-targeting
+            if (selectionType === "city") {
+                return { hotels: [], hotelIds: [], cityId: Number(cityId) };
+            }
             if (selectionType === "hotel") {
                 try {
                     const hotelDetail = await apiClient.getHotel(Number(hotelId));
@@ -99,10 +103,6 @@ function SearchResultsPage() {
                     }
                     return { hotels: [], hotelIds: [Number(hotelId)] };
                 }
-            }
-            if (selectionType === "city") {
-                const hotels = await apiClient.listHotel(Number(cityId));
-                return { hotels, hotelIds: hotels.map((h) => h.Id) };
             }
             return { hotels: [], hotelIds: [] };
         },
@@ -120,20 +120,23 @@ function SearchResultsPage() {
     const hotelIds = useMemo(() => hotelsData?.hotelIds ?? [], [hotelsData]);
 
     // ── Step 2: Search hotels + pricing ────────────────────────────────────────
+    const isCitySearch = selectionType === "city" && !!cityId;
+
     const {
         data: searchResults,
         isLoading: isLoadingSearch,
         isError: isErrorSearch,
         error: errorSearch,
     } = useQuery({
-        queryKey: ["hotelSearch", hotelIds, checkIn, checkOut, rooms],
+        queryKey: ["hotelSearch", selectionType, cityId, hotelIds, checkIn, checkOut, rooms],
         queryFn: async () => {
-            if (!hotelIds.length) throw new Error("Aucun hôtel à rechercher");
+            if (!isCitySearch && !hotelIds.length) throw new Error("Aucun hôtel à rechercher");
 
             const result = await apiClient.searchHotel({
                 checkIn,
                 checkOut,
-                hotels: hotelIds,
+                // ✅ DUAL-MODE: Pass cityId for geo-targeting, or hotels for explicit search
+                ...(isCitySearch ? { cityId: Number(cityId) } : { hotels: hotelIds }),
                 rooms: rooms.map((room) => ({
                     adult: room.adults,
                     child: Array.isArray(room.children)
@@ -147,7 +150,7 @@ function SearchResultsPage() {
                 throw new Error(result.errorMessage.Description ?? "Erreur de recherche");
             return result;
         },
-        enabled: !!hotelIds.length && !!checkIn && !!checkOut,
+        enabled: (!!hotelIds.length || isCitySearch) && !!checkIn && !!checkOut,
         staleTime: 2 * 60 * 1000,
         retry: 1,
     });
@@ -161,7 +164,18 @@ function SearchResultsPage() {
             transformedMap[th.id] = th;
         });
 
-        return searchResults.hotelSearch.map((sr) => {
+        // ✅ DEDUP: Geo-targeting with Source:"all" can return the same hotel from
+        // multiple suppliers (different Source values). Keep only the first occurrence
+        // per Hotel.Id (iPro returns them sorted by price, so first = cheapest).
+        const seenIds = new Set();
+        const dedupedHotelSearch = searchResults.hotelSearch.filter((sr) => {
+            const id = sr.Hotel?.Id;
+            if (seenIds.has(id)) return false;
+            seenIds.add(id);
+            return true;
+        });
+
+        return dedupedHotelSearch.map((sr) => {
             const fromSearch = sr.Hotel;
             const full = hotelsDetailsMap[fromSearch.Id];
             const transformed = transformedMap[fromSearch.Id];
@@ -388,6 +402,8 @@ function SearchResultsPage() {
                     currency: hotel.pricing?.currency ?? "DZD",
                     Token: hotel.Token || hotel.pricing?.token,
                     token: hotel.pricing?.token ?? hotel.Token,
+                    Source: hotel.Source,
+                    source: hotel.Source,
                     selectedRooms: roomsList,
                     searchParams: { checkIn, checkOut, rooms },
                 },
@@ -441,6 +457,8 @@ function SearchResultsPage() {
                 currency: hotel.pricing?.currency ?? "DZD",
                 Token: hotel.Token || hotel.pricing?.token,
                 token: hotel.pricing?.token ?? hotel.Token,
+                Source: hotel.Source,
+                source: hotel.Source,
                 selectedRooms: selectedRoomsList,
                 Option: hotel?.Option ?? [],
             },
@@ -641,7 +659,7 @@ function SearchResultsPage() {
                             <div className="min-w-0 flex-1">
                                 <p className="text-xs text-gray-500 mb-1">Type de recherche</p>
                                 <p className="font-semibold text-gray-800 text-sm">{selectionType === "city" ? "Tous les hôtels" : "Hôtel spécifique"}</p>
-                                <p className="text-xs text-gray-500">{hotelIds?.length ?? 0} hôtel{(hotelIds?.length ?? 0) > 1 ? "s" : ""} recherché{(hotelIds?.length ?? 0) > 1 ? "s" : ""}</p>
+                                <p className="text-xs text-gray-500">{isCitySearch ? (processedHotels?.length ?? 0) : (hotelIds?.length ?? 0)} hôtel{((isCitySearch ? processedHotels?.length : hotelIds?.length) ?? 0) > 1 ? "s" : ""} trouvé{((isCitySearch ? processedHotels?.length : hotelIds?.length) ?? 0) > 1 ? "s" : ""}</p>
                             </div>
                         </div>
                     </div>

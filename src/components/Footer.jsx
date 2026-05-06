@@ -5,7 +5,7 @@ import {
     FaInstagram,
     FaLinkedinIn,
     FaYoutube,
-    FaHeart,
+    FaHeart, FaTiktok,
 } from 'react-icons/fa';
 import {
     Shield,
@@ -19,23 +19,21 @@ import {
 import { Link } from 'react-router-dom';
 
 const footerLinks = {
-    destinations: ['Europe', 'Asie', 'Afrique', 'Amérique', 'Océanie', 'Moyen-Orient'],
+    destinations: ['Hotels el Algérie', 'Hotels en Tunisie', 'Hotels dans le reste du monde'],
     services: [
-        "Réservation d'hôtels", 'Vols', 'Voyages organisés',
-        'Croisières', 'Assurance voyage', 'Location de voiture',
+        "Réservation d'hôtels", 'Vols', 'Voyages organisés', 'Croisières'
     ],
     company: ['À propos', 'Carrières', 'Blog', 'Partenaires', 'Presse', 'Contactez-nous'],
 };
 
 const socialLinks = [
     { icon: FaFacebookF,  label: 'Facebook',  color: 'hover:bg-blue-600',  href: '#' },
-    { icon: FaTwitter,    label: 'Twitter',   color: 'hover:bg-sky-500',   href: '#' },
     { icon: FaInstagram,  label: 'Instagram', color: 'hover:bg-pink-600',  href: '#' },
-    { icon: FaLinkedinIn, label: 'LinkedIn',  color: 'hover:bg-blue-700',  href: '#' },
+    { icon: FaTiktok,  label: 'TikTok', color: 'hover:bg-pink-600',  href: '#' },
     { icon: FaYoutube,    label: 'YouTube',   color: 'hover:bg-red-600',   href: '#' },
 ];
 
-const paymentMethods = ['Visa', 'Mastercard', 'PayPal', 'Amex'];
+const paymentMethods = ['Dhahabia', 'BaridiMob', 'Visa', 'Mastercard'];
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -46,7 +44,7 @@ function Footer() {
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-orange-500 to-blue-500" />
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-12">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
 
                     {/* Company Info */}
                     <div className="lg:col-span-1">
@@ -135,30 +133,13 @@ function Footer() {
                         </ul>
                     </div>
 
-                    {/* Company */}
-                    <div>
-                        <h3 className="text-lg font-bold mb-4">Entreprise</h3>
-                        <ul className="space-y-2">
-                            {footerLinks.company.map((link) => (
-                                <li key={link}>
-                                    <Link
-                                        to="#"
-                                        className="text-gray-300 hover:text-orange-400 transition-colors text-sm hover:translate-x-1 inline-block transform duration-200"
-                                    >
-                                        {link}
-                                    </Link>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-
                     {/* Contact */}
                     <div>
                         <h3 className="text-lg font-bold mb-4">Contact</h3>
                         <ul className="space-y-3">
                             <li className="flex items-start gap-2 text-sm">
                                 <MapPin className="w-4 h-4 text-orange-500 mt-1 flex-shrink-0" />
-                                <span className="text-gray-300">123 Avenue des Voyages, Aîn Beida, Oum Bouaghi</span>
+                                <span className="text-gray-300">Cité Elmostakbel, OEB</span>
                             </li>
                             <li className="flex items-center gap-2 text-sm">
                                 <Phone className="w-4 h-4 text-orange-500 flex-shrink-0" />
@@ -181,8 +162,7 @@ function Footer() {
                             <li className="flex items-start gap-2 text-sm">
                                 <Clock className="w-4 h-4 text-orange-500 mt-1 flex-shrink-0" />
                                 <div className="text-gray-300">
-                                    <div>Dim - Jeu: 9h - 19h</div>
-                                    <div>Sam: 10h - 18h</div>
+                                    <div>(24h/24) - (7j/7)</div>
                                 </div>
                             </li>
                         </ul>

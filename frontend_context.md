@@ -1,7 +1,7 @@
 # AllezGo Frontend Context
 
 Automated context generation of the AllezGo React architecture.
-Generated on: 4/29/2026, 7:18:16 PM
+Generated on: 5/6/2026, 6:59:41 PM
 
 File: package.json
 ```json
@@ -178,41 +178,148 @@ function App() {
 export default App;
 ```
 
+File: src/components/admin/CancelBookingModal.jsx
+```jsx
+import { useState } from "react";
+import { AlertTriangle, X, Loader2, CheckCircle2, BadgeDollarSign } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import toast from "react-hot-toast";
+import apiClient from "../../services/ApiClient.js";
+import AllezGoApi from "../../services/allezgo-api/allezGoApi.js";
+
+export default function CancelBookingModal({ isOpen, booking, onClose }) {
+    const [isPending, setIsPending] = useState(false);
+    const [step, setStep] = useState(1);
+    const [fees, setFees] = useState(null);
+    const queryClient = useQueryClient();
+
+    if (!isOpen || !booking) return null;
+
+    const externalId = booking.externalId || booking.bookingData?.iProId || booking.bookingData?.externalId;
+
+    const checkFees = async () => {
+        if (!externalId) {
+            toast.error("ID Externe introuvable. Annulation impossible.");
+            return;
+        }
+        try {
+            setIsPending(true);
+            const response = await apiClient.cancelBooking(externalId, true);
+            setFees(response.Fees || "0.00");
+            setStep(2);
+        } catch (error) {
+            toast.error(error.message || "Impossible de vérifier les frais.");
+            onClose();
+        } finally {
+            setIsPending(false);
+        }
+    };
+
+    const confirmCancellation = async () => {
+        try {
+            setIsPending(true);
+            await apiClient.cancelBooking(externalId, false);
+            await AllezGoApi.client.patch(`/api/bookings/${booking.id}`, { status: "CANCELLED" });
+
+            toast.success("Réservation annulée avec succès.");
+            queryClient.invalidateQueries({ queryKey: ["adminBookings"] });
+            setStep(1);
+            onClose();
+        } catch (error) {
+            toast.error(error.message || "L'annulation a échoué.");
+        } finally {
+            setIsPending(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-sky-950/60 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95">
+                <div className="px-6 py-5 border-b bg-rose-50 text-rose-900 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-rose-200 rounded-full text-rose-700">
+                            <AlertTriangle size={20} />
+                        </div>
+                        <h2 className="font-extrabold">Annuler la Réservation</h2>
+                    </div>
+                    <button onClick={onClose} disabled={isPending} className="hover:bg-rose-200 p-1 rounded-md transition-colors"><X size={20} /></button>
+                </div>
+
+                <div className="p-6">
+                    <p className="text-sm text-slate-600 mb-6 text-center leading-relaxed">
+                        Vous êtes sur le point d'annuler la réservation <strong className="text-slate-900">{booking.reference || booking.id}</strong>. Cette action est irréversible dans le système iPro.
+                    </p>
+
+                    {step === 2 && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-center gap-4">
+                            <BadgeDollarSign className="text-amber-500" size={32} />
+                            <div>
+                                <p className="text-xs font-bold text-amber-700 uppercase">Frais d'annulation iPro</p>
+                                <p className="text-xl font-extrabold text-amber-900">{fees} DZD</p>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex flex-col gap-3">
+                        {step === 1 ? (
+                            <button onClick={checkFees} disabled={isPending} className="w-full flex justify-center items-center gap-2 py-3 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl disabled:opacity-50">
+                                {isPending ? <Loader2 className="animate-spin" size={18} /> : <AlertTriangle size={18} />}
+                                Évaluer les frais d'annulation
+                            </button>
+                        ) : (
+                            <button onClick={confirmCancellation} disabled={isPending} className="w-full flex justify-center items-center gap-2 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl disabled:opacity-50 shadow-md shadow-rose-200">
+                                {isPending ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}
+                                Confirmer l'annulation définitive
+                            </button>
+                        )}
+                        <button onClick={onClose} disabled={isPending} className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl disabled:opacity-50">
+                            Fermer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+```
+
 File: src/components/admin/VerifyBookingModal.jsx
 ```jsx
-import { useState, useEffect } from "react";
+import {useState, useEffect} from "react";
 import {
     X, ShieldCheck, Home, Landmark,
-    CheckCircle2, XCircle,
+    CheckCircle2, XCircle, Ban,
     ImageOff, Loader2, Phone, Mail,
     Calendar, Hotel, User, CreditCard,
     Clock, BadgeDollarSign, FileText, ZoomIn
 } from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {useQuery, useQueryClient} from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import useAdminBookings from "../../custom-hooks/useAdminBookings.js";
 import AllezGoApi from "../../services/allezgo-api/allezGoApi.js";
 import apiClient from "../../services/ApiClient.js";
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
-function StatusBadge({ status }) {
+function StatusBadge({status}) {
     const config = {
-        PENDING: { bg: 'bg-amber-400/15', text: 'text-amber-300', border: 'border-amber-400/30', label: 'En attente', icon: Clock },
-        CONFIRMED: { bg: 'bg-emerald-400/15', text: 'text-emerald-300', border: 'border-emerald-400/30', label: 'Confirmée', icon: CheckCircle2 },
-        REJECTED: { bg: 'bg-rose-400/15', text: 'text-rose-300', border: 'border-rose-400/30', label: 'Rejetée', icon: XCircle },
+        PENDING: { bg: 'bg-amber-400/15', text: 'text-amber-500', border: 'border-amber-400/30', label: 'En attente', icon: Clock },
+        CONFIRMED: { bg: 'bg-emerald-400/15', text: 'text-emerald-500', border: 'border-emerald-400/30', label: 'Confirmée', icon: CheckCircle2 },
+        REJECTED: { bg: 'bg-rose-400/15', text: 'text-rose-500', border: 'border-rose-400/30', label: 'Rejetée', icon: XCircle },
+        CANCELLED: { bg: 'bg-slate-200', text: 'text-slate-600', border: 'border-slate-300', label: 'Annulée', icon: Ban },
     };
-    const c = config[status] || config.PENDING;
+    const c = config[status?.toUpperCase()] || config.PENDING;
     const Icon = c.icon;
     return (
-        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border ${c.bg} ${c.text} ${c.border}`}>
-            <Icon size={12} />
+        <span
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border ${c.bg} ${c.text} ${c.border}`}>
+            <Icon size={12}/>
             {c.label}
         </span>
     );
 }
 
 // ─── Receipt Image (fetched securely via Bearer token → blob URL) ─────────────
-function ReceiptImage({ filename, isOpen }) {
+function ReceiptImage({filename, isOpen}) {
     const [blobUrl, setBlobUrl] = useState(null);
     const [loading, setLoading] = useState(false);
     const [hasError, setHasError] = useState(false);
@@ -227,7 +334,7 @@ function ReceiptImage({ filename, isOpen }) {
             try {
                 const response = await AllezGoApi.client.get(
                     `/api/bookings/receipt/${filename}`,
-                    { responseType: "blob" }
+                    {responseType: "blob"}
                 );
                 objectUrl = URL.createObjectURL(response.data ?? response);
                 setBlobUrl(objectUrl);
@@ -250,8 +357,9 @@ function ReceiptImage({ filename, isOpen }) {
 
     if (!filename) {
         return (
-            <div className="w-full h-48 rounded-xl bg-slate-100 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 text-slate-400">
-                <ImageOff size={26} />
+            <div
+                className="w-full h-48 rounded-xl bg-slate-100 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 text-slate-400">
+                <ImageOff size={26}/>
                 <p className="text-sm font-medium">Aucun reçu fourni</p>
             </div>
         );
@@ -259,8 +367,9 @@ function ReceiptImage({ filename, isOpen }) {
 
     if (loading) {
         return (
-            <div className="w-full h-48 rounded-xl bg-slate-100 border border-slate-200 flex flex-col items-center justify-center gap-2 text-sky-600">
-                <Loader2 size={26} className="animate-spin" />
+            <div
+                className="w-full h-48 rounded-xl bg-slate-100 border border-slate-200 flex flex-col items-center justify-center gap-2 text-sky-600">
+                <Loader2 size={26} className="animate-spin"/>
                 <p className="text-sm font-medium">Chargement du reçu...</p>
             </div>
         );
@@ -268,15 +377,15 @@ function ReceiptImage({ filename, isOpen }) {
 
     if (hasError || !blobUrl) {
         return (
-            <div className="w-full h-48 rounded-xl bg-red-50 border-2 border-dashed border-red-200 flex flex-col items-center justify-center gap-2 text-red-400">
-                <ImageOff size={26} />
+            <div
+                className="w-full h-48 rounded-xl bg-red-50 border-2 border-dashed border-red-200 flex flex-col items-center justify-center gap-2 text-red-400">
+                <ImageOff size={26}/>
                 <p className="text-sm font-medium">Impossible de charger le reçu</p>
             </div>
         );
     }
 
     return (
-        /* Robust Receipt Image Enlarge */
         <div className="mt-4">
             <p className="text-sm font-semibold text-slate-700 mb-2">Reçu de paiement :</p>
             <a
@@ -291,10 +400,11 @@ function ReceiptImage({ filename, isOpen }) {
                     alt="Reçu de paiement"
                     className="w-full h-auto max-h-96 object-contain bg-slate-50"
                 />
-                {/* Hover Overlay */}
-                <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <span className="bg-white/90 text-slate-800 px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg">
-                        <ZoomIn size={18} /> Agrandir le reçu
+                <div
+                    className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <span
+                        className="bg-white/90 text-slate-800 px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 shadow-lg">
+                        <ZoomIn size={18}/> Agrandir le reçu
                     </span>
                 </div>
             </a>
@@ -303,16 +413,17 @@ function ReceiptImage({ filename, isOpen }) {
 }
 
 // ─── Detail Row ───────────────────────────────────────────────────────────────
-function DetailRow({ icon: Icon, label, children, href }) {
+function DetailRow({icon: Icon, label, children, href}) {
     return (
         <div className="flex items-start gap-3">
             <div className="mt-0.5 w-8 h-8 rounded-lg bg-sky-100/70 flex items-center justify-center shrink-0">
-                <Icon size={15} className="text-sky-600" />
+                <Icon size={15} className="text-sky-600"/>
             </div>
             <div className="min-w-0">
                 <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">{label}</p>
                 {href ? (
-                    <a href={href} className="text-sm font-semibold text-sky-700 hover:underline underline-offset-2 transition-colors">
+                    <a href={href}
+                       className="text-sm font-semibold text-sky-700 hover:underline underline-offset-2 transition-colors">
                         {children}
                     </a>
                 ) : (
@@ -324,10 +435,25 @@ function DetailRow({ icon: Icon, label, children, href }) {
 }
 
 // ─── Main Modal ───────────────────────────────────────────────────────────────
-export default function VerifyBookingModal({ isOpen, booking, onClose }) {
+export default function VerifyBookingModal({isOpen, booking, onClose}) {
     const [isPending, setIsPending] = useState(false);
     const queryClient = useQueryClient();
-    const { updateBookingStatus } = useAdminBookings();
+    const {updateBookingStatus} = useAdminBookings();
+
+    // ─── Type-coercion helpers ─────────────────────────────────────────────────
+    const toStr = (val) => (val == null ? "" : String(val));
+    const toInt = (val) => parseInt(val, 10);
+
+    // ─── Boarding resolver (shared by buildIProPayload & handleAction) ─────────
+    const resolveBoardingId = (rawBoarding) => {
+        if (typeof rawBoarding === 'object' && rawBoarding?.Id) return rawBoarding.Id.toString();
+        const b = (rawBoarding || "").toString().toUpperCase();
+        if (b.includes("LPD") || b === "BB") return "2";
+        if (b.includes("DP") || b === "HB") return "3";
+        if (b.includes("PC") || b === "FB") return "4";
+        if (b.includes("ALL") || b === "AI") return "5";
+        return b || "1";
+    };
 
     // ─── Payload Mapper ────────────────────────────────────────────────────────
     const buildIProPayload = (bookingEntity) => {
@@ -335,9 +461,7 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
         const iPayload = typeof bookingEntity.iproPayload === 'string' ? JSON.parse(bookingEntity.iproPayload) : (bookingEntity.iproPayload || {});
 
         const token = iPayload.Token || iPayload.token || bData.Token || bData.token;
-        const toYmd = (dateValue) => (dateValue || "").toString().substring(0, 10);
 
-        // 1. Passenger Mapping (Strict string Civility as per example)
         const mappedAdults = (iPayload.Adult || []).map((a, index) => ({
             Civility: a.Civility === 2 || a.Civility === "2" || a.Civility === "Ms" ? "Ms" : "Mr",
             Name: a.Name || "Client",
@@ -348,46 +472,34 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
         const mappedChildren = (iPayload.Child || []).map(c => ({
             Name: c.Name || "Child",
             Surname: c.Surname || "Child",
-            Age: c.Age?.toString() || "5" 
+            Age: c.Age?.toString() || "5"
         }));
 
-        const resolveBoardingId = (rawBoarding) => {
-            if (typeof rawBoarding === 'object' && rawBoarding?.Id) return rawBoarding.Id.toString();
-            const b = (rawBoarding || "").toString().toUpperCase();
-            if (b.includes("LPD") || b === "BB") return "2";
-            if (b.includes("DP") || b === "HB") return "3";
-            if (b.includes("PC") || b === "FB") return "4";
-            if (b.includes("ALL") || b === "AI") return "5";
-            return "1";
-        };
-
-        // 3. Map Rooms
         const rawRooms = bData.selectedRooms || bData.rooms || iPayload.rawRooms || [];
         const mappedRooms = rawRooms.map((room, index) => {
-             const extractedBoarding = room.Boarding || bData.boardingType || iPayload.boardingType || "1";
+            const extractedBoarding = room.Boarding || bData.boardingType || iPayload.boardingType || "1";
 
-             return {
-                 Id: (room.Id || room.id || (index + 1)).toString(),
-                 Boarding: resolveBoardingId(extractedBoarding),
-                 View: room.View || [],
-                 Supplement: room.Supplement || [],
-                 // 🔴 CRITICAL: Removed 'Option' key completely
-                 Pax: {
-                     Adult: mappedAdults,
-                     ...(mappedChildren.length > 0 ? { Child: mappedChildren } : {})
-                 }
-             };
+            return {
+                // 🔴 CRITICAL: Use index based Id for search-to-book sync
+                Id: (index + 1).toString(),
+                Boarding: resolveBoardingId(extractedBoarding),
+                View: room.View || [],
+                Supplement: room.Supplement || [],
+                Pax: {
+                    Adult: mappedAdults,
+                    ...(mappedChildren.length > 0 ? {Child: mappedChildren} : {})
+                }
+            };
         });
 
-        // 4. Final Root Payload
         return {
             Token: token,
-            PreBooking: true, // 🔴 CRITICAL: This MUST be true to prevent the PHP fatal error
-            City: (bData.City || bData.hotel?.City?.Id || iPayload.City || "10").toString(),
+            PreBooking: true,
+            City: (bData.City || bData.hotel?.City?.Id || iPayload.City || 10),
             Hotel: parseInt(bData.Hotel || bookingEntity.hotelId || bData.hotelId || bData.hotel?.Id, 10),
             CheckIn: (bookingEntity.checkIn || bData.CheckIn || bData.checkIn).substring(0, 10),
             CheckOut: (bookingEntity.checkOut || bData.CheckOut || bData.checkOut).substring(0, 10),
-            Source: iPayload.Source || bData.Source || "local-2", // 🔴 CRITICAL: Must match the search source
+            // Source: iPayload.Source || bData.Source || "local-2",
             Rooms: mappedRooms
         };
     };
@@ -395,30 +507,77 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
     // ─── Action Orchestrator ───────────────────────────────────────────────────
     const handleAction = async (newStatus) => {
         if (!booking) return;
-        
         try {
             setIsPending(true);
             let iProResponseId = null;
 
-            // 🟢 Branch A: Validating & Booking (External Creation)
             if (newStatus === "CONFIRMED") {
-                const iProPayload = buildIProPayload(booking);
-                
-                if (!iProPayload.Token) {
-                    toast.error("Échec : Le 'Token' iPro est manquant.");
-                    setIsPending(false);
-                    return;
+                const bData = typeof booking.bookingData === 'string' ? JSON.parse(booking.bookingData) : (booking.bookingData || {});
+                const iPayload = typeof booking.iproPayload === 'string' ? JSON.parse(booking.iproPayload) : (booking.iproPayload || {});
+
+                // ─── THE DEFINITIVE iPRO SCHEMA ───────────────────────
+                const payloadToIpro = {
+                    // 🔴 CRITICAL: The API needs credentials to "lock" the rate in the session
+                    Credential: {
+                        Login: import.meta.env.VITE_API_LOGIN,
+                        Password: import.meta.env.VITE_API_PASSWORD
+                    },
+                    HotelBooking: {
+                        // 🔴 FIX 1: Token MUST be inside HotelBooking — createBooking() only forwards
+                        //           the HotelBooking object; a root-level Token gets silently discarded.
+                        Token: iPayload.Token || bData.Token || bData.token,
+                        PreBooking: false,
+                        City: toStr(iPayload.City || bData.City),
+                        Hotel: toInt(iPayload.Hotel || bData.Hotel || booking.hotelId),
+                        CheckIn: toStr(iPayload.CheckIn || bData.CheckIn || booking.checkIn).substring(0, 10),
+                        CheckOut: toStr(iPayload.CheckOut || bData.CheckOut || booking.checkOut).substring(0, 10),
+                        // 🔴 FIX 2: Filter out null/undefined entries before mapping to int.
+                        // Option: Array.isArray(iPayload.Option)
+                        //     ? iPayload.Option.filter(o => o != null).map(o => toInt(o))
+                        //     : [],
+                        //Source: toStr(iPayload.Source || bData.Source || "local-2"),
+                        Rooms: (iPayload.rawRooms || iPayload.Rooms || bData.rooms || []).map((room, index) => ({
+                            Id: toStr(room.Id || room.roomId || (index + 1)),
+                            // 🔴 FIX 3: Use resolveBoardingId — room.Boarding can be an object like
+                            //           { Id: "3" }; calling toStr() on it produces "[object Object]".
+                            Boarding: resolveBoardingId(room.Boarding || iPayload.boardingType || "1"),
+                            View: Array.isArray(room.View) ? room.View.map(v => toInt(v)) : [],
+                            Supplement: Array.isArray(room.Supplement) ? room.Supplement.map(s => toInt(s)) : [],
+                            Pax: {
+                                // 🔴 FIX 4: First adult must be Holder:true so iPro knows the lead guest.
+                                Adult: (room.Adult || iPayload.Adult || []).map((pax, i) => ({
+                                    Civility: toStr(pax.Civility || "Mr"),
+                                    Name: pax.Name || "Client",
+                                    Surname: pax.Surname || "Traveler",
+                                    Holder: i === 0
+                                })),
+                                // Only include Child if array is non-empty
+                                ...((room.Child || iPayload.Child || []).length > 0 && {
+                                    Child: (room.Child || iPayload.Child || []).map(pax => ({
+                                        Name: pax.Name || "Child",
+                                        Surname: pax.Surname || "Traveler",
+                                        Age: String(pax.Age || "5")
+                                    }))
+                                })
+                            }
+                        }))
+                    }
+                };
+
+                console.log("🚀 FINAL ATTEMPT PAYLOAD:", JSON.stringify(payloadToIpro, null, 2));
+
+                // Call createBooking - apiClient.js handles the actual axios.post
+                const iProResponse = await apiClient.createBooking(payloadToIpro);
+
+                // Map the response ID
+                iProResponseId = iProResponse.Id || iProResponse.BookingCreation?.Id || iProResponse.BookingCreation?.[0]?.Id;
+
+                if (!iProResponseId) {
+                    throw new Error("La réservation a été acceptée mais aucun ID n'a été retourné.");
                 }
 
-                console.log("🚀 FINAL CLEAN PAYLOAD:", JSON.stringify(iProPayload, null, 2));
-
-                // REMOVE THE EXTRA { HotelBooking: ... } WRAPPER HERE:
-                const iProResponse = await apiClient.createBooking(iProPayload);
-                iProResponseId = iProResponse.Id; 
                 toast.success("Réservation externe iPro confirmée !");
-            } 
-            // Branch B: Rejecting / Cancelling (External Deletion)
-            else if (newStatus === "REJECTED") {
+            } else if (newStatus === "REJECTED") {
                 const externalId = booking.externalId || booking.bookingData?.iProId;
 
                 if (booking.status === "CONFIRMED" || externalId) {
@@ -432,16 +591,15 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
                 }
             }
 
-            // Internal NestJS Sync 
-            const updatePayload = newStatus === "CONFIRMED" && iProResponseId 
-                ? { status: newStatus, externalId: iProResponseId } 
-                : { status: newStatus };
+            const updatePayload = newStatus === "CONFIRMED" && iProResponseId
+                ? {status: newStatus, externalId: iProResponseId}
+                : {status: newStatus};
 
-            await AllezGoApi.updateBooking(booking.id, updatePayload);
-            
-            // UI Cleanup & State Sync
+            // 🟢 Direct patch using the exposed Axios client
+            await AllezGoApi.client.patch(`/api/bookings/${booking.id}`, updatePayload);
+
             toast.success(`Statut mis à jour : ${newStatus}`);
-            queryClient.invalidateQueries({ queryKey: ["adminBookings"] });
+            queryClient.invalidateQueries({queryKey: ["adminBookings"]});
             onClose();
 
         } catch (error) {
@@ -455,39 +613,39 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
     // 1. Aggressively parse all possible JSON payload columns
     let parsedIpro = {};
     let parsedBooking = {};
-    try { parsedIpro = typeof booking?.iproPayload === 'string' ? JSON.parse(booking.iproPayload) : (booking?.iproPayload || {}); } catch (e) { }
-    try { parsedBooking = typeof booking?.bookingData === 'string' ? JSON.parse(booking.bookingData) : (booking?.bookingData || {}); } catch (e) { }
+    try {
+        parsedIpro = typeof booking?.iproPayload === 'string' ? JSON.parse(booking.iproPayload) : (booking?.iproPayload || {});
+    } catch (e) {
+    }
+    try {
+        parsedBooking = typeof booking?.bookingData === 'string' ? JSON.parse(booking.bookingData) : (booking?.bookingData || {});
+    } catch (e) {
+    }
 
-    // 2. Extract Hotel Name (mega-fallback)
     const hotelDisplayName = booking?.hotelName
         || parsedIpro?.hotelName
         || parsedBooking?.hotelName
         || booking?.hotel?.name
         || `Hôtel (ID: ${booking?.hotelId || 'Inconnu'})`;
 
-    // 3. Detect if the mega-fallback failed and we only have an ID
     const isNameMissing = hotelDisplayName?.startsWith('Hôtel (ID:');
 
-    // 4. Conditionally fetch from iPro API (hook called unconditionally, guarded by `enabled`)
-    const { data: fetchedHotel, isLoading: isFetchingHotel } = useQuery({
+    const {data: fetchedHotel, isLoading: isFetchingHotel} = useQuery({
         queryKey: ['ipro-hotel', booking?.hotelId],
         queryFn: () => apiClient.getHotel(booking?.hotelId),
         enabled: !!isOpen && !!booking?.hotelId && isNameMissing,
-        staleTime: 1000 * 60 * 60, // Cache for 1 hour to prevent redundant API calls
+        staleTime: 1000 * 60 * 60,
     });
 
-    // 5. Resolve the final display name
     const finalHotelName = isNameMissing && fetchedHotel?.Name
         ? fetchedHotel.Name
         : hotelDisplayName;
 
     if (!isOpen || !booking) return null;
 
-    // 3. Binary Payment Method Logic
     const hasReceipt = Boolean(booking?.receipt || booking?.receiptFilename || booking?.receiptUrl);
     const derivedPaymentMethod = hasReceipt ? "Virement bancaire" : "Espèce (En agence)";
 
-    // Client Full Name
     let clientFullName = booking?.clientName || parsedBooking?.clientName;
     if (!clientFullName && parsedIpro?.Adult?.[0]) {
         const p = parsedIpro.Adult[0];
@@ -495,45 +653,62 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
     }
     clientFullName = clientFullName || 'Client inconnu';
 
-    // Client Phone
     const clientPhone = booking?.clientPhone
         || parsedBooking?.clientPhone
         || parsedBooking?.bookingState?.passengers?.[0]?.phone
         || 'Non renseigné';
 
-    // Client Email
     const clientEmail = booking?.clientEmail
         || parsedBooking?.clientEmail
         || parsedBooking?.bookingState?.passengers?.[0]?.email
         || null;
 
-    // Action handler moved above
-
     const displayRef = booking?.reference || `ALG-${String(booking?.id || 0).padStart(3, '0')}`;
     const formattedPrice = new Intl.NumberFormat("fr-DZ").format(booking.clientPrice);
 
-    // Add extra details logic
     const checkIn = booking?.checkIn || "N/A";
     const checkOut = booking?.checkOut || "N/A";
     const nights = (checkIn !== "N/A" && checkOut !== "N/A") ? Math.max(1, Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24))) : 0;
-    const boardBasis = booking?.boardBasis || booking?.BoardBasis || "Demi-pension"; // Placeholder fallback
-    const roomType = booking?.roomType || booking?.RoomType || "Chambre Standard"; // Placeholder fallback
+    // ── Resolve boarding label from parsed JSON data ───────────────────
+    const BOARDING_DISPLAY_LABELS = {
+        RO: "Chambre Seule", BB: "Petit-Déjeuner", HB: "Demi-Pension",
+        FB: "Pension Complète", AI: "Tout Inclus", SC: "Self Catering",
+    };
+    const rawBoardingCode = parsedBooking?.boardingType
+        || parsedIpro?.boardingType
+        || null;
+    const rawBoardingName = parsedBooking?.rooms?.[0]?.boardingName
+        || parsedBooking?.selectedRooms?.[0]?.boardingName
+        || parsedIpro?.rawRooms?.[0]?.boardingName
+        || null;
+    const boardBasis = rawBoardingName
+        || BOARDING_DISPLAY_LABELS[rawBoardingCode?.toUpperCase?.()]
+        || rawBoardingCode
+        || "Non spécifié";
+
+    // ── Resolve room type from parsed JSON data ───────────────────────
+    const roomType = parsedBooking?.rooms?.[0]?.roomType
+        || parsedBooking?.selectedRooms?.[0]?.roomType
+        || parsedIpro?.rawRooms?.[0]?.roomType
+        || parsedIpro?.rawRooms?.[0]?.name
+        || "Non spécifié";
 
     return (
-        /* Backdrop — click outside to close */
         <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-sky-950/60 backdrop-blur-sm font-sans"
-            onClick={(e) => { if (e.target === e.currentTarget && !isPending) onClose(); }}
+            onClick={(e) => {
+                if (e.target === e.currentTarget && !isPending) onClose();
+            }}
         >
-            {/* Panel — Invoice/Summary Card */}
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200">
-
-                {/* ── Header with Status Badge ── */}
-                <div className="relative px-6 py-5 border-b border-sky-800/30 bg-gradient-to-r from-sky-950 via-sky-900 to-sky-950">
+            <div
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200">
+                <div
+                    className="relative px-6 py-5 border-b border-sky-800/30 bg-gradient-to-r from-sky-950 via-sky-900 to-sky-950">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-orange-500/20 border border-orange-400/30 flex items-center justify-center">
-                                <ShieldCheck size={20} className="text-orange-400" />
+                            <div
+                                className="w-10 h-10 rounded-xl bg-orange-500/20 border border-orange-400/30 flex items-center justify-center">
+                                <ShieldCheck size={20} className="text-orange-400"/>
                             </div>
                             <div>
                                 <h2 className="text-white font-extrabold text-base leading-tight tracking-tight">
@@ -545,29 +720,25 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
-                            <StatusBadge status={booking.status} />
+                            <StatusBadge status={booking.status}/>
                             <button
                                 onClick={onClose}
                                 disabled={isPending}
                                 className="p-1.5 rounded-lg text-sky-300 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-40"
                                 title="Fermer"
                             >
-                                <X size={18} />
+                                <X size={18}/>
                             </button>
                         </div>
                     </div>
                 </div>
 
-                {/* ── Body ── */}
                 <div className="px-6 py-5 flex flex-col gap-5 overflow-y-auto flex-1">
-
-                    {/* ── Grid: Client + Séjour Details ── */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-                        {/* Détails du Client */}
-                        <div className="bg-gradient-to-br from-slate-50 to-sky-50/50 border border-sky-100 rounded-xl p-4">
+                        <div
+                            className="bg-gradient-to-br from-slate-50 to-sky-50/50 border border-sky-100 rounded-xl p-4">
                             <h4 className="text-xs font-extrabold text-sky-900 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                <User size={14} className="text-sky-600" />
+                                <User size={14} className="text-sky-600"/>
                                 Détails du Client
                             </h4>
                             <div className="flex flex-col gap-3">
@@ -585,10 +756,10 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
                             </div>
                         </div>
 
-                        {/* Détails du Séjour */}
-                        <div className="bg-gradient-to-br from-slate-50 to-sky-50/50 border border-sky-100 rounded-xl p-4">
+                        <div
+                            className="bg-gradient-to-br from-slate-50 to-sky-50/50 border border-sky-100 rounded-xl p-4">
                             <h4 className="text-xs font-extrabold text-sky-900 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                <FileText size={14} className="text-sky-600" />
+                                <FileText size={14} className="text-sky-600"/>
                                 Détails du Séjour
                             </h4>
                             <div className="flex flex-col gap-3">
@@ -610,26 +781,24 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
                         </div>
                     </div>
 
-                    {/* ── Payment Verification Section ── */}
                     <DetailRow icon={CreditCard} label="Mode de Paiement">
                         {derivedPaymentMethod}
                     </DetailRow>
 
-                    {/* VIREMENT BANCAIRE — Receipt present */}
                     {hasReceipt && (
                         <div className="flex flex-col gap-3">
-                            <div className="flex items-center gap-2 px-4 py-2.5 bg-purple-50 border border-purple-200 rounded-xl">
-                                <Landmark size={16} className="text-purple-500 shrink-0" />
+                            <div
+                                className="flex items-center gap-2 px-4 py-2.5 bg-purple-50 border border-purple-200 rounded-xl">
+                                <Landmark size={16} className="text-purple-500 shrink-0"/>
                                 <span className="text-sm font-bold text-purple-700">Virement Bancaire</span>
                             </div>
-                            <ReceiptImage filename={booking.receiptFilename} isOpen={isOpen} />
+                            <ReceiptImage filename={booking.receiptFilename} isOpen={isOpen}/>
                         </div>
                     )}
 
-                    {/* PAIEMENT AGENCE — No receipt */}
                     {!hasReceipt && (
                         <div className="flex items-start gap-3 p-4 bg-sky-50 border border-sky-200 rounded-xl">
-                            <Home size={18} className="text-sky-500 shrink-0 mt-0.5" />
+                            <Home size={18} className="text-sky-500 shrink-0 mt-0.5"/>
                             <div>
                                 <p className="text-sm font-bold text-sky-800 mb-1">Paiement à l'agence</p>
                                 <p className="text-sm text-sky-700 leading-relaxed">
@@ -641,10 +810,8 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
                     )}
                 </div>
 
-                {/* ── Footer — Actions ── */}
                 <div className="px-6 py-4 border-t border-gray-100 bg-slate-50">
                     <div className="flex items-center justify-end gap-3">
-                        {/* Cancel */}
                         <button
                             onClick={onClose}
                             disabled={isPending}
@@ -653,28 +820,26 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
                             Annuler
                         </button>
 
-                        {/* Reject */}
                         <button
                             onClick={() => handleAction("REJECTED")}
                             disabled={isPending}
                             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-extrabold text-white bg-rose-600 hover:bg-rose-700 transition-colors shadow-sm disabled:opacity-50"
                         >
                             {isPending
-                                ? <Loader2 size={15} className="animate-spin" />
-                                : <XCircle size={15} />
+                                ? <Loader2 size={15} className="animate-spin"/>
+                                : <XCircle size={15}/>
                             }
                             Rejeter
                         </button>
 
-                        {/* Confirm */}
                         <button
                             onClick={() => handleAction("CONFIRMED")}
                             disabled={isPending}
                             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-md disabled:opacity-50"
                         >
                             {isPending
-                                ? <Loader2 size={15} className="animate-spin" />
-                                : <CheckCircle2 size={15} />
+                                ? <Loader2 size={15} className="animate-spin"/>
+                                : <CheckCircle2 size={15}/>
                             }
                             Valider &amp; Réserver
                         </button>
@@ -684,7 +849,6 @@ export default function VerifyBookingModal({ isOpen, booking, onClose }) {
         </div>
     );
 }
-
 ```
 
 File: src/components/admin/VoucherModal.jsx
@@ -720,8 +884,34 @@ export default function VoucherModal({ isOpen, onClose, booking }) {
   const clientPrice = Number(booking.clientPrice) || 0;
 
   const nights = (checkIn !== "N/A" && checkOut !== "N/A") ? Math.max(1, Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24))) : 0;
-  const boardBasis = booking?.boardBasis || booking?.BoardBasis || "Demi-pension"; // Placeholder fallback
-  const roomType = booking?.roomType || booking?.RoomType || "Chambre Standard"; // Placeholder fallback
+  // ── Resolve boarding label from parsed JSON data ───────────────────
+  let parsedBookingData = {};
+  let parsedIproData = {};
+  try { parsedBookingData = typeof booking?.bookingData === 'string' ? JSON.parse(booking.bookingData) : (booking?.bookingData || {}); } catch (e) {}
+  try { parsedIproData = typeof booking?.iproPayload === 'string' ? JSON.parse(booking.iproPayload) : (booking?.iproPayload || {}); } catch (e) {}
+
+  const BOARDING_DISPLAY_LABELS = {
+      RO: "Chambre Seule", BB: "Petit-Déjeuner", HB: "Demi-Pension",
+      FB: "Pension Complète", AI: "Tout Inclus", SC: "Self Catering",
+  };
+  const rawBoardingCode = parsedBookingData?.boardingType
+      || parsedIproData?.boardingType
+      || null;
+  const rawBoardingName = parsedBookingData?.rooms?.[0]?.boardingName
+      || parsedBookingData?.selectedRooms?.[0]?.boardingName
+      || parsedIproData?.rawRooms?.[0]?.boardingName
+      || null;
+  const boardBasis = rawBoardingName
+      || BOARDING_DISPLAY_LABELS[rawBoardingCode?.toUpperCase?.()]
+      || rawBoardingCode
+      || "Non spécifié";
+
+  // ── Resolve room type from parsed JSON data ───────────────────────
+  const roomType = parsedBookingData?.rooms?.[0]?.roomType
+      || parsedBookingData?.selectedRooms?.[0]?.roomType
+      || parsedIproData?.rawRooms?.[0]?.roomType
+      || parsedIproData?.rawRooms?.[0]?.name
+      || "Non spécifié";
 
   // Format currency
   const formattedPrice = clientPrice > 0
@@ -911,7 +1101,7 @@ export default function VoucherModal({ isOpen, onClose, booking }) {
           <div id="voucher-footer" className="mt-auto pt-6 border-t border-slate-200 text-xs text-slate-500">
             <div className="flex justify-between items-center">
               <div>
-                <p className="font-bold text-slate-800 text-sm">AllezGo Voyage</p>
+                <p className="font-bold text-slate-800 text-sm">AllezGo</p>
                 <p>Cité El Moustakbel Ain Beida OEB</p>
                 <p>Tel: +213 770 93 25 63 / +213 670 23 02 35 | Email: contact@allezgoo.com</p>
               </div>
@@ -1114,6 +1304,9 @@ function BookingHotels() {
             searchParams.append('cityName', selectedCity.Name);
             if (selectedCity.Country?.Name) {
                 searchParams.append('countryName', selectedCity.Country.Name);
+                // ✅ MODIFIER: Append countryCode for market-identity logic
+                const code = selectedCity.Country.Name.toLowerCase().includes('tunisie') ? 'TN' : 'DZ';
+                searchParams.append('countryCode', code);
             }
         } else if (selectionType === 'hotel') {
             searchParams.append('hotelId', String(Number(selectedHotel.Id)));
@@ -1121,7 +1314,12 @@ function BookingHotels() {
             // ✅ city info is read from selectedHotel.City (selectedCity is null by design)
             if (selectedHotel.City?.Id) searchParams.append('cityId', String(Number(selectedHotel.City.Id)));
             if (selectedHotel.City?.Name) searchParams.append('cityName', selectedHotel.City.Name);
-            if (selectedHotel.City?.Country?.Name) searchParams.append('countryName', selectedHotel.City.Country.Name);
+            if (selectedHotel.City?.Country?.Name) {
+                searchParams.append('countryName', selectedHotel.City.Country.Name);
+                // ✅ MODIFIER: Append countryCode for market-identity logic
+                const code = selectedHotel.City.Country.Name.toLowerCase().includes('tunisie') ? 'TN' : 'DZ';
+                searchParams.append('countryCode', code);
+            }
         }
 
         searchParams.append('checkIn', checkInFormatted);
@@ -1648,6 +1846,12 @@ const BANK_ACCOUNTS = [
     { id: "bdl", name: "BDL", details: "005 003260000002617", icon: "/images/icons/bdl.jpg" },
 ];
 
+const CIVILITY_OPTIONS = [
+    { value: "Mr", label: "Mr" },
+    { value: "Ms", label: "Mlle" },
+    { value: "Mde", label: "Mme" }
+];
+
 // ─── Local sub-components ─────────────────────────────────────────────────────
 function SectionHeader({ number, title, subtitle, gradient = "from-sky-500 to-blue-600" }) {
     return (
@@ -1716,6 +1920,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
             return {
                 adults: Array.from({ length: room.adults ?? 1 }, () => ({
                     fullName: "",
+                    civility: "Mr", // Default civility
                 })),
                 children: Array.from({ length: count }, (_, ci) => ({
                     firstName: "",
@@ -1788,7 +1993,6 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
         });
 
         clearError('rooms.0.adults.0.fullName');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formData.contact.fullName, clearError]);
 
     const validate = useCallback(() => {
@@ -1836,17 +2040,28 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
 
         const passengers = [];
         formData.rooms.forEach((room) => {
-            room.adults.forEach((adult) => {
+            room.adults.forEach((adult, ai) => {
                 const parts = adult.fullName.trim().split(' ');
                 const surname = parts.length > 1 ? parts.pop() : parts[0];
                 const name = parts.length > 0 ? parts.join(' ') : surname;
-                passengers.push({ Civility: 1, Name: name, Surname: surname, Age: 30 });
+                passengers.push({
+                    Civility: adult.civility, // Now uses Mr, Ms, or Mde string
+                    Name: name,
+                    Surname: surname,
+                    Age: 30,
+                    Holder: ai === 0 // Mark principal as holder
+                });
             });
             room.children.forEach((child) => {
                 const parts = child.firstName.trim().split(' ');
                 const surname = parts.length > 1 ? parts.pop() : parts[0];
                 const name = parts.length > 0 ? parts.join(' ') : surname;
-                passengers.push({ Civility: 1, Name: name, Surname: surname, Age: parseInt(child.age, 10) || 5 });
+                passengers.push({
+                    Civility: "Child",
+                    Name: name,
+                    Surname: surname,
+                    Age: parseInt(child.age, 10) || 5
+                });
             });
         });
 
@@ -1859,7 +2074,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
             },
             paymentMethod: formData.paymentMethod,
             receiptFile: formData.paymentMethod === 'home' ? formData.receiptFile : null,
-            clientPhone: formData.contact.phone, // Le téléphone est maintenant une propriété de haut niveau
+            clientPhone: formData.contact.phone,
         });
     }, [validate, formData, onSubmit, bookingState]);
 
@@ -1882,7 +2097,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                             {BANK_ACCOUNTS.map(bank => (
                                 <label key={bank.id} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${formData.selectedBank === bank.id ? 'bg-white border-orange-500 ring-2 ring-orange-200' : 'bg-white border-gray-200 hover:border-orange-300'}`}>
-                                    <input type="radio" className="sr-only" onChange={() => { setFormData(p => ({ ...p, selectedBank: bank.id })); clearError('payment.selectedBank'); }} />
+                                    <input type="radio" name="bank_selection" className="sr-only" onChange={() => { setFormData(p => ({ ...p, selectedBank: bank.id })); clearError('payment.selectedBank'); }} />
                                     <img src={bank.icon} alt={bank.name} className="w-10 h-10 rounded-lg object-cover" />
                                     <div><p className="font-bold text-sm text-gray-800">{bank.name}</p><p className="text-xs text-gray-500 font-mono">{bank.details}</p></div>
                                 </label>
@@ -1906,11 +2121,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
                     </div>
                 );
             default:
-                return (
-                    <div className="mt-4 p-5 bg-gray-50 border border-dashed border-gray-200 rounded-xl">
-                        <p className="text-sm text-gray-400 font-medium">Détails disponibles prochainement.</p>
-                    </div>
-                );
+                return null;
         }
     };
 
@@ -1918,7 +2129,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
 
     return (
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
-            {/* Contact Section */}
+            {/* 1. Contact Section */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                 <SectionHeader number="1" title="Informations Client" subtitle="Contact Principal pour la confirmation" />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1942,7 +2153,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
                 </div>
             </div>
 
-            {/* Rooms Section */}
+            {/* 2. Rooms Section */}
             <div className="flex flex-col gap-4">
                 {formData.rooms.map((room, ri) => (
                     <div key={ri} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
@@ -1957,9 +2168,23 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
                         </div>
                         <div className="flex flex-col gap-6">
                             {room.adults.map((adult, ai) => (
-                                <Field key={ai} label={ai === 0 ? "Voyageur Principal" : `Adulte ${ai + 1}`} icon={User} error={errors[`rooms.${ri}.adults.${ai}.fullName`]}>
-                                    <TextInput value={adult.fullName} onChange={(e) => updateAdult(ri, ai, "fullName", e.target.value)} error={errors[`rooms.${ri}.adults.${ai}.fullName`]} />
-                                </Field>
+                                <div key={ai} className="flex flex-col gap-3">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        {CIVILITY_OPTIONS.map((opt) => (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                onClick={() => updateAdult(ri, ai, "civility", opt.value)}
+                                                className={`px-3 py-1 text-[10px] font-bold rounded-lg border-2 transition-all ${adult.civility === opt.value ? "bg-sky-500 border-sky-500 text-white shadow-sm" : "bg-white border-gray-100 text-gray-400 hover:border-gray-200"}`}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <Field label={ai === 0 ? "Voyageur Principal" : `Adulte ${ai + 1}`} icon={User} error={errors[`rooms.${ri}.adults.${ai}.fullName`]}>
+                                        <TextInput value={adult.fullName} onChange={(e) => updateAdult(ri, ai, "fullName", e.target.value)} error={errors[`rooms.${ri}.adults.${ai}.fullName`]} />
+                                    </Field>
+                                </div>
                             ))}
                             {room.children.map((child, ci) => (
                                 <div key={ci} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1974,7 +2199,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
                 ))}
             </div>
 
-            {/* Payment Section */}
+            {/* 3. Payment Section */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                 <SectionHeader number="3" title="Mode de Paiement" gradient="from-orange-400 to-rose-500" />
                 <div className="flex flex-col sm:flex-row gap-3">
@@ -2000,7 +2225,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
                     </div>
                 </div>
             )}
-            <button type="submit" disabled={isPending} className="w-full flex items-center justify-center gap-2.5 py-4 bg-linear-to-r from-orange-500 to-orange-700 text-white font-extrabold rounded-2xl shadow-lg disabled:opacity-70">
+            <button type="submit" disabled={isPending} className="w-full flex items-center justify-center gap-2.5 py-4 bg-linear-to-r from-orange-500 to-orange-700 text-white font-extrabold rounded-2xl shadow-lg disabled:opacity-70 transition-all hover:scale-[1.01] active:scale-[0.99]">
                 {isPending ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>Confirmer la Réservation <ChevronRight size={18} /></>}
             </button>
         </form>
@@ -3310,7 +3535,7 @@ import {
     FaInstagram,
     FaLinkedinIn,
     FaYoutube,
-    FaHeart,
+    FaHeart, FaTiktok,
 } from 'react-icons/fa';
 import {
     Shield,
@@ -3324,23 +3549,21 @@ import {
 import { Link } from 'react-router-dom';
 
 const footerLinks = {
-    destinations: ['Europe', 'Asie', 'Afrique', 'Amérique', 'Océanie', 'Moyen-Orient'],
+    destinations: ['Hotels el Algérie', 'Hotels en Tunisie', 'Hotels dans le reste du monde'],
     services: [
-        "Réservation d'hôtels", 'Vols', 'Voyages organisés',
-        'Croisières', 'Assurance voyage', 'Location de voiture',
+        "Réservation d'hôtels", 'Vols', 'Voyages organisés', 'Croisières'
     ],
     company: ['À propos', 'Carrières', 'Blog', 'Partenaires', 'Presse', 'Contactez-nous'],
 };
 
 const socialLinks = [
     { icon: FaFacebookF,  label: 'Facebook',  color: 'hover:bg-blue-600',  href: '#' },
-    { icon: FaTwitter,    label: 'Twitter',   color: 'hover:bg-sky-500',   href: '#' },
     { icon: FaInstagram,  label: 'Instagram', color: 'hover:bg-pink-600',  href: '#' },
-    { icon: FaLinkedinIn, label: 'LinkedIn',  color: 'hover:bg-blue-700',  href: '#' },
+    { icon: FaTiktok,  label: 'TikTok', color: 'hover:bg-pink-600',  href: '#' },
     { icon: FaYoutube,    label: 'YouTube',   color: 'hover:bg-red-600',   href: '#' },
 ];
 
-const paymentMethods = ['Visa', 'Mastercard', 'PayPal', 'Amex'];
+const paymentMethods = ['Dhahabia', 'BaridiMob', 'Visa', 'Mastercard'];
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -3351,7 +3574,7 @@ function Footer() {
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-orange-500 to-blue-500" />
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-12">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
 
                     {/* Company Info */}
                     <div className="lg:col-span-1">
@@ -3440,30 +3663,13 @@ function Footer() {
                         </ul>
                     </div>
 
-                    {/* Company */}
-                    <div>
-                        <h3 className="text-lg font-bold mb-4">Entreprise</h3>
-                        <ul className="space-y-2">
-                            {footerLinks.company.map((link) => (
-                                <li key={link}>
-                                    <Link
-                                        to="#"
-                                        className="text-gray-300 hover:text-orange-400 transition-colors text-sm hover:translate-x-1 inline-block transform duration-200"
-                                    >
-                                        {link}
-                                    </Link>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-
                     {/* Contact */}
                     <div>
                         <h3 className="text-lg font-bold mb-4">Contact</h3>
                         <ul className="space-y-3">
                             <li className="flex items-start gap-2 text-sm">
                                 <MapPin className="w-4 h-4 text-orange-500 mt-1 flex-shrink-0" />
-                                <span className="text-gray-300">123 Avenue des Voyages, Aîn Beida, Oum Bouaghi</span>
+                                <span className="text-gray-300">Cité Elmostakbel, OEB</span>
                             </li>
                             <li className="flex items-center gap-2 text-sm">
                                 <Phone className="w-4 h-4 text-orange-500 flex-shrink-0" />
@@ -3486,8 +3692,7 @@ function Footer() {
                             <li className="flex items-start gap-2 text-sm">
                                 <Clock className="w-4 h-4 text-orange-500 mt-1 flex-shrink-0" />
                                 <div className="text-gray-300">
-                                    <div>Dim - Jeu: 9h - 19h</div>
-                                    <div>Sam: 10h - 18h</div>
+                                    <div>(24h/24) - (7j/7)</div>
                                 </div>
                             </li>
                         </ul>
@@ -3910,11 +4115,12 @@ function Header() {
                                 {/* 1. Admin ONLY - Dashboard Link */}
                                 {user?.role === "admin" && (
                                     <Link 
-                                        to="/admin" 
-                                        className="relative flex justify-center items-center gap-2 bg-gradient-to-r from-purple-600 to-purple-800 px-4 py-2 rounded-lg font-semibold text-white overflow-hidden shadow-md"
+                                        to="/admin"
+                                        className="relative flex justify-center items-center gap-2 bg-gradient-to-b from-sky-800 via-sky-700 to-sky-800
+                                         px-4 py-2 rounded-lg font-semibold text-white overflow-hidden shadow-md"
                                     >
                                         <Shield size={18} strokeWidth={2} />
-                                        <span className="relative z-10">Dashboard Admin</span>
+                                        <span className="relative z-10">Admin Panel</span>
                                     </Link>
                                 )}
 
@@ -4101,11 +4307,11 @@ function Header() {
                                 {user?.role === "admin" && (
                                     <Link 
                                         to="/admin" 
-                                        className="relative flex justify-center items-center gap-2 bg-gradient-to-r from-purple-600 to-purple-800 px-4 py-3 rounded-lg font-semibold text-white overflow-hidden shadow-md"
+                                        className="relative flex justify-center items-center gap-2 bg-gradient-to-b from-sky-800 via-sky-700 to-sky-800 px-4 py-3 rounded-lg font-semibold text-white overflow-hidden shadow-md"
                                         onClick={() => setIsMobileMenuOpen(false)}
                                     >
                                         <Shield size={20} strokeWidth={2} />
-                                        <span className="relative z-10">Dashboard Admin</span>
+                                        <span className="relative z-10">Admin Panel</span>
                                     </Link>
                                 )}
 
@@ -4489,8 +4695,8 @@ export default HotelCard;
 File: src/components/HotelLightCard.jsx
 ```jsx
 // src/components/HotelLightCard.jsx
-import {useState, useMemo, useCallback, useEffect, useRef} from 'react';
-import {useNavigate} from 'react-router-dom';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Heart, MapPin, Star, Wifi, Car, Utensils, Waves, Wind, Coffee,
     Dumbbell, Sparkles, ChevronRight, CheckCircle2, AlertCircle,
@@ -4532,7 +4738,7 @@ const getFacilityIcon = (title = '') => {
 const getFreeChildInfo = (freeChild) => {
     if (!Array.isArray(freeChild) || freeChild.length === 0) return null;
     const maxAge = Math.max(...freeChild.map((fc) => fc.Age));
-    return {count: freeChild.length, maxAge};
+    return { count: freeChild.length, maxAge };
 };
 
 const buildBoardingFromRooms = (rooms) => {
@@ -4540,7 +4746,7 @@ const buildBoardingFromRooms = (rooms) => {
     const map = new Map();
     rooms.forEach(room => {
         if (room?.boardingCode && !map.has(room.boardingCode))
-            map.set(room.boardingCode, {code: room.boardingCode, label: room.boardingName});
+            map.set(room.boardingCode, { code: room.boardingCode, label: room.boardingName });
     });
     return Array.from(map.values());
 };
@@ -4567,22 +4773,22 @@ const buildDetailUrl = (hotelId, searchParams) => {
 const getDiscountInfo = (room) => {
     if (!room?.basePrice || !room?.price || room.basePrice <= room.price) return null;
     const pct = Math.round(((room.basePrice - room.price) / room.basePrice) * 100);
-    return pct > 0 ? {pct, saving: room.basePrice - room.price} : null;
+    return pct > 0 ? { pct, saving: room.basePrice - room.price } : null;
 };
 
 // ── Component ──────────────────────────────────────────────────────────────────
 function HotelLightCard({
-                            hotel,
-                            onFavoriteToggle,
-                            pricing = null,
-                            paxGroups: preloadedPaxGroups = null,
-                            onBook = null,
-                            onViewDetail = null,
-                            showBookButton = false,
-                            nights = 1,
-                            searchParams = null,
-                            initialIsFavorite = false,
-                        }) {
+    hotel,
+    onFavoriteToggle,
+    pricing = null,
+    paxGroups: preloadedPaxGroups = null,
+    onBook = null,
+    onViewDetail = null,
+    showBookButton = false,
+    nights = 1,
+    searchParams = null,
+    initialIsFavorite = false,
+}) {
     const navigate = useNavigate();
 
     const cardRef = useRef(null);
@@ -4602,18 +4808,25 @@ function HotelLightCard({
     const [paxGroups, setPaxGroups] = useState(preloadedPaxGroups);
     const [noAvailability, setNoAvailability] = useState(false);
     const [hasFetched, setHasFetched] = useState(() => preloadedPaxGroups !== null);
-    const [selectedBoarding, setSelectedBoarding] = useState(null);
-    const [selectedRooms, setSelectedRooms] = useState({});
+    // 🛡️ ATOMIC STATE: Merged boarding + room selection to prevent ghost renders
+    const [boardingState, setBoardingState] = useState({ selectedBoarding: null, selectedRooms: {} });
+    const { selectedBoarding, selectedRooms } = boardingState;
     const [currentToken, setCurrentToken] = useState(hotel?.token || pricing?.token || null);
 
     useEffect(() => {
         if (preloadedPaxGroups === null) return;
         if (hasRealFetchRef.current) return;
 
+        const allPreloadedRooms = preloadedPaxGroups.flatMap(pg => pg.availableRooms);
+        const boardings = buildBoardingFromRooms(allPreloadedRooms);
+
         setPaxGroups(preloadedPaxGroups);
         setNoAvailability(preloadedPaxGroups.length === 0);
         setHasFetched(true);
-        setSelectedRooms({});
+        setBoardingState({
+            selectedBoarding: boardings[0]?.code ?? null,
+            selectedRooms: {}
+        });
     }, [preloadedPaxGroups]);
 
     const {
@@ -4627,7 +4840,7 @@ function HotelLightCard({
 
     useEffect(() => {
         if (availableBoarding.length > 0 && !selectedBoarding) {
-            setSelectedBoarding(availableBoarding[0].code);
+            setBoardingState(prev => ({ ...prev, selectedBoarding: availableBoarding[0].code }));
         }
     }, [availableBoarding, selectedBoarding]);
 
@@ -4702,25 +4915,47 @@ function HotelLightCard({
     }, [hasFetched, allRooms, noAvailability, pricing?.availabilityStatus]);
 
     const computedTotalPrice = useMemo(() => {
-        if (!effectiveRoomsByPax?.length || !selectedBoarding) return null;
+        if (!effectiveRoomsByPax?.length || !selectedBoarding) return 0;
         let total = 0;
-        let allRoomsSelected = true;
         for (let i = 0; i < effectiveRoomsByPax.length; i++) {
             const paxSlot = effectiveRoomsByPax[i];
             const roomId = selectedRooms[i];
-            if (!roomId) {
-                allRoomsSelected = false;
-                break;
-            }
-            const room = paxSlot.rooms.find(r => String(r.id) === String(roomId));
-            if (!room?.price) {
-                allRoomsSelected = false;
-                break;
-            }
+            if (!roomId) return 0;
+            // 🛡️ ARCHITECT FIX: Prevent ID Collision by matching Boarding Code
+            const room = paxSlot.rooms.find(r => String(r.id) === String(roomId) && r.boardingCode === selectedBoarding);
+            if (!room?.price) return 0;
             total += room.price;
         }
-        return allRoomsSelected ? total : null;
+        return total;
     }, [effectiveRoomsByPax, selectedRooms, selectedBoarding]);
+
+    // 🛡️ ARCHITECT FIX: Dynamic Fallback Price
+    // Calculates the cheapest base price combination specifically for the active Meal Plan
+    const dynamicMinPrice = useMemo(() => {
+        if (!effectiveRoomsByPax || effectiveRoomsByPax.length === 0 || !selectedBoarding) {
+            return derivedMinPrice;
+        }
+
+        let comboPrice = 0;
+        let isValid = true;
+
+        for (let i = 0; i < effectiveRoomsByPax.length; i++) {
+            const paxSlot = effectiveRoomsByPax[i];
+
+            // Get bookable rooms for this specific pax slot that match the active tab
+            const bookableRooms = paxSlot.rooms.filter(r => r.boardingCode === selectedBoarding && !r.stopReservation);
+
+            if (bookableRooms.length === 0) {
+                isValid = false;
+                break;
+            }
+            // Add the absolute cheapest room for this specific slot to the total
+            comboPrice += Math.min(...bookableRooms.map(r => r.price));
+        }
+
+        // Return the exact combo price for this tab, or fallback if invalid
+        return isValid ? comboPrice : derivedMinPrice;
+    }, [effectiveRoomsByPax, selectedBoarding, derivedMinPrice]);
 
     const filteredRooms = useMemo(() => {
         if (!selectedBoarding) return allRooms;
@@ -4744,7 +4979,7 @@ function HotelLightCard({
                     adults: r.adults ?? 2,
                     children: Array.isArray(r.children) ? r.children.length : (r.children ?? 0),
                     childAges: Array.isArray(r.children) ? r.children : (r.childAges ?? []),
-                })) ?? [{adults: 2, children: 0, childAges: []}],
+                })) ?? [{ adults: 2, children: 0, childAges: [] }],
             });
 
             if (!response.roomsByPax?.length || response.roomsByPax.every(p => p.rooms.length === 0)) {
@@ -4762,14 +4997,15 @@ function HotelLightCard({
             setPaxGroups(newPaxGroups);
             setHasFetched(true);
             setNoAvailability(false);
-            setSelectedRooms({});
             setCurrentToken(response.token || null);
 
+            // 🛡️ ROOT CAUSE 3 FIX: Always reset boarding + rooms atomically on fresh fetch
             const allNewRooms = newPaxGroups.flatMap(pg => pg.availableRooms);
             const newBoardings = buildBoardingFromRooms(allNewRooms);
-            if (!selectedBoarding) {
-                setSelectedBoarding(newBoardings[0]?.code ?? null);
-            }
+            setBoardingState({
+                selectedBoarding: newBoardings[0]?.code ?? null,
+                selectedRooms: {}
+            });
         } catch (err) {
             if (!err.isCancelled) {
                 if (showTarifsRef.current) toast.error('Erreur lors de la recherche de disponibilités.');
@@ -4782,7 +5018,7 @@ function HotelLightCard({
             setIsLoading(false);
             isFetchingRef.current = false;
         }
-    }, [Id, hasFetched, paxGroups, selectedBoarding]);
+    }, [Id, hasFetched, paxGroups]);
 
     useEffect(() => {
         if (!searchParamsRef.current?.checkIn || !searchParamsRef.current?.checkOut) return;
@@ -4797,7 +5033,7 @@ function HotelLightCard({
                     observer.unobserve(el);
                 }
             },
-            {threshold: 0.1, rootMargin: '200px'}
+            { threshold: 0.1, rootMargin: '200px' }
         );
         observer.observe(el);
         return () => observer.disconnect();
@@ -4818,9 +5054,9 @@ function HotelLightCard({
         void fetchAvailability();
     }, [fetchAvailability]);
 
+    // 🛡️ ROOT CAUSE 1 FIX: Single atomic update prevents ghost render with mismatched state
     const handleBoardingChange = useCallback((code) => {
-        setSelectedBoarding(code);
-        setSelectedRooms({});
+        setBoardingState({ selectedBoarding: code, selectedRooms: {} });
     }, []);
 
     const handleFavoriteClick = useCallback((e) => {
@@ -4832,7 +5068,7 @@ function HotelLightCard({
     }, [isFavorite, Id, onFavoriteToggle]);
 
     const handleBook = useCallback((room) => {
-        const originalPax = searchParams?.rooms?.[0] || {adults: 2, children: []};
+        const originalPax = searchParams?.rooms?.[0] || { adults: 2, children: [] };
         const childrenCount = Array.isArray(originalPax.children) ? originalPax.children.length : (originalPax.children || 0);
         const childAgesArray = Array.isArray(originalPax.children) ? originalPax.children : (originalPax.childAges || []);
 
@@ -4870,9 +5106,9 @@ function HotelLightCard({
             token: currentToken,
             selectedRooms: roomsData,
             Option: hotel?.Option ?? [],
-            hotel: {...hotel, paxGroups, token: currentToken, Token: hotel?.Token || currentToken}
+            hotel: { ...hotel, paxGroups, token: currentToken, Token: hotel?.Token || currentToken }
         };
-        navigate(`/booking/${Id}`, {state: bookingData});
+        navigate(`/booking/${Id}`, { state: bookingData });
     }, [onBook, hotel, navigate, Id, Name, searchParams, nights, currentToken, paxGroups]);
 
     const handleBookAll = useCallback(() => {
@@ -4883,7 +5119,8 @@ function HotelLightCard({
                 const roomId = selectedRooms[idx];
                 if (!roomId) return null;
 
-                const room = pax.rooms.find(r => String(r.id) === String(roomId));
+                // 🛡️ ARCHITECT FIX: Prevent ID Collision in booking payload
+                const room = pax.rooms.find(r => String(r.id) === String(roomId) && r.boardingCode === selectedBoarding);
                 if (!room) return null;
 
                 return {
@@ -4927,9 +5164,9 @@ function HotelLightCard({
             token: currentToken,
             selectedRooms: selectedRoomsList,
             Option: hotel?.Option ?? [],
-            hotel: {...hotel, paxGroups, token: currentToken, Token: hotel?.Token || currentToken}
+            hotel: { ...hotel, paxGroups, token: currentToken, Token: hotel?.Token || currentToken }
         };
-        navigate(`/booking/${Id}`, {state: bookingData});
+        navigate(`/booking/${Id}`, { state: bookingData });
     }, [effectiveRoomsByPax, selectedRooms, selectedBoarding, onBook, hotel, navigate, Id, Name, searchParams, nights, computedTotalPrice, currentToken, paxGroups, pricing?.currency]);
 
     const handleViewDetail = useCallback(() => {
@@ -4937,7 +5174,7 @@ function HotelLightCard({
             onViewDetail(Id);
             return;
         }
-        navigate(detailUrl, {state: {hotel: {...hotel, paxGroups, token: currentToken}, searchParams}});
+        navigate(detailUrl, { state: { hotel: { ...hotel, paxGroups, token: currentToken }, searchParams } });
     }, [onViewDetail, navigate, Id, detailUrl, hotel, paxGroups, currentToken, searchParams]);
 
     // ── Render ─────────────────────────────────────────────────────────────────
@@ -4951,7 +5188,7 @@ function HotelLightCard({
                 {/* ── Image ── */}
                 <div className="relative sm:w-80 lg:w-[360px] shrink-0 overflow-hidden bg-gray-200">
                     {!imageLoaded && (
-                        <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300 animate-pulse"/>
+                        <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300 animate-pulse" />
                     )}
                     <img
                         src={hotelImage}
@@ -4965,26 +5202,25 @@ function HotelLightCard({
                         loading="lazy"
                     />
                     <div
-                        className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent pointer-events-none"/>
+                        className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent pointer-events-none" />
 
                     {/* Stars */}
                     {stars.length > 0 && (
                         <div
                             className="absolute bottom-3 left-3 flex items-center gap-0.5 bg-black/40 backdrop-blur-md border border-white/20 px-2.5 py-1 rounded-full shadow-sm">
                             {stars.map((_, i) => <Star key={i} size={11}
-                                                       className="fill-amber-400 text-amber-400 drop-shadow"/>)}
+                                className="fill-amber-400 text-amber-400 drop-shadow" />)}
                         </div>
                     )}
 
                     <button
                         onClick={handleFavoriteClick}
-                        className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center shadow-md backdrop-blur-md transition-all duration-200 hover:scale-110 active:scale-95 ${
-                            isFavorite
-                                ? 'bg-rose-500 border border-rose-400'
-                                : 'bg-white/80 border border-white/50 hover:bg-white'
-                        }`}
+                        className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center shadow-md backdrop-blur-md transition-all duration-200 hover:scale-110 active:scale-95 ${isFavorite
+                            ? 'bg-rose-500 border border-rose-400'
+                            : 'bg-white/80 border border-white/50 hover:bg-white'
+                            }`}
                     >
-                        <Heart size={15} className={isFavorite ? 'fill-white text-white' : 'text-gray-500'}/>
+                        <Heart size={15} className={isFavorite ? 'fill-white text-white' : 'text-gray-500'} />
                     </button>
 
                     {/* Discount badge */}
@@ -5001,12 +5237,12 @@ function HotelLightCard({
                             className="absolute bottom-3 right-3 bg-gradient-to-br from-orange-400 to-orange-600 text-white text-xs font-bold px-3 py-2 rounded-2xl shadow-lg border border-orange-300/30">
                             <div className="text-[10px] font-normal opacity-80 tracking-wide uppercase">À partir de</div>
                             <div className="text-sm font-extrabold">
-                                {formatPrice(totalPrice ?? derivedMinPrice)}{' '}
+                                {formatPrice(computedTotalPrice > 0 ? computedTotalPrice : dynamicMinPrice)}{' '}
                                 <span className="font-normal opacity-80 text-[11px]">DZD</span>
                             </div>
                             {nights > 1 && (
                                 <div
-                                    className="text-[10px] font-normal opacity-75">{formatPrice(Math.round(derivedMinPrice / nights))} /
+                                    className="text-[10px] font-normal opacity-75">{formatPrice(Math.round((computedTotalPrice > 0 ? computedTotalPrice : dynamicMinPrice) / nights))} /
                                     nuit</div>
                             )}
                         </div>
@@ -5028,14 +5264,14 @@ function HotelLightCard({
                         {freeChildInfo && (
                             <span
                                 className="inline-flex items-center gap-1.5 bg-emerald-500 text-xs text-white border border-emerald-400 font-bold px-3 py-1.5 rounded-full shrink-0 shadow-sm">
-                                <Baby size={13}/>
+                                <Baby size={13} />
                                 {freeChildInfo.count} enfant{freeChildInfo.count > 1 ? 's' : ''} gratuit{freeChildInfo.count > 1 ? 's' : ''} jusqu'à {freeChildInfo.maxAge} ans
                             </span>
                         )}
                     </div>
 
                     <p className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
-                        <MapPin size={13} className="text-sky-500 shrink-0"/>
+                        <MapPin size={13} className="text-sky-500 shrink-0" />
                         {City?.Name}{City?.Country?.Name ? `, ${City.Country.Name}` : ''}
                     </p>
 
@@ -5043,22 +5279,22 @@ function HotelLightCard({
                         <div className="flex items-center">
                             {cardAvailabilityStatus === 'available' && (
                                 <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"/> Disponible
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" /> Disponible
                                 </span>
                             )}
                             {cardAvailabilityStatus === 'on_request' && (
                                 <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-600">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"/> Sur demande
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" /> Sur demande
                                 </span>
                             )}
                             {cardAvailabilityStatus === 'last' && (
                                 <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-orange-500">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0"/> Dernières chambres
+                                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" /> Dernières chambres
                                 </span>
                             )}
                             {cardAvailabilityStatus === 'full' && (
                                 <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-red-600">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"/> Complet
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" /> Complet
                                 </span>
                             )}
                         </div>
@@ -5074,8 +5310,8 @@ function HotelLightCard({
                                 const Icon = getFacilityIcon(f.Title || '');
                                 return (
                                     <span key={f.Title ?? i}
-                                          className="inline-flex items-center gap-1 bg-sky-50 border border-sky-100 text-sky-700 text-[11px] font-medium px-2.5 py-1 rounded-full">
-                                        <Icon size={10} className="text-sky-500 shrink-0"/>{f.Title}
+                                        className="inline-flex items-center gap-1 bg-sky-50 border border-sky-100 text-sky-700 text-[11px] font-medium px-2.5 py-1 rounded-full">
+                                        <Icon size={10} className="text-sky-500 shrink-0" />{f.Title}
                                     </span>
                                 );
                             })}
@@ -5103,7 +5339,7 @@ function HotelLightCard({
                         </div>
                     )}
 
-                    <div className="flex-1"/>
+                    <div className="flex-1" />
 
                     {/* Price row + action buttons */}
                     <div className="flex items-end justify-between gap-3 mt-1 flex-wrap pt-2 border-t border-gray-100">
@@ -5111,7 +5347,7 @@ function HotelLightCard({
                             <div>
                                 <p className="text-[10px] text-gray-400 uppercase tracking-wide">Tarif</p>
                                 <p className="text-sm font-semibold text-gray-400 italic flex items-center gap-1.5">
-                                    <Loader2 size={12} className="animate-spin"/> Chargement...
+                                    <Loader2 size={12} className="animate-spin" /> Chargement...
                                 </p>
                             </div>
                         ) : cardAvailabilityStatus === 'full' ? (
@@ -5124,12 +5360,11 @@ function HotelLightCard({
                                 <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-0.5">À partir
                                     de</p>
                                 <p className="text-xl font-extrabold text-sky-700 leading-none">
-                                    {formatPrice(totalPrice ?? derivedMinPrice)}
+                                    {formatPrice(computedTotalPrice > 0 ? computedTotalPrice : dynamicMinPrice)}
                                     <span className="text-sm font-semibold text-sky-400 ml-1">DZD</span>
                                 </p>
                                 {nights > 1 && (
-                                    <p className="text-[11px] text-gray-400 mt-0.5">{formatPrice(Math.round(derivedMinPrice / nights))} /
-                                        nuit</p>
+                                    <p className="text-[11px] text-gray-400 mt-0.5">{formatPrice(Math.round((computedTotalPrice > 0 ? computedTotalPrice : dynamicMinPrice) / nights))} / nuit</p>
                                 )}
                             </div>
                         ) : (
@@ -5145,7 +5380,7 @@ function HotelLightCard({
                                     onClick={handleToggleTarifs}
                                     className="flex items-center gap-1.5 bg-sky-600 hover:bg-sky-700 active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all duration-150 shadow-sm"
                                 >
-                                    {showTarifs ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+                                    {showTarifs ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                                     Tarifs & Chambres
                                 </button>
                             )}
@@ -5153,7 +5388,7 @@ function HotelLightCard({
                                 onClick={handleViewDetail}
                                 className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-700 text-xs font-bold px-4 py-2.5 rounded-xl transition-all duration-150"
                             >
-                                Voir Détails <ChevronRight size={14}/>
+                                Voir Détails <ChevronRight size={14} />
                             </button>
                         </div>
                     </div>
@@ -5168,7 +5403,7 @@ function HotelLightCard({
                     <div className="flex items-center justify-between mb-4">
                         <h4 className="text-sm font-extrabold text-gray-700 tracking-tight flex items-center gap-2">
                             🛏 Tarifs & Chambres
-                            {isLoading && <Loader2 size={13} className="animate-spin text-sky-500"/>}
+                            {isLoading && <Loader2 size={13} className="animate-spin text-sky-500" />}
                         </h4>
                         <button
                             onClick={handleRefresh}
@@ -5182,7 +5417,7 @@ function HotelLightCard({
                     {isLoading && !allRooms.length && (
                         <div className="flex flex-col gap-3">
                             {[1, 2, 3].map(i => (
-                                <div key={i} className="h-14 bg-gray-100 rounded-2xl animate-pulse"/>
+                                <div key={i} className="h-14 bg-gray-100 rounded-2xl animate-pulse" />
                             ))}
                         </div>
                     )}
@@ -5190,7 +5425,7 @@ function HotelLightCard({
                     {!isLoading && noAvailability && (
                         <div
                             className="flex items-center gap-2.5 bg-red-50 border border-red-100 rounded-2xl px-4 py-3">
-                            <AlertCircle size={16} className="text-red-400 shrink-0"/>
+                            <AlertCircle size={16} className="text-red-400 shrink-0" />
                             <p className="text-sm text-red-600 font-medium">Aucune disponibilité pour ces dates.</p>
                         </div>
                     )}
@@ -5202,11 +5437,10 @@ function HotelLightCard({
                                 <button
                                     key={b.code}
                                     onClick={() => handleBoardingChange(b.code)}
-                                    className={`text-xs font-bold px-4 py-2 rounded-xl border transition-all duration-150 ${
-                                        selectedBoarding === b.code
-                                            ? 'bg-sky-600 text-white border-sky-600 shadow-sm'
-                                            : 'bg-white text-gray-600 border-gray-200 hover:border-sky-300 hover:text-sky-700'
-                                    }`}
+                                    className={`text-xs font-bold px-4 py-2 rounded-xl border transition-all duration-150 ${selectedBoarding === b.code
+                                        ? 'bg-sky-600 text-white border-sky-600 shadow-sm'
+                                        : 'bg-white text-gray-600 border-gray-200 hover:border-sky-300 hover:text-sky-700'
+                                        }`}
                                 >
                                     {b.label}
                                 </button>
@@ -5218,15 +5452,15 @@ function HotelLightCard({
                     {!noAvailability && effectiveRoomsByPax.length > 0 && (
                         <div className="flex flex-col gap-4">
                             {effectiveRoomsByPax.map((paxSlot, idx) => {
-                                const boardingRooms = paxSlot.rooms.filter(r => r.boardingCode === selectedBoarding);
-                                const displayRooms = boardingRooms.length > 0 ? boardingRooms : paxSlot.rooms;
+                                // 🛡️ ARCHITECT FIX 3: Strict boarding filter without cross-tab fallback
+                                const displayRooms = paxSlot.rooms.filter(r => r.boardingCode === selectedBoarding);
                                 const selectedRoomId = selectedRooms[idx];
                                 const selectedRoom = displayRooms.find(r => String(r.id) === String(selectedRoomId)) ?? null;
                                 const discount = getDiscountInfo(selectedRoom);
 
                                 return (
                                     <div key={idx}
-                                         className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                                        className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
 
                                         <p className="text-xs font-bold text-gray-500 mb-2.5 flex items-center gap-1.5">
                                             <span
@@ -5244,9 +5478,9 @@ function HotelLightCard({
                                                 <div className="relative">
                                                     <select
                                                         value={selectedRoomId ?? ''}
-                                                        onChange={e => setSelectedRooms(prev => ({
+                                                        onChange={e => setBoardingState(prev => ({
                                                             ...prev,
-                                                            [idx]: e.target.value
+                                                            selectedRooms: { ...prev.selectedRooms, [idx]: e.target.value }
                                                         }))}
                                                         className="w-full appearance-none bg-slate-50 border border-gray-200 text-gray-700 text-xs font-semibold px-3 py-2.5 pr-8 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-200 cursor-pointer"
                                                     >
@@ -5263,7 +5497,7 @@ function HotelLightCard({
                                                         })}
                                                     </select>
                                                     <ChevronDown size={13}
-                                                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>
+                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                                                 </div>
 
                                                 {selectedRoom && (
@@ -5322,7 +5556,7 @@ function HotelLightCard({
                                 <div
                                     className="flex items-center justify-between gap-3 pt-2 border-t border-gray-100 flex-wrap">
                                     <div>
-                                        {computedTotalPrice ? (
+                                        {computedTotalPrice > 0 ? (
                                             <>
                                                 <p className="text-[10px] text-gray-400 uppercase tracking-widest">Total
                                                     séjour</p>
@@ -5342,10 +5576,10 @@ function HotelLightCard({
                                     </div>
                                     <button
                                         onClick={handleBookAll}
-                                        disabled={!computedTotalPrice}
+                                        disabled={computedTotalPrice <= 0}
                                         className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 text-white text-xs font-extrabold px-5 py-2.5 rounded-xl transition-all duration-150 shadow-sm"
                                     >
-                                        Réserver <ChevronRight size={14}/>
+                                        Réserver <ChevronRight size={14} />
                                     </button>
                                 </div>
                             )}
@@ -6867,15 +7101,17 @@ export function useBooking({ onSuccess: externalOnSuccess, onError: externalOnEr
 
     return useMutation({
         mutationFn: async ({ bookingState, paymentMethod, receiptFile, clientPhone }) => {
-            // Price Calculation: Extract base price and add 8% agency margin
-            const basePrice = bookingState?.totalPrice || bookingState?.basePrice || 0;
-            const clientPrice = basePrice * 1.08;
+            // The price coming from the bookingState (via ApiClient) already contains the 8% margin.
+            const clientPrice = bookingState?.totalPrice || bookingState?.basePrice || 0;
+
+            const cityId = Number(bookingState?.hotel?.City?.Id || bookingState?.hotel?.City);
+            const tunisianCityIds = [34, 35, 36, 37, 38]; // Force VIP Maghreb rates
 
             // Ipro Payload Formatting
             const selectedRooms = bookingState?.selectedRooms || bookingState?.rooms || [];
             const iproPayload = {
                 Token: bookingState?.Token || bookingState?.token,
-                City: bookingState?.hotel?.City?.Id || bookingState?.hotel?.City,
+                City: cityId,
                 Option: bookingState?.hotel?.Option || bookingState?.Option || selectedRooms?.[0]?.Option || [],
                 rawRooms: selectedRooms,
                 boardingType: bookingState?.boardingType,
@@ -6883,6 +7119,11 @@ export function useBooking({ onSuccess: externalOnSuccess, onError: externalOnEr
                 Adult: [],
                 Child: []
             };
+
+            if (tunisianCityIds.includes(cityId)) {
+                iproPayload.GuestNationality = 'DZ';
+                iproPayload.Currency = 'DZD';
+            }
 
             if (bookingState?.passengers && Array.isArray(bookingState.passengers)) {
                 bookingState.passengers.forEach(pax => {
@@ -7425,11 +7666,24 @@ export const useHotelSearch = (searchParams, options = {}) => {
         queryKey: QUERY_KEYS.hotelSearch(searchParams),
         queryFn:  async () => {
             try {
-                const data = await apiClient.searchHotel(searchParams);
-                if (data.errorMessage && data.errorMessage.Code) {
-                    throw new Error(data.errorMessage.Description || "Search failed");
+                // ✅ TARGET FIX: Inject guestNationality and currency for Tunisian inventory to unlock Maghreb rates.
+                const countryCode = searchParams?.countryCode || 'DZ';
+                const enhancedParams = {
+                    ...searchParams,
+                    ...(countryCode === 'TN' ? { guestNationality: 'DZ', currency: 'DZD' } : {})
+                };
+
+                const data = await apiClient.searchHotel(enhancedParams);
+                
+                // ✅ GRACEFUL ERROR HANDLING: Catch market-identity rejection errors
+                if (data.errorMessage && (data.errorMessage.Code || data.errorMessage.Description)) {
+                    const desc = data.errorMessage.Description || "";
+                    if (desc.includes("Tarifs non disponibles") || desc.includes("not available")) {
+                        // Return as partial success with a graceful error for the UI
+                        return { ...data, errorGraceful: desc, hotelSearch: [] };
+                    }
+                    throw new Error(desc || "Search failed");
                 }
-                // Retourne les résultats (avec 8% markup et transformation Number faite en amont)
                 return data;
             } catch (error) {
                 if (error.isCancelled) return null;
@@ -7449,7 +7703,14 @@ export const useHotelSearch = (searchParams, options = {}) => {
 export const useHotelSearchMutation = (options = {}) => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (searchParams) => apiClient.searchHotel(searchParams),
+        mutationFn: (searchParams) => {
+            const countryCode = searchParams?.countryCode || 'DZ';
+            const enhancedParams = {
+                ...searchParams,
+                ...(countryCode === 'TN' ? { guestNationality: 'DZ', currency: 'DZD' } : {})
+            };
+            return apiClient.searchHotel(enhancedParams);
+        },
         onSuccess:  (data, variables) => {
             // Met à jour manuellement le cache de recherche après une mutation réussie
             queryClient.setQueryData(QUERY_KEYS.hotelSearch(variables), data);
@@ -7933,41 +8194,7 @@ export const carouselImages = [
         url: "/images/slide7.webp",
         alt: "Station balnéaire de luxe avec palmiers et eau cristalline",
     },
-    {
-        url: "/images/slide1.webp",
-        alt: "Station balnéaire de luxe avec palmiers et eau cristalline",
-        title: "Le Paradis Tropical Vous Attend",
-        subtitle:
-            "Découvrez la détente ultime dans nos stations balnéaires 5 étoiles exclusives à Bali et aux Maldives",
-    },
-    {
-        url: "/images/slide2.jpg",
-        alt: "Station balnéaire de luxe avec palmiers et eau cristalline",
-        title: "Le Paradis Tropical Vous Attend",
-        subtitle:
-            "Découvrez la détente ultime dans nos stations balnéaires 5 étoiles exclusives à Bali et aux Maldives",
-    },
-    {
-        url: "/images/slide4.jpg",
-        alt: "Plage privée avec sable blanc, mer turquoise et hôtel de luxe",
-        title: "Plages Privées de Rêve",
-        subtitle:
-            "Profitez de plages exclusives et d'un service haut de gamme dans des cadres idylliques",
-    },
-    {
-        url: "/images/slide5.jpg",
-        alt: "Resort de luxe en bord de mer au coucher du soleil",
-        title: "Couchers de Soleil Inoubliables",
-        subtitle:
-            "Admirez des panoramas spectaculaires depuis des hôtels de luxe en bord d'océan",
-    },
-    {
-        url: "/images/slide6.jpg",
-        alt: "Piscine de luxe face à la mer dans un hôtel haut de gamme",
-        title: "Détente Absolue",
-        subtitle:
-            "Relaxez-vous dans des resorts de prestige offrant piscines, spas et vues marines exceptionnelles",
-    },
+
 ];
 
 ```
@@ -8222,8 +8449,29 @@ createRoot(document.getElementById('root')).render(
 
 File: src/pages/admin/AdminDashboard.jsx
 ```jsx
-import React, { useState } from 'react';
-import { Plane, FileText, MessageSquare, Menu, X, Globe, MapPin, Pencil, Trash2, Plus, Users, CreditCard, Eye, Home, Landmark, Phone } from 'lucide-react';
+import React, {useState} from 'react';
+import {
+    Plane,
+    FileText,
+    MessageSquare,
+    Menu,
+    X,
+    Globe,
+    MapPin,
+    Pencil,
+    Trash2,
+    Plus,
+    Users,
+    CreditCard,
+    Eye,
+    Home,
+    Landmark,
+    Phone,
+    XCircle,
+    Ban,
+    Clock,
+    CheckCircle2
+} from 'lucide-react';
 //import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import useDestinations from '../../custom-hooks/useDestinations.js';
@@ -8239,730 +8487,842 @@ import EditUserModal from './EditUserModal.jsx';
 import useAdminBookings from '../../custom-hooks/useAdminBookings.js';
 import VerifyBookingModal from '../../components/admin/VerifyBookingModal.jsx';
 import VoucherModal from '../../components/admin/VoucherModal.jsx';
+import CancelBookingModal from "../../components/admin/CancelBookingModal.jsx";
+
+// ─── Status Badge ─────────────────────────────────────────────────────────────
+function StatusBadge({status}) {
+    const config = {
+        PENDING: { bg: 'bg-amber-400/15', text: 'text-amber-500', border: 'border-amber-400/30', label: 'En attente', icon: Clock },
+        CONFIRMED: { bg: 'bg-emerald-400/15', text: 'text-emerald-500', border: 'border-emerald-400/30', label: 'Confirmée', icon: CheckCircle2 },
+        REJECTED: { bg: 'bg-rose-400/15', text: 'text-rose-500', border: 'border-rose-400/30', label: 'Rejetée', icon: XCircle },
+        CANCELLED: { bg: 'bg-slate-200', text: 'text-slate-600', border: 'border-slate-300', label: 'Annulée', icon: Ban },
+    };
+    const c = config[status?.toUpperCase()] || config.PENDING;
+    const Icon = c.icon;
+    return (
+        <span
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border ${c.bg} ${c.text} ${c.border}`}>
+            <Icon size={12}/>
+            {c.label}
+        </span>
+    );
+}
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState('destinations');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [editingDestination, setEditingDestination] = useState(null);
+    const [activeTab, setActiveTab] = useState('destinations');
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [editingDestination, setEditingDestination] = useState(null);
+    const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
 
-  const [isCreateTestimonialOpen, setIsCreateTestimonialOpen] = useState(false);
-  const [editingTestimonial, setEditingTestimonial] = useState(null);
+    const [isCreateTestimonialOpen, setIsCreateTestimonialOpen] = useState(false);
+    const [editingTestimonial, setEditingTestimonial] = useState(null);
 
-  const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
+    const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
+    const [editingUser, setEditingUser] = useState(null);
 
-  //const queryClient = useQueryClient();
-  const { data: destinations, loading, removeDestination, actionLoading: destActionLoading } = useDestinations();
-  const { data: testimonials, loading: testimonialsLoading, removeTestimonial, actionLoading: testActionLoading } = useTestimonials();
-  const { data: users, loading: usersLoading, removeUser, actionLoading: userActionLoading } = useUsers();
-  
-  const { bookings, loading: bookingsLoading } = useAdminBookings();
-  const [selectedBooking, setSelectedBooking] = useState(null);
-  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
-  const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
+    //const queryClient = useQueryClient();
+    const {data: destinations, loading, removeDestination, actionLoading: destActionLoading} = useDestinations();
+    const {
+        data: testimonials,
+        loading: testimonialsLoading,
+        removeTestimonial,
+        actionLoading: testActionLoading
+    } = useTestimonials();
+    const {data: users, loading: usersLoading, removeUser, actionLoading: userActionLoading} = useUsers();
 
-  // --- Premium Custom Toast with Direct Cache Mutation ---
-  const confirmDelete = (destination) => {
-    toast(
-      (t) => (
-        <div className="flex flex-col gap-3 font-sans w-full min-w-[250px]">
-          <p className="text-sm font-semibold text-slate-800">
-            Supprimer <span className="text-red-600 font-bold">"{destination.city || destination.name}"</span> ?
-          </p>
-          <p className="text-xs text-slate-500">Cette action est irréversible.</p>
-          <div className="flex gap-2 justify-end mt-2">
-            <button
-              onClick={() => toast.dismiss(t.id)}
-              className="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
-            >
-              Annuler
-            </button>
-            <button
-              disabled={destActionLoading}
-              onClick={async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                toast.dismiss(t.id);
-                try {
-                  await removeDestination(destination.id);
-                } catch (error) {
-                  console.error('Delete error:', error);
-                }
-              }}
-              className="px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 shadow-sm rounded-md transition-colors disabled:opacity-50"
-            >
-              Confirmer
-            </button>
-          </div>
-        </div>
-      ),
-      {
-        duration: Infinity,
-        position: 'top-center',
-        style: {
-          border: '1px solid #fee2e2',
-          padding: '16px',
-        },
-      }
-    );
-  };
+    const {bookings, loading: bookingsLoading} = useAdminBookings();
+    const [selectedBooking, setSelectedBooking] = useState(null);
+    const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
+    const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
 
-  const confirmDeleteTestimonial = (testimonial) => {
-    toast(
-      (t) => (
-        <div className="flex flex-col gap-3 font-sans w-full min-w-[250px]">
-          <p className="text-sm font-semibold text-slate-800">
-            Supprimer <span className="text-red-600 font-bold">"{testimonial.name}"</span> ?
-          </p>
-          <p className="text-xs text-slate-500">Cette action est irréversible.</p>
-          <div className="flex gap-2 justify-end mt-2">
-            <button
-              onClick={() => toast.dismiss(t.id)}
-              className="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
-            >
-              Annuler
-            </button>
-            <button
-              disabled={testActionLoading}
-              onClick={async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                toast.dismiss(t.id);
-                try {
-                  await removeTestimonial(testimonial.id);
-                } catch (error) {
-                  console.error('Delete error:', error);
-                }
-              }}
-              className="px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 shadow-sm rounded-md transition-colors disabled:opacity-50"
-            >
-              Confirmer
-            </button>
-          </div>
-        </div>
-      ),
-      {
-        duration: Infinity,
-        position: 'top-center',
-        style: {
-          border: '1px solid #fee2e2',
-          padding: '16px',
-        },
-      }
-    );
-  };
+    // --- Premium Custom Toast with Direct Cache Mutation ---
+    const confirmDelete = (destination) => {
+        toast(
+            (t) => (
+                <div className="flex flex-col gap-3 font-sans w-full min-w-[250px]">
+                    <p className="text-sm font-semibold text-slate-800">
+                        Supprimer <span
+                        className="text-red-600 font-bold">"{destination.city || destination.name}"</span> ?
+                    </p>
+                    <p className="text-xs text-slate-500">Cette action est irréversible.</p>
+                    <div className="flex gap-2 justify-end mt-2">
+                        <button
+                            onClick={() => toast.dismiss(t.id)}
+                            className="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
+                        >
+                            Annuler
+                        </button>
+                        <button
+                            disabled={destActionLoading}
+                            onClick={async (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                toast.dismiss(t.id);
+                                try {
+                                    await removeDestination(destination.id);
+                                } catch (error) {
+                                    console.error('Delete error:', error);
+                                }
+                            }}
+                            className="px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 shadow-sm rounded-md transition-colors disabled:opacity-50"
+                        >
+                            Confirmer
+                        </button>
+                    </div>
+                </div>
+            ),
+            {
+                duration: Infinity,
+                position: 'top-center',
+                style: {
+                    border: '1px solid #fee2e2',
+                    padding: '16px',
+                },
+            }
+        );
+    };
 
-  const confirmDeleteUser = (user) => {
-    toast(
-      (t) => (
-        <div className="flex flex-col gap-3 font-sans w-full min-w-[250px]">
-          <p className="text-sm font-semibold text-slate-800">
-            Supprimer <span className="text-red-600 font-bold">"{user.firstName} {user.lastName}"</span> ?
-          </p>
-          <p className="text-xs text-slate-500">Cette action est irréversible.</p>
-          <div className="flex gap-2 justify-end mt-2">
-            <button
-              onClick={() => toast.dismiss(t.id)}
-              className="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
-            >
-              Annuler
-            </button>
-            <button
-              disabled={userActionLoading}
-              onClick={async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                toast.dismiss(t.id);
-                try {
-                  await removeUser(user.id);
-                } catch (error) {
-                  console.error('Delete error:', error);
-                }
-              }}
-              className="px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 shadow-sm rounded-md transition-colors disabled:opacity-50"
-            >
-              Confirmer
-            </button>
-          </div>
-        </div>
-      ),
-      {
-        duration: Infinity,
-        position: 'top-center',
-        style: {
-          border: '1px solid #fee2e2',
-          padding: '16px',
-        },
-      }
-    );
-  };
+    const confirmDeleteTestimonial = (testimonial) => {
+        toast(
+            (t) => (
+                <div className="flex flex-col gap-3 font-sans w-full min-w-[250px]">
+                    <p className="text-sm font-semibold text-slate-800">
+                        Supprimer <span className="text-red-600 font-bold">"{testimonial.name}"</span> ?
+                    </p>
+                    <p className="text-xs text-slate-500">Cette action est irréversible.</p>
+                    <div className="flex gap-2 justify-end mt-2">
+                        <button
+                            onClick={() => toast.dismiss(t.id)}
+                            className="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
+                        >
+                            Annuler
+                        </button>
+                        <button
+                            disabled={testActionLoading}
+                            onClick={async (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                toast.dismiss(t.id);
+                                try {
+                                    await removeTestimonial(testimonial.id);
+                                } catch (error) {
+                                    console.error('Delete error:', error);
+                                }
+                            }}
+                            className="px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 shadow-sm rounded-md transition-colors disabled:opacity-50"
+                        >
+                            Confirmer
+                        </button>
+                    </div>
+                </div>
+            ),
+            {
+                duration: Infinity,
+                position: 'top-center',
+                style: {
+                    border: '1px solid #fee2e2',
+                    padding: '16px',
+                },
+            }
+        );
+    };
 
-  const tabs = [
-    { id: 'destinations', label: 'Voyages Organisés', icon: Plane },
-    { id: 'evisas', label: 'E-Visas', icon: FileText },
-    { id: 'bookings', label: 'Réservations', icon: CreditCard },
-    { id: 'testimonials', label: 'Témoignages', icon: MessageSquare },
-    { id: 'users', label: 'Utilisateurs', icon: Users },
-  ];
+    const confirmDeleteUser = (user) => {
+        toast(
+            (t) => (
+                <div className="flex flex-col gap-3 font-sans w-full min-w-[250px]">
+                    <p className="text-sm font-semibold text-slate-800">
+                        Supprimer <span className="text-red-600 font-bold">"{user.firstName} {user.lastName}"</span> ?
+                    </p>
+                    <p className="text-xs text-slate-500">Cette action est irréversible.</p>
+                    <div className="flex gap-2 justify-end mt-2">
+                        <button
+                            onClick={() => toast.dismiss(t.id)}
+                            className="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
+                        >
+                            Annuler
+                        </button>
+                        <button
+                            disabled={userActionLoading}
+                            onClick={async (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                toast.dismiss(t.id);
+                                try {
+                                    await removeUser(user.id);
+                                } catch (error) {
+                                    console.error('Delete error:', error);
+                                }
+                            }}
+                            className="px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 shadow-sm rounded-md transition-colors disabled:opacity-50"
+                        >
+                            Confirmer
+                        </button>
+                    </div>
+                </div>
+            ),
+            {
+                duration: Infinity,
+                position: 'top-center',
+                style: {
+                    border: '1px solid #fee2e2',
+                    padding: '16px',
+                },
+            }
+        );
+    };
 
-  const renderContent = () => {
-    if (activeTab === 'destinations') {
-      return (
-        <div className="bg-white rounded-xl shadow-sm border border-sky-100/50 overflow-hidden font-sans">
-          <div className="px-6 py-5 border-b border-gray-100 flex flex-col md:flex-row md:justify-between md:items-center items-start gap-4 md:gap-0 bg-white">
-            <div>
-              <h3 className="text-lg font-semibold text-sky-900 flex items-center gap-2">
-                <Globe className="w-5 h-5 text-sky-600" />
-                Destinations
-              </h3>
-              <p className="text-sm text-gray-500 mt-1">Gérez les destinations de voyage disponibles</p>
-            </div>
-            <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="w-full md:w-auto bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center justify-center gap-2"
-            >
-              <Plus size={18} />
-              Ajouter une destination
-            </button>
-          </div>
-          <div className="p-0">
-            {loading ? (
-              <div className="py-12"><Loader variant="minimal" message="Chargement des destinations..." /></div>
-            ) : (
-              <div className="w-full overflow-x-auto scrollbar-hide">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        Destination
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-100">
-                    {destinations?.length > 0 ? destinations.map((dest) => (
-                      <tr key={dest.id} className="hover:bg-sky-50/50 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="h-10 w-10 flex-shrink-0 bg-sky-100/70 rounded-lg flex items-center justify-center">
-                              <MapPin className="h-5 w-5 text-sky-600" />
+    const tabs = [
+        {id: 'destinations', label: 'Voyages Organisés', icon: Plane},
+        {id: 'evisas', label: 'E-Visas', icon: FileText},
+        {id: 'bookings', label: 'Réservations', icon: CreditCard},
+        {id: 'testimonials', label: 'Témoignages', icon: MessageSquare},
+        {id: 'users', label: 'Utilisateurs', icon: Users},
+    ];
+
+    const renderContent = () => {
+        if (activeTab === 'destinations') {
+            return (
+                <div className="bg-white rounded-xl shadow-sm border border-sky-100/50 overflow-hidden font-sans">
+                    <div
+                        className="px-6 py-5 border-b border-gray-100 flex flex-col md:flex-row md:justify-between md:items-center items-start gap-4 md:gap-0 bg-white">
+                        <div>
+                            <h3 className="text-lg font-semibold text-sky-900 flex items-center gap-2">
+                                <Globe className="w-5 h-5 text-sky-600"/>
+                                Destinations
+                            </h3>
+                            <p className="text-sm text-gray-500 mt-1">Gérez les destinations de voyage disponibles</p>
+                        </div>
+                        <button
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className="w-full md:w-auto bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center justify-center gap-2"
+                        >
+                            <Plus size={18}/>
+                            Ajouter une destination
+                        </button>
+                    </div>
+                    <div className="p-0">
+                        {loading ? (
+                            <div className="py-12"><Loader variant="minimal" message="Chargement des destinations..."/>
                             </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-bold text-sky-700">{dest.city || dest.name}</div>
-                            </div>
-                          </div>
-                        </td>
+                        ) : (
+                            <div className="w-full overflow-x-auto scrollbar-hide">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-slate-50">
+                                    <tr>
+                                        <th scope="col"
+                                            className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                            Destination
+                                        </th>
+                                        <th scope="col"
+                                            className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                            Status
+                                        </th>
+                                        <th scope="col"
+                                            className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-100">
+                                    {destinations?.length > 0 ? destinations.map((dest) => (
+                                        <tr key={dest.id} className="hover:bg-sky-50/50 transition-colors">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center">
+                                                    <div
+                                                        className="h-10 w-10 flex-shrink-0 bg-sky-100/70 rounded-lg flex items-center justify-center">
+                                                        <MapPin className="h-5 w-5 text-sky-600"/>
+                                                    </div>
+                                                    <div className="ml-4">
+                                                        <div
+                                                            className="text-sm font-bold text-sky-700">{dest.city || dest.name}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
 
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${dest.isActive !== false ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                              className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${dest.isActive !== false ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
                             {dest.isActive !== false ? 'Actif' : 'Inactif'}
                           </span>
-                        </td>
+                                            </td>
 
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex items-center justify-end gap-3">
-                            <button
-                              type="button"
-                              onClick={() => setEditingDestination(dest)}
-                              className="p-2 bg-sky-100 text-sky-700 hover:bg-sky-200 rounded-lg transition-colors shadow-sm"
-                              title="Modifier"
-                            >
-                              <Pencil size={16} />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={destActionLoading}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                confirmDelete(dest);
-                              }}
-                              className="p-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors shadow-sm disabled:opacity-50"
-                              title="Supprimer"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )) : (
-                      <tr>
-                        <td colSpan="3" className="px-6 py-12 text-center text-gray-500">
-                          Aucune destination trouvée.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    } else if (activeTab === 'testimonials') {
-      return (
-        <div className="bg-white rounded-xl shadow-sm border border-sky-100/50 overflow-hidden font-sans">
-          <div className="px-6 py-5 border-b border-gray-100 flex flex-col md:flex-row md:justify-between md:items-center items-start gap-4 md:gap-0 bg-white">
-            <div>
-              <h3 className="text-lg font-semibold text-sky-900 flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-sky-600" />
-                Témoignages
-              </h3>
-              <p className="text-sm text-gray-500 mt-1">Gérez les témoignages de vos clients</p>
-            </div>
-            <button
-              onClick={() => setIsCreateTestimonialOpen(true)}
-              className="w-full md:w-auto bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center justify-center gap-2"
-            >
-              <Plus size={18} />
-              Ajouter un témoignage
-            </button>
-          </div>
-          <div className="p-0">
-            {testimonialsLoading ? (
-              <div className="py-12"><Loader variant="minimal" message="Chargement des témoignages..." /></div>
-            ) : (
-              <div className="w-full overflow-x-auto scrollbar-hide">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        Client
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        Citation
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-100">
-                    {testimonials?.length > 0 ? testimonials.map((test) => (
-                      <tr key={test.id} className="hover:bg-sky-50/50 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="h-10 w-10 flex-shrink-0 bg-sky-100/70 rounded-full flex items-center justify-center overflow-hidden">
-                              <img src={test.imageUrl} alt={test.name} className="h-full w-full object-cover" onError={(e) => { e.target.onerror = null; e.target.src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(test.name); }} />
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <div className="flex items-center justify-end gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setEditingDestination(dest)}
+                                                        className="p-2 bg-sky-100 text-sky-700 hover:bg-sky-200 rounded-lg transition-colors shadow-sm"
+                                                        title="Modifier"
+                                                    >
+                                                        <Pencil size={16}/>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        disabled={destActionLoading}
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            confirmDelete(dest);
+                                                        }}
+                                                        className="p-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                                                        title="Supprimer"
+                                                    >
+                                                        <Trash2 size={16}/>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )) : (
+                                        <tr>
+                                            <td colSpan="3" className="px-6 py-12 text-center text-gray-500">
+                                                Aucune destination trouvée.
+                                            </td>
+                                        </tr>
+                                    )}
+                                    </tbody>
+                                </table>
                             </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-bold text-sky-700">{test.name}</div>
+                        )}
+                    </div>
+                </div>
+            );
+        } else if (activeTab === 'testimonials') {
+            return (
+                <div className="bg-white rounded-xl shadow-sm border border-sky-100/50 overflow-hidden font-sans">
+                    <div
+                        className="px-6 py-5 border-b border-gray-100 flex flex-col md:flex-row md:justify-between md:items-center items-start gap-4 md:gap-0 bg-white">
+                        <div>
+                            <h3 className="text-lg font-semibold text-sky-900 flex items-center gap-2">
+                                <MessageSquare className="w-5 h-5 text-sky-600"/>
+                                Témoignages
+                            </h3>
+                            <p className="text-sm text-gray-500 mt-1">Gérez les témoignages de vos clients</p>
+                        </div>
+                        <button
+                            onClick={() => setIsCreateTestimonialOpen(true)}
+                            className="w-full md:w-auto bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center justify-center gap-2"
+                        >
+                            <Plus size={18}/>
+                            Ajouter un témoignage
+                        </button>
+                    </div>
+                    <div className="p-0">
+                        {testimonialsLoading ? (
+                            <div className="py-12"><Loader variant="minimal" message="Chargement des témoignages..."/>
                             </div>
-                          </div>
-                        </td>
+                        ) : (
+                            <div className="w-full overflow-x-auto scrollbar-hide">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-slate-50">
+                                    <tr>
+                                        <th scope="col"
+                                            className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                            Client
+                                        </th>
+                                        <th scope="col"
+                                            className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                            Citation
+                                        </th>
+                                        <th scope="col"
+                                            className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-100">
+                                    {testimonials?.length > 0 ? testimonials.map((test) => (
+                                        <tr key={test.id} className="hover:bg-sky-50/50 transition-colors">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center">
+                                                    <div
+                                                        className="h-10 w-10 flex-shrink-0 bg-sky-100/70 rounded-full flex items-center justify-center overflow-hidden">
+                                                        <img src={test.imageUrl} alt={test.name}
+                                                             className="h-full w-full object-cover" onError={(e) => {
+                                                            e.target.onerror = null;
+                                                            e.target.src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(test.name);
+                                                        }}/>
+                                                    </div>
+                                                    <div className="ml-4">
+                                                        <div
+                                                            className="text-sm font-bold text-sky-700">{test.name}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
 
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-600 line-clamp-2 max-w-md">"{test.citation}"</div>
-                        </td>
+                                            <td className="px-6 py-4">
+                                                <div
+                                                    className="text-sm text-gray-600 line-clamp-2 max-w-md">"{test.citation}"
+                                                </div>
+                                            </td>
 
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex items-center justify-end gap-3">
-                            <button
-                              type="button"
-                              onClick={() => setEditingTestimonial(test)}
-                              className="p-2 bg-sky-100 text-sky-700 hover:bg-sky-200 rounded-lg transition-colors shadow-sm"
-                              title="Modifier"
-                            >
-                              <Pencil size={16} />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={testActionLoading}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                confirmDeleteTestimonial(test);
-                              }}
-                              className="p-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors shadow-sm disabled:opacity-50"
-                              title="Supprimer"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )) : (
-                      <tr>
-                        <td colSpan="3" className="px-6 py-12 text-center text-gray-500">
-                          Aucun témoignage trouvé.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    } else if (activeTab === 'users') {
-      return (
-        <div className="bg-white rounded-xl shadow-sm border border-sky-100/50 overflow-hidden font-sans">
-          <div className="px-6 py-5 border-b border-gray-100 flex flex-col md:flex-row md:justify-between md:items-center items-start gap-4 md:gap-0 bg-white">
-            <div>
-              <h3 className="text-lg font-semibold text-sky-900 flex items-center gap-2">
-                <Users className="w-5 h-5 text-sky-600" />
-                Utilisateurs
-              </h3>
-              <p className="text-sm text-gray-500 mt-1">Gérez les comptes utilisateurs de l'application</p>
-            </div>
-            <button
-              onClick={() => setIsCreateUserOpen(true)}
-              className="w-full md:w-auto bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center justify-center gap-2"
-            >
-              <Plus size={18} />
-              Ajouter un utilisateur
-            </button>
-          </div>
-          <div className="p-0">
-            {usersLoading ? (
-              <div className="py-12"><Loader variant="minimal" message="Chargement des utilisateurs..." /></div>
-            ) : (
-              <div className="w-full overflow-x-auto scrollbar-hide">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        Nom
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        Email
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        Rôle
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-100">
-                    {users?.length > 0 ? users.map((user) => (
-                      <tr key={user.id} className="hover:bg-sky-50/50 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-bold text-sky-700">{user.firstName} {user.lastName}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-600">{user.email}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <div className="flex items-center justify-end gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setEditingTestimonial(test)}
+                                                        className="p-2 bg-sky-100 text-sky-700 hover:bg-sky-200 rounded-lg transition-colors shadow-sm"
+                                                        title="Modifier"
+                                                    >
+                                                        <Pencil size={16}/>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        disabled={testActionLoading}
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            confirmDeleteTestimonial(test);
+                                                        }}
+                                                        className="p-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                                                        title="Supprimer"
+                                                    >
+                                                        <Trash2 size={16}/>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )) : (
+                                        <tr>
+                                            <td colSpan="3" className="px-6 py-12 text-center text-gray-500">
+                                                Aucun témoignage trouvé.
+                                            </td>
+                                        </tr>
+                                    )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        } else if (activeTab === 'users') {
+            return (
+                <div className="bg-white rounded-xl shadow-sm border border-sky-100/50 overflow-hidden font-sans">
+                    <div
+                        className="px-6 py-5 border-b border-gray-100 flex flex-col md:flex-row md:justify-between md:items-center items-start gap-4 md:gap-0 bg-white">
+                        <div>
+                            <h3 className="text-lg font-semibold text-sky-900 flex items-center gap-2">
+                                <Users className="w-5 h-5 text-sky-600"/>
+                                Utilisateurs
+                            </h3>
+                            <p className="text-sm text-gray-500 mt-1">Gérez les comptes utilisateurs de
+                                l'application</p>
+                        </div>
+                        <button
+                            onClick={() => setIsCreateUserOpen(true)}
+                            className="w-full md:w-auto bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center justify-center gap-2"
+                        >
+                            <Plus size={18}/>
+                            Ajouter un utilisateur
+                        </button>
+                    </div>
+                    <div className="p-0">
+                        {usersLoading ? (
+                            <div className="py-12"><Loader variant="minimal" message="Chargement des utilisateurs..."/>
+                            </div>
+                        ) : (
+                            <div className="w-full overflow-x-auto scrollbar-hide">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-slate-50">
+                                    <tr>
+                                        <th scope="col"
+                                            className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                            Nom
+                                        </th>
+                                        <th scope="col"
+                                            className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                            Email
+                                        </th>
+                                        <th scope="col"
+                                            className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                            Rôle
+                                        </th>
+                                        <th scope="col"
+                                            className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-100">
+                                    {users?.length > 0 ? users.map((user) => (
+                                        <tr key={user.id} className="hover:bg-sky-50/50 transition-colors">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div
+                                                    className="text-sm font-bold text-sky-700">{user.firstName} {user.lastName}</div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="text-sm text-gray-600">{user.email}</div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                              className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'}`}>
                             {user.role === 'admin' ? 'Administrateur' : 'Client'}
                           </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex items-center justify-end gap-3">
-                            <button
-                              type="button"
-                              onClick={() => setEditingUser(user)}
-                              className="p-2 bg-sky-100 text-sky-700 hover:bg-sky-200 rounded-lg transition-colors shadow-sm"
-                              title="Modifier"
-                            >
-                              <Pencil size={16} />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={userActionLoading}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                confirmDeleteUser(user);
-                              }}
-                              className="p-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors shadow-sm disabled:opacity-50"
-                              title="Supprimer"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )) : (
-                      <tr>
-                        <td colSpan="4" className="px-6 py-12 text-center text-gray-500">
-                          Aucun utilisateur trouvé.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    } else if (activeTab === 'bookings') {
-      return (
-        <div className="bg-white rounded-xl shadow-sm border border-sky-100/50 overflow-hidden font-sans">
-          <div className="px-6 py-5 border-b border-gray-100 flex flex-col md:flex-row md:justify-between md:items-center items-start gap-4 md:gap-0 bg-white">
-            <div>
-              <h3 className="text-lg font-semibold text-sky-900 flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-sky-600" />
-                Réservations
-              </h3>
-              <p className="text-sm text-gray-500 mt-1">Gérez les virements et finalisez les réservations</p>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <div className="flex items-center justify-end gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setEditingUser(user)}
+                                                        className="p-2 bg-sky-100 text-sky-700 hover:bg-sky-200 rounded-lg transition-colors shadow-sm"
+                                                        title="Modifier"
+                                                    >
+                                                        <Pencil size={16}/>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        disabled={userActionLoading}
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            confirmDeleteUser(user);
+                                                        }}
+                                                        className="p-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                                                        title="Supprimer"
+                                                    >
+                                                        <Trash2 size={16}/>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )) : (
+                                        <tr>
+                                            <td colSpan="4" className="px-6 py-12 text-center text-gray-500">
+                                                Aucun utilisateur trouvé.
+                                            </td>
+                                        </tr>
+                                    )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        } else if (activeTab === 'bookings') {
+            return (
+                <div className="bg-white rounded-xl shadow-sm border border-sky-100/50 overflow-hidden font-sans">
+                    <div
+                        className="px-6 py-5 border-b border-gray-100 flex flex-col md:flex-row md:justify-between md:items-center items-start gap-4 md:gap-0 bg-white">
+                        <div>
+                            <h3 className="text-lg font-semibold text-sky-900 flex items-center gap-2">
+                                <CreditCard className="w-5 h-5 text-sky-600"/>
+                                Réservations
+                            </h3>
+                            <p className="text-sm text-gray-500 mt-1">Gérez les virements et finalisez les
+                                réservations</p>
+                        </div>
+                    </div>
+                    <div className="p-0">
+                        {bookingsLoading ? (
+                            <div className="py-12"><Loader variant="minimal" message="Chargement des réservations..."/>
+                            </div>
+                        ) : (
+                            <div className="w-full overflow-x-auto scrollbar-hide">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-slate-50">
+                                    <tr>
+                                        <th scope="col"
+                                            className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Référence
+                                        </th>
+                                        <th scope="col"
+                                            className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Client
+                                        </th>
+                                        <th scope="col"
+                                            className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Hôtel
+                                        </th>
+                                        <th scope="col"
+                                            className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Check-in
+                                            / Out
+                                        </th>
+                                        <th scope="col"
+                                            className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Total
+                                        </th>
+                                        <th scope="col"
+                                            className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status
+                                        </th>
+                                        <th scope="col"
+                                            className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions
+                                        </th>
+                                    </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-100">
+                                    {bookings?.length > 0 ? bookings.map((booking) => {
+                                        // --- Data Sniper: Ultra-aggressive extraction ---
+                                        let parsedIpro = {};
+                                        let parsedBooking = {};
+                                        try {
+                                            parsedIpro = typeof booking?.iproPayload === 'string' ? JSON.parse(booking.iproPayload) : (booking?.iproPayload || {});
+                                        } catch (e) {
+                                        }
+                                        try {
+                                            parsedBooking = typeof booking?.bookingData === 'string' ? JSON.parse(booking.bookingData) : (booking?.bookingData || {});
+                                        } catch (e) {
+                                        }
+
+                                        const clientFullName = parsedIpro?.Adult?.[0]
+                                            ? `${parsedIpro.Adult[0].Name} ${parsedIpro.Adult[0].Surname}`
+                                            : (booking?.clientPhone || 'Client inconnu');
+
+                                        const hotelDisplayName = booking?.hotelName
+                                            || parsedIpro?.hotelName
+                                            || parsedBooking?.hotelName
+                                            || booking?.hotel?.name
+                                            || `Hôtel (ID: ${booking?.hotelId || 'Inconnu'})`;
+
+                                        const hasReceipt = Boolean(booking?.receipt || booking?.receiptFilename || booking?.receiptUrl);
+                                        const paymentMethodDisplay = hasReceipt ? "Virement" : "Espèce";
+
+                                        const clientPhone = booking?.clientPhone || parsedBooking?.clientPhone || parsedBooking?.bookingState?.passengers?.[0]?.phone || 'Non renseigné';
+
+                                        const payIcon = hasReceipt ?
+                                            <Landmark size={14} className="text-purple-500" title="Virement"/> :
+                                            <Home size={14} className="text-sky-500" title="Agence"/>;
+
+                                        const displayRef = booking?.reference || `ALG-${String(booking?.id || 0).padStart(3, '0')}`;
+
+                                        return (
+                                            <tr key={booking.id} className="hover:bg-sky-50/50 transition-colors">
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-sky-700">{displayRef}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center gap-2">
+                                                        <span
+                                                            className="text-sm font-semibold text-gray-800">{clientFullName}</span>
+                                                        {payIcon}
+                                                    </div>
+                                                    <a href={`tel:${clientPhone}`}
+                                                       className="text-xs text-sky-600 hover:underline flex items-center gap-1 mt-1">
+                                                        <Phone size={10}/> {clientPhone}
+                                                    </a>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{hotelDisplayName}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{booking.checkIn} - {booking.checkOut}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-sky-700">{new Intl.NumberFormat("fr-DZ").format(booking.clientPrice)} DZD</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <StatusBadge status={booking.status}/>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
+                                                    <div className="flex justify-end gap-2">
+                                                        {booking.status === 'PENDING' && (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    setSelectedBooking(booking);
+                                                                    setIsVerifyModalOpen(true);
+                                                                }}
+                                                                className="p-2 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg transition-colors shadow-sm"
+                                                                title="Vérifier"
+                                                            >
+                                                                <Eye size={18}/>
+                                                            </button>
+                                                        )}
+                                                        {booking.status === 'CONFIRMED' && (
+                                                            <>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        setSelectedBooking(booking);
+                                                                        setIsVoucherModalOpen(true);
+                                                                    }}
+                                                                    className="p-2 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded-lg transition-colors shadow-sm"
+                                                                    title="Consulter Voucher"
+                                                                >
+                                                                    <FileText size={18}/>
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setSelectedBooking(booking);
+                                                                        setIsCancelModalOpen(true);
+                                                                    }}
+                                                                    className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
+                                                                    title="Annuler Réservation"
+                                                                >
+                                                                    <XCircle size={16}/>
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    }) : (
+                                        <tr>
+                                            <td colSpan="7" className="px-6 py-12 text-center text-gray-500">Aucune
+                                                réservation trouvée.
+                                            </td>
+                                        </tr>
+                                    )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <div
+                className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-sky-100/50 p-12 text-center font-sans">
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">Module en construction</h3>
+                <p className="text-gray-500">Le module {tabs.find(t => t.id === activeTab)?.label} sera bientôt
+                    disponible.</p>
             </div>
-          </div>
-          <div className="p-0">
-            {bookingsLoading ? (
-              <div className="py-12"><Loader variant="minimal" message="Chargement des réservations..." /></div>
-            ) : (
-              <div className="w-full overflow-x-auto scrollbar-hide">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Référence</th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Client</th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Hôtel</th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Check-in / Out</th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Total</th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                      <th scope="col" className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-100">
-                    {bookings?.length > 0 ? bookings.map((booking) => {
-                      let statusBadge = "";
-                      switch (booking.status) {
-                        case 'PENDING': statusBadge = 'bg-amber-100 text-amber-700'; break;
-                        case 'CONFIRMED': statusBadge = 'bg-emerald-100 text-emerald-700'; break;
-                        case 'REJECTED': statusBadge = 'bg-rose-100 text-rose-700'; break;
-                        default: statusBadge = 'bg-slate-100 text-slate-700';
-                      }
-                      
-                      // --- Data Sniper: Ultra-aggressive extraction ---
-                      let parsedIpro = {};
-                      let parsedBooking = {};
-                      try { parsedIpro = typeof booking?.iproPayload === 'string' ? JSON.parse(booking.iproPayload) : (booking?.iproPayload || {}); } catch(e) {}
-                      try { parsedBooking = typeof booking?.bookingData === 'string' ? JSON.parse(booking.bookingData) : (booking?.bookingData || {}); } catch(e) {}
-
-                      const clientFullName = parsedIpro?.Adult?.[0]
-                          ? `${parsedIpro.Adult[0].Name} ${parsedIpro.Adult[0].Surname}`
-                          : (booking?.clientPhone || 'Client inconnu');
-
-                      const hotelDisplayName = booking?.hotelName
-                          || parsedIpro?.hotelName
-                          || parsedBooking?.hotelName
-                          || booking?.hotel?.name
-                          || `Hôtel (ID: ${booking?.hotelId || 'Inconnu'})`;
-
-                      const hasReceipt = Boolean(booking?.receipt || booking?.receiptFilename || booking?.receiptUrl);
-                      const paymentMethodDisplay = hasReceipt ? "Virement" : "Espèce";
-
-                      const clientPhone = booking?.clientPhone || parsedBooking?.clientPhone || parsedBooking?.bookingState?.passengers?.[0]?.phone || 'Non renseigné';
-
-                      const payIcon = hasReceipt ? <Landmark size={14} className="text-purple-500" title="Virement"/> : <Home size={14} className="text-sky-500" title="Agence"/>;
-
-                      const displayRef = booking?.reference || `ALG-${String(booking?.id || 0).padStart(3, '0')}`;
-
-                      return (
-                        <tr key={booking.id} className="hover:bg-sky-50/50 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-sky-700">{displayRef}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold text-gray-800">{clientFullName}</span>
-                              {payIcon}
-                            </div>
-                            <a href={`tel:${clientPhone}`} className="text-xs text-sky-600 hover:underline flex items-center gap-1 mt-1">
-                              <Phone size={10} /> {clientPhone}
-                            </a>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{hotelDisplayName}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{booking.checkIn} - {booking.checkOut}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-sky-700">{new Intl.NumberFormat("fr-DZ").format(booking.clientPrice)} DZD</td>
-                          <td className="px-6 py-4 whitespace-nowrap"><span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${statusBadge}`}>{booking.status}</span></td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
-                            <div className="flex justify-end gap-2">
-                              {booking.status === 'PENDING' && (
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault(); e.stopPropagation();
-                                    setSelectedBooking(booking);
-                                    setIsVerifyModalOpen(true);
-                                  }}
-                                  className="p-2 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg transition-colors shadow-sm"
-                                  title="Vérifier"
-                                >
-                                  <Eye size={18} />
-                                </button>
-                              )}
-                              {booking.status === 'CONFIRMED' && (
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault(); e.stopPropagation();
-                                    setSelectedBooking(booking);
-                                    setIsVoucherModalOpen(true);
-                                  }}
-                                  className="p-2 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded-lg transition-colors shadow-sm"
-                                  title="Consulter Voucher"
-                                >
-                                  <FileText size={18} />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    }) : (
-                      <tr><td colSpan="7" className="px-6 py-12 text-center text-gray-500">Aucune réservation trouvée.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    }
+        );
+    };
 
     return (
-      <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-sky-100/50 p-12 text-center font-sans">
-        <h3 className="text-xl font-semibold text-gray-800 mb-2">Module en construction</h3>
-        <p className="text-gray-500">Le module {tabs.find(t => t.id === activeTab)?.label} sera bientôt disponible.</p>
-      </div>
-    );
-  };
+        <div className="min-h-screen flex flex-col md:flex-row md:gap-4 font-sans">
 
-  return (
-    <div className="min-h-screen flex flex-col md:flex-row md:gap-4 font-sans">
+            {/* Mobile Sidebar Toggle */}
+            <div
+                className="md:hidden bg-sky-950 text-white p-4 flex justify-between items-center shadow-md z-20 relative">
+                <h1 className="text-xl font-bold tracking-tight">Admin<span className="text-orange-500">Panel</span>
+                </h1>
+                <button onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                        className="p-2 bg-white/10 hover:bg-white/20 rounded-md focus:outline-none transition-colors">
+                    {isSidebarOpen ? <X className="w-6 h-6"/> : <Menu className="w-6 h-6"/>}
+                </button>
+            </div>
 
-      {/* Mobile Sidebar Toggle */}
-      <div className="md:hidden bg-sky-950 text-white p-4 flex justify-between items-center shadow-md z-20 relative">
-        <h1 className="text-xl font-bold tracking-tight">Admin<span className="text-orange-500">Panel</span></h1>
-        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 bg-white/10 hover:bg-white/20 rounded-md focus:outline-none transition-colors">
-          {isSidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
-      </div>
-
-      {/* Sidebar */}
-      <aside className={`
+            {/* Sidebar */}
+            <aside className={`
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
         md:translate-x-0 
         fixed md:static inset-y-0 left-0 w-64 bg-gradient-to-b from-sky-950 via-sky-900 to-sky-950 text-white shadow-xl rounded-none md:rounded-xl transition-transform duration-300 ease-in-out z-50 md:z-20 flex flex-col
       `}>
-        <div className="px-6 py-8 hidden md:block border-b border-sky-800/50">
-          <h1 className="text-2xl font-bold tracking-tight">Admin<span className="text-orange-500">Panel</span></h1>
-          <p className="text-sky-200 text-sm mt-1 font-medium">Gestion AllezGo</p>
-        </div>
+                <div className="px-6 py-8 hidden md:block border-b border-sky-800/50">
+                    <h1 className="text-2xl font-bold tracking-tight">Admin<span
+                        className="text-orange-500">Panel</span></h1>
+                    <p className="text-sky-200 text-sm mt-1 font-medium">Gestion AllezGo</p>
+                </div>
 
-        <nav className="flex-1 mt-6 px-4 space-y-2">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setActiveTab(tab.id);
-                  setIsSidebarOpen(false);
-                }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm lg:text-base font-medium transition-all duration-200
+                <nav className="flex-1 mt-6 px-4 space-y-2">
+                    {tabs.map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => {
+                                    setActiveTab(tab.id);
+                                    setIsSidebarOpen(false);
+                                }}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm lg:text-base font-medium transition-all duration-200
                   ${isActive
-                    ? 'bg-orange-600 text-white font-semibold tracking-tight shadow-md border-l-4 lg:border-l-8 border-white'
-                    : 'text-sky-200 hover:bg-white/10 hover:text-white border-l-4 border-transparent'
-                  }
+                                    ? 'bg-orange-600 text-white font-semibold tracking-tight shadow-md border-l-4 lg:border-l-8 border-white'
+                                    : 'text-sky-200 hover:bg-white/10 hover:text-white border-l-4 border-transparent'
+                                }
                 `}
-              >
-                <Icon className={`w-5 h-5 ${isActive ? 'text-white font-bold' : 'text-sky-300'}`} />
-                {tab.label}
-              </button>
-            );
-          })}
-        </nav>
+                            >
+                                <Icon className={`w-5 h-5 ${isActive ? 'text-white font-bold' : 'text-sky-300'}`}/>
+                                {tab.label}
+                            </button>
+                        );
+                    })}
+                </nav>
 
-        <div className="p-4 rounded-xlbg-sky-950 mt-auto border-t border-sky-800/50">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold shadow-md">
-              A
-            </div>
-            <div>
-              <p className="text-sm font-medium text-white">Administrateur</p>
-              <p className="text-xs text-sky-300 flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span> En ligne
-              </p>
-            </div>
-          </div>
+                <div className="p-4 rounded-xlbg-sky-950 mt-auto border-t border-sky-800/50">
+                    <div className="flex items-center gap-3">
+                        <div
+                            className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold shadow-md">
+                            A
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-white">Administrateur</p>
+                            <p className="text-xs text-sky-300 flex items-center gap-1">
+                                <span
+                                    className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span> En
+                                ligne
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            {/* Main Content Area */}
+            <main className="flex-1 overflow-y-auto rounded-xl bg-gradient-to-br from-slate-200 to-sky-900 relative">
+                {/* Header */}
+                <header
+                    className="bg-gradient-to-br from-sky-950 via-sky-900 to-sky-950 backdrop-blur-md rounded-t-xl shadow-sm border-b border-slate-200 py-5 px-4 md:px-8 sticky top-0 z-10 flex justify-center items-center">
+                    <h2 className="text-xl text-white font-bold flex items-center gap-2">
+                        {tabs.find(t => t.id === activeTab)?.label}
+                    </h2>
+                </header>
+
+                {/* Content */}
+                <div className="p-4 md:p-8 max-w-full mx-auto">
+                    {renderContent()}
+                </div>
+            </main>
+
+            {/* Mobile Overlay */}
+            {isSidebarOpen && (
+                <div
+                    className="md:hidden fixed inset-0 bg-sky-950/40 z-10 backdrop-blur-sm"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
+
+            {/* Create Destination Modal */}
+            <CreateDestinationModal
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+            />
+
+            {/* Edit Destination Modal */}
+            <EditDestinationModal
+                destination={editingDestination}
+                onClose={() => setEditingDestination(null)}
+            />
+
+            {/* Create Testimonial Modal */}
+            <CreateTestimonialModal
+                isOpen={isCreateTestimonialOpen}
+                onClose={() => setIsCreateTestimonialOpen(false)}
+            />
+
+            {/* Edit Testimonial Modal */}
+            <EditTestimonialModal
+                testimonial={editingTestimonial}
+                onClose={() => setEditingTestimonial(null)}
+            />
+
+            {/* Create User Modal */}
+            <CreateUserModal
+                isOpen={isCreateUserOpen}
+                onClose={() => setIsCreateUserOpen(false)}
+            />
+
+            {/* Edit User Modal */}
+            <EditUserModal
+                user={editingUser}
+                onClose={() => setEditingUser(null)}
+            />
+
+            {/* Verify Booking Modal */}
+            <VerifyBookingModal
+                isOpen={isVerifyModalOpen}
+                booking={selectedBooking}
+                onClose={() => setIsVerifyModalOpen(false)}
+            />
+            <CancelBookingModal
+                isOpen={isCancelModalOpen}
+                booking={selectedBooking}
+                onClose={() => setIsCancelModalOpen(false)}
+            />
+
+            <VoucherModal
+                isOpen={isVoucherModalOpen}
+                onClose={() => setIsVoucherModalOpen(false)}
+                booking={selectedBooking}
+            />
         </div>
-      </aside>
-
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto rounded-xl bg-gradient-to-br from-slate-200 to-sky-900 relative">
-        {/* Header */}
-        <header className="bg-gradient-to-br from-sky-950 via-sky-900 to-sky-950 backdrop-blur-md rounded-t-xl shadow-sm border-b border-slate-200 py-5 px-4 md:px-8 sticky top-0 z-10 flex justify-center items-center">
-          <h2 className="text-xl text-white font-bold flex items-center gap-2">
-            {tabs.find(t => t.id === activeTab)?.label}
-          </h2>
-        </header>
-
-        {/* Content */}
-        <div className="p-4 md:p-8 max-w-full mx-auto">
-          {renderContent()}
-        </div>
-      </main>
-
-      {/* Mobile Overlay */}
-      {isSidebarOpen && (
-        <div
-          className="md:hidden fixed inset-0 bg-sky-950/40 z-10 backdrop-blur-sm"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      {/* Create Destination Modal */}
-      <CreateDestinationModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-      />
-
-      {/* Edit Destination Modal */}
-      <EditDestinationModal
-        destination={editingDestination}
-        onClose={() => setEditingDestination(null)}
-      />
-
-      {/* Create Testimonial Modal */}
-      <CreateTestimonialModal
-        isOpen={isCreateTestimonialOpen}
-        onClose={() => setIsCreateTestimonialOpen(false)}
-      />
-
-      {/* Edit Testimonial Modal */}
-      <EditTestimonialModal
-        testimonial={editingTestimonial}
-        onClose={() => setEditingTestimonial(null)}
-      />
-
-      {/* Create User Modal */}
-      <CreateUserModal
-        isOpen={isCreateUserOpen}
-        onClose={() => setIsCreateUserOpen(false)}
-      />
-
-      {/* Edit User Modal */}
-      <EditUserModal
-        user={editingUser}
-        onClose={() => setEditingUser(null)}
-      />
-
-      {/* Verify Booking Modal */}
-      <VerifyBookingModal
-        isOpen={isVerifyModalOpen}
-        booking={selectedBooking}
-        onClose={() => setIsVerifyModalOpen(false)}
-      />
-      
-      <VoucherModal 
-        isOpen={isVoucherModalOpen} 
-        onClose={() => setIsVoucherModalOpen(false)} 
-        booking={selectedBooking}
-      />
-    </div>
-  );
+    );
 }
 
 ```
@@ -11539,10 +11899,16 @@ function HotelDetails() {
         if (range.from >= range.to)        { toast.error("La date de départ doit être après la date d'arrivée"); return; }
         setIsSearchingRooms(true); setHasSearched(false); setSelectedRoomTypes({});
         try {
+            // ✅ TARGET FIX: Inject guestNationality and currency for Tunisian inventory to unlock Maghreb rates.
+            const isTunisia = hotelData?.City?.Country?.Name?.toLowerCase().includes('tunisie');
+
             const response = await apiClient.searchRoomAvailability({
                 hotelId:  Number(hotelId),
+                cityId:   hotelData?.City?.Id,
                 checkIn:  checkInDate,
                 checkOut: checkOutDate,
+                guestNationality: isTunisia ? 'DZ' : undefined,
+                currency: isTunisia ? 'DZD' : undefined,
                 rooms:    rooms.map((r) => ({
                     adults:    r.adults,
                     children:  r.children.length,
@@ -11566,7 +11932,7 @@ function HotelDetails() {
             toast.error(err?.message ?? "Erreur lors de la recherche de chambres");
             setAvailableRooms([]); setHasSearched(true);
         } finally { setIsSearchingRooms(false); }
-    }, [checkInDate, checkOutDate, range, hotelId, rooms]);
+    }, [checkInDate, checkOutDate, range, hotelId, rooms, hotelData]);
 
     useEffect(() => {
         if (hotelData && !hasAutoSearched.current && !preloadedPricing?.paxGroups) {
@@ -13337,6 +13703,7 @@ function HotelsSearchResultsPage() {
     const checkOut      = searchParams.get("checkOut");
     const roomsParam    = searchParams.get("rooms");
     const hotelIdsParam = searchParams.get("hotelIds");
+    const countryCode   = searchParams.get("countryCode") || "DZ";
 
     const hotelIds = useMemo(() => {
         if (!hotelIdsParam) return null;
@@ -13379,8 +13746,8 @@ function HotelsSearchResultsPage() {
     }, [stateData]);
 
     const hotelSearchQueryKey = useMemo(
-        () => ["hotelSearch", hotelIds, checkIn, checkOut, rooms],
-        [hotelIds, checkIn, checkOut, rooms],
+        () => ["hotelSearch", hotelIds, checkIn, checkOut, rooms, countryCode],
+        [hotelIds, checkIn, checkOut, rooms, countryCode],
     );
 
     const queryClient = useQueryClient();
@@ -13419,6 +13786,9 @@ function HotelsSearchResultsPage() {
             const result = await apiClient.searchHotel({
                 checkIn, checkOut,
                 hotels: hotelIds.slice(0, 100),
+                cityId: searchParams.get("cityId"),
+                guestNationality: countryCode === 'TN' ? 'DZ' : undefined,
+                currency: countryCode === 'TN' ? 'DZD' : undefined,
                 rooms:  rooms.map((room) => ({
                     adult: room.adults,
                     child: Array.isArray(room.children) ? room.children.length : (room.children ?? 0),
@@ -17647,19 +18017,20 @@ import axios from 'axios';
 
 // ==================== CONSTANTS ====================
 const MY_BENEFIT_CAUTION = 0.08;
+const TUNISIAN_CITY_IDS = [34, 35, 36, 37, 38]; // 34 is Sousse
 
 const CONFIG = {
     BASE_URL: 'https://admin.ipro-booking.com/api/hotel',
     TIMEOUT: { DEFAULT: 60000, SEARCH: 120000 },
-    BATCH:   { DEFAULT_SIZE: 5, DEFAULT_DELAY: 100 },
-    LIMITS:  { MAX_HOTELS_PER_SEARCH: 300 },
-    RETRY:   { MAX_ATTEMPTS: 3, BASE_DELAY: 1000, MAX_DELAY: 5000 },
-    CACHE:   { TTL: 5 * 60 * 1000, ENABLED: true },
+    BATCH: { DEFAULT_SIZE: 5, DEFAULT_DELAY: 100 },
+    LIMITS: { MAX_HOTELS_PER_SEARCH: 300 },
+    RETRY: { MAX_ATTEMPTS: 3, BASE_DELAY: 1000, MAX_DELAY: 5000 },
+    CACHE: { TTL: 5 * 60 * 1000, ENABLED: true },
 };
 
 // ==================== CREDENTIALS ====================
 const CREDENTIALS = {
-    Login:    import.meta.env.VITE_API_LOGIN,
+    Login: import.meta.env.VITE_API_LOGIN,
     Password: import.meta.env.VITE_API_PASSWORD,
 };
 
@@ -17684,40 +18055,40 @@ class ApiError extends Error {
 // ==================== ERROR MESSAGES ====================
 const ERROR_MESSAGES = {
     en: {
-        TIMEOUT:              (count) => `Search took too long (${count} hotels). Please reduce the number of hotels.`,
-        NETWORK:              'Network error: Unable to contact server. Check your connection.',
-        HOTEL_ID_REQUIRED:    'Hotel ID is required',
-        HOTEL_NOT_FOUND:      (id) => `Hotel with ID ${id} not found`,
-        CHECKIN_REQUIRED:     'checkIn is a required parameter',
-        CHECKOUT_REQUIRED:    'checkOut is a required parameter',
-        HOTELS_REQUIRED:      'hotels is a required parameter and must be a non-empty array',
-        ROOMS_REQUIRED:       'rooms is a required parameter and must be a non-empty array',
-        INVALID_DATE_FORMAT:  (field) => `${field} must be in YYYY-MM-DD format`,
-        UNAUTHORIZED:         'Unauthorized access - check credentials',
-        NOT_FOUND:            'Resource not found',
-        SERVER_ERROR:         'Internal server error',
-        REQUEST_FAILED:       'API request failed',
-        BOARDING_TYPE_INVALID:'Invalid boarding type. Must be one of: RO, BB, HB, FB, AI, SC',
-        INVALID_DATE_RANGE:   'Check-out date must be after check-in date',
-        NO_ROOMS_AVAILABLE:   'No rooms available for the selected dates and criteria',
+        TIMEOUT: (count) => `Search took too long (${count} hotels). Please reduce the number of hotels.`,
+        NETWORK: 'Network error: Unable to contact server. Check your connection.',
+        HOTEL_ID_REQUIRED: 'Hotel ID is required',
+        HOTEL_NOT_FOUND: (id) => `Hotel with ID ${id} not found`,
+        CHECKIN_REQUIRED: 'checkIn is a required parameter',
+        CHECKOUT_REQUIRED: 'checkOut is a required parameter',
+        HOTELS_REQUIRED: 'hotels is a required parameter and must be a non-empty array',
+        ROOMS_REQUIRED: 'rooms is a required parameter and must be a non-empty array',
+        INVALID_DATE_FORMAT: (field) => `${field} must be in YYYY-MM-DD format`,
+        UNAUTHORIZED: 'Unauthorized access - check credentials',
+        NOT_FOUND: 'Resource not found',
+        SERVER_ERROR: 'Internal server error',
+        REQUEST_FAILED: 'API request failed',
+        BOARDING_TYPE_INVALID: 'Invalid boarding type. Must be one of: RO, BB, HB, FB, AI, SC',
+        INVALID_DATE_RANGE: 'Check-out date must be after check-in date',
+        NO_ROOMS_AVAILABLE: 'No rooms available for the selected dates and criteria',
     },
     fr: {
-        TIMEOUT:              (count) => `La recherche a pris trop de temps (${count} hôtels). Veuillez réduire le nombre d'hôtels.`,
-        NETWORK:              'Erreur réseau: impossible de contacter le serveur. Vérifiez votre connexion.',
-        HOTEL_ID_REQUIRED:    "L'ID de l'hôtel est requis",
-        HOTEL_NOT_FOUND:      (id) => `Hôtel avec l'ID ${id} introuvable`,
-        CHECKIN_REQUIRED:     "La date d'arrivée est requise",
-        CHECKOUT_REQUIRED:    'La date de départ est requise',
-        HOTELS_REQUIRED:      "La liste des hôtels est requise et ne doit pas être vide",
-        ROOMS_REQUIRED:       'La liste des chambres est requise et ne doit pas être vide',
-        INVALID_DATE_FORMAT:  (field) => `${field} doit être au format YYYY-MM-DD`,
-        UNAUTHORIZED:         'Accès non autorisé - vérifiez les identifiants',
-        NOT_FOUND:            'Ressource introuvable',
-        SERVER_ERROR:         'Erreur interne du serveur',
-        REQUEST_FAILED:       'La requête API a échoué',
-        BOARDING_TYPE_INVALID:'Type de pension invalide. Doit être: RO, BB, HB, FB, AI, SC',
-        INVALID_DATE_RANGE:   "La date de départ doit être après la date d'arrivée",
-        NO_ROOMS_AVAILABLE:   'Aucune chambre disponible pour les dates et critères sélectionnés',
+        TIMEOUT: (count) => `La recherche a pris trop de temps (${count} hôtels). Veuillez réduire le nombre d'hôtels.`,
+        NETWORK: 'Erreur réseau: impossible de contacter le serveur. Vérifiez votre connexion.',
+        HOTEL_ID_REQUIRED: "L'ID de l'hôtel est requis",
+        HOTEL_NOT_FOUND: (id) => `Hôtel avec l'ID ${id} introuvable`,
+        CHECKIN_REQUIRED: "La date d'arrivée est requise",
+        CHECKOUT_REQUIRED: 'La date de départ est requise',
+        HOTELS_REQUIRED: "La liste des hôtels est requise et ne doit pas être vide",
+        ROOMS_REQUIRED: 'La liste des chambres est requise et ne doit pas être vide',
+        INVALID_DATE_FORMAT: (field) => `${field} doit être au format YYYY-MM-DD`,
+        UNAUTHORIZED: 'Accès non autorisé - vérifiez les identifiants',
+        NOT_FOUND: 'Ressource introuvable',
+        SERVER_ERROR: 'Erreur interne du serveur',
+        REQUEST_FAILED: 'La requête API a échoué',
+        BOARDING_TYPE_INVALID: 'Type de pension invalide. Doit être: RO, BB, HB, FB, AI, SC',
+        INVALID_DATE_RANGE: "La date de départ doit être après la date d'arrivée",
+        NO_ROOMS_AVAILABLE: 'Aucune chambre disponible pour les dates et critères sélectionnés',
     },
 };
 
@@ -17725,33 +18096,33 @@ const ERROR_MESSAGES = {
 class CacheManager {
     constructor(ttl = CONFIG.CACHE.TTL) {
         this.cache = new Map();
-        this.ttl   = ttl;
+        this.ttl = ttl;
     }
-    set(key, value)  { this.cache.set(key, { value, timestamp: Date.now() }); }
+    set(key, value) { this.cache.set(key, { value, timestamp: Date.now() }); }
     get(key) {
         const item = this.cache.get(key);
         if (!item) return null;
         if (Date.now() - item.timestamp > this.ttl) { this.cache.delete(key); return null; }
         return item.value;
     }
-    has(key)      { return this.get(key) !== null; }
-    clear()       { this.cache.clear(); }
-    delete(key)   { this.cache.delete(key); }
-    getStats()    { return { size: this.cache.size, keys: Array.from(this.cache.keys()) }; }
+    has(key) { return this.get(key) !== null; }
+    clear() { this.cache.clear(); }
+    delete(key) { this.cache.delete(key); }
+    getStats() { return { size: this.cache.size, keys: Array.from(this.cache.keys()) }; }
 }
 
 // ==================== API CLIENT ====================
 class ApiClient {
     constructor(language = 'en') {
-        this.language    = language;
-        this.messages    = ERROR_MESSAGES[language] || ERROR_MESSAGES.en;
-        this.client      = axios.create({
+        this.language = language;
+        this.messages = ERROR_MESSAGES[language] || ERROR_MESSAGES.en;
+        this.client = axios.create({
             baseURL: CONFIG.BASE_URL,
             headers: { 'Content-Type': 'application/json' },
             timeout: CONFIG.TIMEOUT.DEFAULT,
         });
-        this.credentials  = CREDENTIALS;
-        this.cache        = new CacheManager(CONFIG.CACHE.TTL);
+        this.credentials = CREDENTIALS;
+        this.cache = new CacheManager(CONFIG.CACHE.TTL);
         this.cancelTokens = new Map();
         this.setupInterceptors();
     }
@@ -18082,13 +18453,18 @@ class ApiClient {
                 Child: Array.isArray(room.child) ? room.child : (room.childAges || [])
             }));
 
+            const isTunisianCity = TUNISIAN_CITY_IDS.includes(Number(searchParams.cityId));
+
             const response = await this.retryRequest(async () => {
                 return await this.client.post('/HotelSearch', this.createRequestBody({
                     SearchDetails: {
                         BookingDetails: {
-                            CheckIn:  searchParams.checkIn,
+                            CheckIn: searchParams.checkIn,
                             CheckOut: searchParams.checkOut,
-                            Hotels:   searchParams.hotels.slice(0, CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH),
+                            Hotels: searchParams.hotels.slice(0, CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH),
+                            // ✅ MODIFIER: Support for Maghreb rates (force DZ/DZD for Tunisian cities)
+                            GuestNationality: isTunisianCity ? 'DZ' : searchParams.guestNationality,
+                            Currency: isTunisianCity ? 'DZD' : searchParams.currency,
                         },
                         Filters: searchParams.filters || {},
                         Rooms: roomsForRequest,
@@ -18112,10 +18488,19 @@ class ApiClient {
     async searchRoomAvailability(params = {}) {
         const cancelToken = this.createCancelToken('roomAvailability');
         try {
+            const isTunisianCity = TUNISIAN_CITY_IDS.includes(Number(params.cityId));
+
             const response = await this.retryRequest(async () => {
                 return await this.client.post('/HotelSearch', this.createRequestBody({
                     SearchDetails: {
-                        BookingDetails: { CheckIn: params.checkIn, CheckOut: params.checkOut, Hotels: [params.hotelId] },
+                        BookingDetails: {
+                            CheckIn: params.checkIn,
+                            CheckOut: params.checkOut,
+                            Hotels: [params.hotelId],
+                            // ✅ MODIFIER: Support for Maghreb rates (force DZ/DZD for Tunisian cities)
+                            GuestNationality: isTunisianCity ? 'DZ' : params.guestNationality,
+                            Currency: isTunisianCity ? 'DZD' : params.currency,
+                        },
                         // ✅ FIX CRITIQUE: OnlyAvailable passe à FALSE pour ne pas bloquer les "Sur demande"
                         Filters: { OnlyAvailable: false },
                         Rooms: params.rooms.map(r => ({ Adult: r.adults || 2, Child: r.childAges || [] }))
@@ -18199,35 +18584,82 @@ class ApiClient {
         };
     }
 
-    // ==================== BOOKING MUTATIONS ====================
+
+// ==================== BOOKING MUTATIONS ====================
     async createBooking(hotelBookingPayload) {
         try {
-            const normalizedHotelBooking = hotelBookingPayload?.HotelBooking
-                ? hotelBookingPayload.HotelBooking
-                : hotelBookingPayload;
+            // 🛑 1. THE UNWRAPPER: Defend against Double-Nesting (Matryoshka Bug)
+            // If the payload is wrapped in an outer { HotelBooking: {...} }, extract the pure data.
+            const rawBookingData = hotelBookingPayload.HotelBooking ? hotelBookingPayload.HotelBooking : hotelBookingPayload;
 
-            // Strictly enforce API isolation: inject credentials here, never in the UI
+            // 🛑 2. DEEP CLONE: Break the React Query Cache Freeze
+            // This creates a brand new, mutable object in memory
+            const mutablePayload = JSON.parse(JSON.stringify(rawBookingData));
+
+            const tunisianCityIds = [34, 35, 36, 37, 38];
+            const cityId = Number(mutablePayload.City || mutablePayload.cityId);
+
+            // 🛑 3. THE VIP PASSPORT: Inject Maghreb Contract Rules
+            if (tunisianCityIds.includes(cityId)) {
+                // Root level injection
+                mutablePayload.GuestNationality = "DZ";
+                mutablePayload.Currency = "DZD";
+
+                // Passenger level injection (Strict iPro validation)
+                if (Array.isArray(mutablePayload.Rooms)) {
+                    mutablePayload.Rooms.forEach(room => {
+                        if (room.Pax && Array.isArray(room.Pax.Adult)) {
+                            room.Pax.Adult.forEach(adult => { adult.Nationality = "DZ"; });
+                        }
+                        if (room.Pax && Array.isArray(room.Pax.Child)) {
+                            room.Pax.Child.forEach(child => { child.Nationality = "DZ"; });
+                        }
+                    });
+                }
+            }
+
+            // 🛑 4. STRICT SINGLE WRAPPING
             const requestPayload = {
                 Credential: {
                     Login: CREDENTIALS.Login,
                     Password: CREDENTIALS.Password
                 },
-                // PreBooking is intentionally omitted to perform a final confirmation
-                HotelBooking: normalizedHotelBooking
+                // Pass the unwrapped, deeply cloned, and properly mutated object
+                HotelBooking: mutablePayload
             };
 
+            if (import.meta.env.DEV) {
+                console.log("🚀 FINAL BULLETPROOF PAYLOAD:", JSON.stringify(requestPayload, null, 2));
+            }
+
+            // Execute API Call
             const response = await axios.post(`${CONFIG.BASE_URL}/BookingCreation`, requestPayload, {
                 timeout: CONFIG.TIMEOUT.DEFAULT
             });
 
-            // Assuming iPro returns the booking Id in the root of the Response
-            if (!response.data || !response.data.Id) {
-                throw new ApiError('Failed to validate booking on iPro servers.', response.status);
+            // 🛑 5. ERROR HANDLING
+            // 1. Intercept iPro internal logical errors (200 OK but with ErrorMessage object)
+            if (response.data?.ErrorMessage && !Array.isArray(response.data.ErrorMessage) && response.data.ErrorMessage.Code) {
+                console.error("🔴 iPro API Error:", response.data.ErrorMessage);
+                throw new ApiError(response.data.ErrorMessage.Description || 'Erreur API iPro', response.data.ErrorMessage.Code);
             }
 
-            return response.data;
+            // Extract the ID safely whether it's at the root, inside an object, or an array
+            const responseData = response.data;
+            const validId = responseData?.Id || responseData?.BookingCreation?.Id || responseData?.BookingCreation?.[0]?.Id;
+
+            if (!validId) {
+                console.error("🔴 iPro Unrecognized Response:", responseData);
+                throw new ApiError('Format de réponse iPro invalide ou ID manquant.', response.status);
+            }
+
+            return responseData; // Return the full data back to the caller
         } catch (error) {
-            throw new ApiError('Error executing BookingCreation mutation', error.response?.status, error);
+            // Prevent masking our custom ApiErrors
+            if (error.name === 'ApiError' || error instanceof ApiError) {
+                throw error;
+            }
+            throw new ApiError('Error executing BookingCreation mutation', error.response?.status || 500, error);
         }
     }
 
@@ -18246,12 +18678,21 @@ class ApiClient {
                 timeout: CONFIG.TIMEOUT.DEFAULT
             });
 
-            if (!response.data) {
-                throw new ApiError('Failed to cancel booking on iPro servers.', response.status);
+            const data = response.data;
+
+            // iPro returns an Object for errors, and an empty Array [] for success.
+            if (data?.ErrorMessage && !Array.isArray(data.ErrorMessage)) {
+                throw new ApiError(`Erreur iPro: ${data.ErrorMessage.Description}`, data.ErrorMessage.Code);
             }
-            return response.data;
+
+            if (!data?.BookingCancellation) {
+                throw new ApiError('Format de réponse invalide pour l\'annulation.', response.status);
+            }
+
+            return data.BookingCancellation;
         } catch (error) {
-            throw new ApiError('Error executing BookingCancellation mutation', error.response?.status, error);
+            if (error.name === 'ApiError' || error instanceof ApiError) throw error;
+            throw new ApiError('Erreur d\'exécution de l\'annulation', error.response?.status, error);
         }
     }
 

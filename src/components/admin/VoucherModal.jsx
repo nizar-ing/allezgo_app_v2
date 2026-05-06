@@ -29,8 +29,34 @@ export default function VoucherModal({ isOpen, onClose, booking }) {
   const clientPrice = Number(booking.clientPrice) || 0;
 
   const nights = (checkIn !== "N/A" && checkOut !== "N/A") ? Math.max(1, Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24))) : 0;
-  const boardBasis = booking?.boardBasis || booking?.BoardBasis || "Demi-pension"; // Placeholder fallback
-  const roomType = booking?.roomType || booking?.RoomType || "Chambre Standard"; // Placeholder fallback
+  // ── Resolve boarding label from parsed JSON data ───────────────────
+  let parsedBookingData = {};
+  let parsedIproData = {};
+  try { parsedBookingData = typeof booking?.bookingData === 'string' ? JSON.parse(booking.bookingData) : (booking?.bookingData || {}); } catch (e) {}
+  try { parsedIproData = typeof booking?.iproPayload === 'string' ? JSON.parse(booking.iproPayload) : (booking?.iproPayload || {}); } catch (e) {}
+
+  const BOARDING_DISPLAY_LABELS = {
+      RO: "Chambre Seule", BB: "Petit-Déjeuner", HB: "Demi-Pension",
+      FB: "Pension Complète", AI: "Tout Inclus", SC: "Self Catering",
+  };
+  const rawBoardingCode = parsedBookingData?.boardingType
+      || parsedIproData?.boardingType
+      || null;
+  const rawBoardingName = parsedBookingData?.rooms?.[0]?.boardingName
+      || parsedBookingData?.selectedRooms?.[0]?.boardingName
+      || parsedIproData?.rawRooms?.[0]?.boardingName
+      || null;
+  const boardBasis = rawBoardingName
+      || BOARDING_DISPLAY_LABELS[rawBoardingCode?.toUpperCase?.()]
+      || rawBoardingCode
+      || "Non spécifié";
+
+  // ── Resolve room type from parsed JSON data ───────────────────────
+  const roomType = parsedBookingData?.rooms?.[0]?.roomType
+      || parsedBookingData?.selectedRooms?.[0]?.roomType
+      || parsedIproData?.rawRooms?.[0]?.roomType
+      || parsedIproData?.rawRooms?.[0]?.name
+      || "Non spécifié";
 
   // Format currency
   const formattedPrice = clientPrice > 0
@@ -220,7 +246,7 @@ export default function VoucherModal({ isOpen, onClose, booking }) {
           <div id="voucher-footer" className="mt-auto pt-6 border-t border-slate-200 text-xs text-slate-500">
             <div className="flex justify-between items-center">
               <div>
-                <p className="font-bold text-slate-800 text-sm">AllezGo Voyage</p>
+                <p className="font-bold text-slate-800 text-sm">AllezGo</p>
                 <p>Cité El Moustakbel Ain Beida OEB</p>
                 <p>Tel: +213 770 93 25 63 / +213 670 23 02 35 | Email: contact@allezgoo.com</p>
               </div>

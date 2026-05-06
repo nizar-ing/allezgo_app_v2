@@ -94,7 +94,7 @@ function HotelsPerCityPage() {
         retry: 2,
     });
 
-    // ── Step 2 — Fetch pricing + extract preloaded room availability ───────────
+    // ── Step 2 — Fetch pricing via geo-targeting + extract preloaded rooms ──────
     const {
         data: pricingData,
         isLoading: isLoadingPricing,
@@ -103,17 +103,17 @@ function HotelsPerCityPage() {
         queryKey: ['hotel-pricing', cityId,
             searchParams.checkIn, searchParams.checkOut, searchParams.rooms],
         queryFn: async () => {
-            if (!allHotelsData?.length || !searchParams.checkIn || !searchParams.checkOut)
+            if (!searchParams.checkIn || !searchParams.checkOut)
                 return null;
 
-            const hotelIds = allHotelsData.map(h => h.Id);
+            // ✅ GEO-TARGETING: Let iPro resolve all available hotels for this city
             const result = await apiClient.searchHotel({
                 checkIn: searchParams.checkIn,
                 checkOut: searchParams.checkOut,
-                hotels: hotelIds,
+                cityId,
                 rooms: searchParams.rooms.map(room => ({
                     adult: room.adults,
-                    child: room.children, // ApiClient handles array or count transformation
+                    child: room.children,
                 })),
                 filters: { keywords: '', category: '', onlyAvailable: false, tags: '' },
             });
@@ -125,17 +125,19 @@ function HotelsPerCityPage() {
                 pricingMap[th.id] = {
                     minPrice: th.minPrice,
                     currency: th.currency,
-                    isAvailable: th.isAvailable, // ✅ Fix: Synchronisé avec HotelLightCard status
-                    availabilityStatus: th.availabilityStatus, // ✅ NOUVEAU: Transmet le statut "Sur demande" ou "Complet"
+                    isAvailable: th.isAvailable,
+                    availabilityStatus: th.availabilityStatus,
                     token: th.token,
+                    source: th.source,
                     discountPercent: th.maxDiscount,
-                    paxGroups: th.paxGroups,   // ✅ Fix: Données injectées pour affichage immédiat
+                    paxGroups: th.paxGroups,
                 };
             });
 
-            return pricingMap;
+            // ✅ Return raw search results so we can inject new hotels into the display
+            return { pricingMap, hotelSearch: result.hotelSearch || [] };
         },
-        enabled: !!allHotelsData && !!searchParams.checkIn && !!searchParams.checkOut,
+        enabled: !!cityId && !!searchParams.checkIn && !!searchParams.checkOut,
         staleTime: 2 * 60 * 1000,
     });
 
@@ -157,15 +159,45 @@ function HotelsPerCityPage() {
     }, [isErrorPricing]);
 
     // ── Derived data ───────────────────────────────────────────────────────────
+    const pricingMap = pricingData?.pricingMap ?? null;
+
     const hotelsWithPricing = useMemo(() => {
-        if (!allHotelsData) return [];
-        return allHotelsData.map(hotel =>
+        // Start with enriched hotels from listHotelEnhanced
+        const catalogHotels = (allHotelsData ?? []).map(hotel =>
             normalizeHotelForCard({
                 ...hotel,
-                pricing: pricingData?.[hotel.Id] ?? null,
+                pricing: pricingMap?.[hotel.Id] ?? null,
             })
         );
-    }, [allHotelsData, pricingData]);
+
+        // ✅ GEO-TARGETING MERGE: Inject hotels discovered by iPro that aren't in our catalog
+        if (pricingData?.hotelSearch?.length) {
+            const existingIds = new Set(catalogHotels.map(h => h.Id));
+            const seenNewIds = new Set();
+
+            pricingData.hotelSearch.forEach(sr => {
+                const id = sr.Hotel?.Id;
+                if (!id || existingIds.has(id) || seenNewIds.has(id)) return;
+                seenNewIds.add(id);
+
+                // Build a minimal hotel object from the search response
+                catalogHotels.push(normalizeHotelForCard({
+                    Id: id,
+                    Name: sr.Hotel.Name,
+                    Category: sr.Hotel.Category,
+                    City: sr.Hotel.City,
+                    ShortDescription: sr.Hotel.ShortDescription,
+                    Adress: sr.Hotel.Adress,
+                    Localization: sr.Hotel.Localization,
+                    Image: sr.Hotel.Image,
+                    pricing: pricingMap?.[id] ?? null,
+                    dataSource: 'geo-targeting',
+                }));
+            });
+        }
+
+        return catalogHotels;
+    }, [allHotelsData, pricingMap, pricingData]);
 
     const filteredHotels = useMemo(() => {
         let result = [...hotelsWithPricing];
@@ -178,16 +210,16 @@ function HotelsPerCityPage() {
                 )
             );
         // ✅ FIX : On masque uniquement les hôtels vraiment "full" si l'utilisateur coche la case "Disponible"
-        if (filters.disponibleSeulement && pricingData)
+        if (filters.disponibleSeulement && pricingMap)
             result = result.filter(h => h.pricing?.availabilityStatus !== 'full');
-        if (filters.priceRange && pricingData)
+        if (filters.priceRange && pricingMap)
             result = result.filter(h => {
                 const p = h.pricing?.minPrice;
                 if (!p) return false;
                 return p >= filters.priceRange.min && p <= filters.priceRange.max;
             });
         return result;
-    }, [hotelsWithPricing, filters, pricingData]);
+    }, [hotelsWithPricing, filters, pricingMap]);
 
     const sortedHotels = useMemo(() => {
         const sorted = [...filteredHotels];
@@ -399,8 +431,8 @@ function HotelsPerCityPage() {
     // ── Rendering Helpers ──────────────────────────────────────────────────────
     const sortOptions = [
         { value: 'recommended', label: 'Recommandés' },
-        { value: 'price-asc', label: 'Prix croissant', disabled: !pricingData },
-        { value: 'price-desc', label: 'Prix décroissant', disabled: !pricingData },
+        { value: 'price-asc', label: 'Prix croissant', disabled: !pricingMap },
+        { value: 'price-desc', label: 'Prix décroissant', disabled: !pricingMap },
         { value: 'rating', label: 'Meilleures notes' },
         { value: 'name-asc', label: 'Nom A-Z' },
     ];

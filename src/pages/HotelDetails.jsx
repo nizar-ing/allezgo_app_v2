@@ -180,6 +180,7 @@ function HotelDetails() {
     const [roomsByPax,        setRoomsByPax]        = useState(() => preloadedPricing?.paxGroups ?? []);
     const [selectedRoomTypes, setSelectedRoomTypes] = useState({});
     const [currentToken,      setCurrentToken]      = useState(preloadedPricing?.token || null);
+    const [currentSource,     setCurrentSource]     = useState(preloadedPricing?.source || null);
 
     const checkInDate  = useMemo(() => toDateString(range.from), [range.from]);
     const checkOutDate = useMemo(() => toDateString(range.to),   [range.to]);
@@ -368,6 +369,7 @@ function HotelDetails() {
             setActiveBoardingTab(fetchedRooms.length > 0 ? fetchedRooms[0].boardingCode : null);
             setHasSearched(true);
             setCurrentToken(response.token || null);
+            setCurrentSource(response.source || null);
             if (fetchedRooms.length > 0)
                 toast.success(`${fetchedRooms.length} option${fetchedRooms.length > 1 ? "s" : ""} disponible${fetchedRooms.length > 1 ? "s" : ""} !`);
             else
@@ -422,6 +424,8 @@ function HotelDetails() {
             checkOut:     checkOutDate,
             nights,
             boardingType: activeBoardingTab,
+            Source:       currentSource,
+            source:       currentSource,
             rooms:        selectedRoomsList,
             totalPrice:   computedTotalPrice,
             currency:     "DZD",
@@ -434,7 +438,7 @@ function HotelDetails() {
         navigate(`/booking/${hotelId}`, { state: bookingData });
         toast.success("Redirection vers la réservation...");
     }, [allSelected, computedTotalPrice, hasStopReservation, effectiveRoomsByPax, selectedRoomTypes, activeBoardingTab,
-        rooms, hotelId, hotelData, checkInDate, checkOutDate, navigate, nights, currentToken, roomsByPax]);
+        rooms, hotelId, hotelData, checkInDate, checkOutDate, navigate, nights, currentToken, currentSource, roomsByPax]);
 
     // ── Guards ────────────────────────────────────────────────────────────────
     if (!hotelId) return (
