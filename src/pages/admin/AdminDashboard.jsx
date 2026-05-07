@@ -19,7 +19,8 @@ import {
     XCircle,
     Ban,
     Clock,
-    CheckCircle2
+    CheckCircle2,
+    Image as ImageIcon
 } from 'lucide-react';
 //import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -37,6 +38,7 @@ import useAdminBookings from '../../custom-hooks/useAdminBookings.js';
 import VerifyBookingModal from '../../components/admin/VerifyBookingModal.jsx';
 import VoucherModal from '../../components/admin/VoucherModal.jsx';
 import CancelBookingModal from "../../components/admin/CancelBookingModal.jsx";
+import CarouselAdmin from "../../components/admin/CarouselAdmin.jsx";
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 function StatusBadge({status}) {
@@ -228,6 +230,7 @@ export default function AdminDashboard() {
         {id: 'bookings', label: 'Réservations', icon: CreditCard},
         {id: 'testimonials', label: 'Témoignages', icon: MessageSquare},
         {id: 'users', label: 'Utilisateurs', icon: Users},
+        {id: 'carousel', label: 'Carrousel', icon: ImageIcon},
     ];
 
     const renderContent = () => {
@@ -712,6 +715,8 @@ export default function AdminDashboard() {
                     </div>
                 </div>
             );
+        } else if (activeTab === 'carousel') {
+            return <CarouselAdmin />;
         }
 
         return (

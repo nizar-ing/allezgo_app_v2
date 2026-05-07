@@ -18,13 +18,20 @@ const Carrousel = ({
     const [isFirstLoad,     setIsFirstLoad]     = useState(true);
     const videoRefs = useRef([]);
 
-    const isVideo = (url) => {
+    const isVideo = (media) => {
+        if (!media) return false;
+        // Backend returns `video/mp4` etc.
+        if (media.mimeType && media.mimeType.startsWith('video/')) {
+            return true;
+        }
+        // Fallback for static items
+        const url = media.url || '';
         const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
         return videoExtensions.some(ext => url.toLowerCase().includes(ext));
     };
 
     const currentMedia    = images[currentIndex];
-    const isCurrentVideo  = currentMedia ? isVideo(currentMedia.url) : false;
+    const isCurrentVideo  = currentMedia ? isVideo(currentMedia) : false;
 
     const goToSlide = useCallback((index) => {
         if (isTransitioning) return;
@@ -80,7 +87,7 @@ const Carrousel = ({
         if (isFirstLoad && images.length > 0) {
             const firstVideoRef = videoRefs.current[0];
             const firstMedia    = images[0];
-            if (firstVideoRef && isVideo(firstMedia.url) && videoAutoPlay) {
+            if (firstVideoRef && isVideo(firstMedia) && videoAutoPlay) {
                 const timer = setTimeout(() => {
                     firstVideoRef.play()
                         .then(() => console.log('First video autoplayed successfully'))
@@ -154,7 +161,7 @@ const Carrousel = ({
                 style={{ transform: `translateX(-${currentIndex * 100}%)` }}
             >
                 {images.map((media, index) => {
-                    const isVideoSlide = isVideo(media.url);
+                    const isVideoSlide = isVideo(media);
                     return (
                         <div key={index} className="relative flex-shrink-0 w-full h-full">
                             {isVideoSlide ? (
@@ -174,7 +181,7 @@ const Carrousel = ({
                                 <img
                                     src={media.url}
                                     alt={media.alt}
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-fill"
                                     loading={index === 0 ? 'eager' : 'lazy'}
                                 />
                             )}
@@ -271,7 +278,7 @@ const Carrousel = ({
             {showDots && (
                 <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-10 flex space-x-3">
                     {images.map((media, index) => {
-                        const isDotVideo = isVideo(media.url);
+                        const isDotVideo = isVideo(media);
                         return (
                             <button
                                 key={index}

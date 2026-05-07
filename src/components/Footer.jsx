@@ -19,7 +19,7 @@ import {
 import { Link } from 'react-router-dom';
 
 const footerLinks = {
-    destinations: ['Hotels el Algérie', 'Hotels en Tunisie', 'Hotels dans le reste du monde'],
+    destinations: ['Hotels En Algérie', 'Hotels En Tunisie', 'Hotels dans le reste du monde'],
     services: [
         "Réservation d'hôtels", 'Vols', 'Voyages organisés', 'Croisières'
     ],
@@ -139,7 +139,7 @@ function Footer() {
                         <ul className="space-y-3">
                             <li className="flex items-start gap-2 text-sm">
                                 <MapPin className="w-4 h-4 text-orange-500 mt-1 flex-shrink-0" />
-                                <span className="text-gray-300">Cité Elmostakbel, OEB</span>
+                                <span className="text-gray-300">Cité El Moustakbel, Aîn Beida - OEB</span>
                             </li>
                             <li className="flex items-center gap-2 text-sm">
                                 <Phone className="w-4 h-4 text-orange-500 flex-shrink-0" />

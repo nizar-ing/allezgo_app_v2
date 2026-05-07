@@ -10,6 +10,7 @@ const ROUTES = {
   AUTH_REGISTER: "/api/auth/register",
   AUTH_LOGIN: "/api/auth/login",
   BOOKINGS: "/api/bookings",
+  CAROUSEL: "/carousel",
 };
 
 /** Same origin as API_GUIDE.md example; override with `VITE_API_BASE_URL`. */
@@ -157,10 +158,23 @@ function resolveApiBaseURL() {
  */
 
 /**
- * @typedef {Object} ApiErrorResponse
- * @property {number} [status]
- * @property {string} [message]
- * @property {any} [data]
+ * @typedef {Object} CarouselMedia
+ * @property {string} id
+ * @property {string} filename
+ * @property {string} originalName
+ * @property {string} mimeType
+ * @property {string} url
+ * @property {string|null} alt
+ * @property {number} displayOrder
+ * @property {boolean} isActive
+ * @property {string} createdAt
+ * @property {string} updatedAt
+ */
+
+/**
+ * @typedef {Object} ReorderItemDto
+ * @property {string} id
+ * @property {number} displayOrder
  */
 
 const axiosInstance = axios.create({
@@ -419,6 +433,31 @@ const Bookings = {
   }
 };
 
+const Carousel = {
+  /**
+   * @returns {Promise<CarouselMedia[]>}
+   */
+  getAll: () => axiosInstance.get(ROUTES.CAROUSEL),
+
+  /**
+   * @param {FormData} formData
+   * @returns {Promise<CarouselMedia>}
+   */
+  upload: (formData) => axiosInstance.post(`${ROUTES.CAROUSEL}/upload`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+
+  /**
+   * @param {ReorderItemDto[]} items
+   * @returns {Promise<CarouselMedia[]>}
+   */
+  reorder: (items) => axiosInstance.patch(`${ROUTES.CAROUSEL}/reorder`, { items }),
+
+  /**
+   * @param {string|number} id
+   * @returns {Promise<void>}
+   */
+  remove: (id) => axiosInstance.delete(`${ROUTES.CAROUSEL}${withId(id)}`),
+};
+
 /**
  * Fetches bookings specific to the authenticated client.
  * @param {number|string} userId - The ID of the current user
@@ -439,6 +478,7 @@ export const AllezGoApi = {
   Users,
   Auth,
   Bookings,
+  Carousel,
   async getMine() {
       // Hits the secure B2C endpoint
       return this.client.get('/api/bookings/my');

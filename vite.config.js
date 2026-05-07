@@ -20,4 +20,18 @@ export default defineConfig({
         }),
         tailwindcss(),
     ],
+    server: {
+        proxy: {
+            '/api': {
+                target: 'https://api.allezgoo.com',
+                changeOrigin: true,
+                secure: false,
+            },
+            '/carousel': {
+                target: 'https://api.allezgoo.com',
+                changeOrigin: true,
+                secure: false,
+            }
+        }
+    }
 })
