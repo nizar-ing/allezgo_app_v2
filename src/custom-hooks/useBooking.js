@@ -1,13 +1,18 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { AllezGoApi } from '../services/allezgo-api/allezGoApi';
+import useSettings from './useSettings.js';
 
 export function useBooking({ onSuccess: externalOnSuccess, onError: externalOnError } = {}) {
     const queryClient = useQueryClient();
+    const { settings } = useSettings();
+    const benefitRate = settings?.benefit_marge !== undefined
+        ? settings.benefit_marge / 100
+        : 0.08;
 
     return useMutation({
         mutationFn: async ({ bookingState, paymentMethod, receiptFile, clientPhone }) => {
-            // The price coming from the bookingState (via ApiClient) already contains the 8% margin.
+            // clientPrice comes from ApiClient which already applied the agency markup.
             const clientPrice = bookingState?.totalPrice || bookingState?.basePrice || 0;
 
             const cityId = Number(bookingState?.hotel?.City?.Id || bookingState?.hotel?.City);
@@ -57,17 +62,18 @@ export function useBooking({ onSuccess: externalOnSuccess, onError: externalOnEr
             const checkOut = bookingState?.checkOut;
 
             // Stringify the core data, keeping all B2C state intact!
-            formData.append('bookingData', JSON.stringify({ 
+            formData.append('bookingData', JSON.stringify({
                 ...bookingState, // 🔴 CRITICAL: Spreads hotel, rooms, and boarding details
-                Token: bookingState?.Token || bookingState?.token, 
-                hotelId, 
+                Token: bookingState?.Token || bookingState?.token,
+                hotelId,
                 hotelName,
-                checkIn, 
-                checkOut, 
-                clientPrice, 
-                paymentMethod, 
-                clientPhone, 
-                iproPayload 
+                checkIn,
+                checkOut,
+                clientPrice,
+                paymentMethod,
+                clientPhone,
+                appliedBenefitRate: benefitRate,
+                iproPayload
             }));
 
             // Append the file if it exists
