@@ -1,63 +1,22 @@
 import React, { useState, useActionState, useEffect } from 'react';
-import { X, Save, Globe, Plane, DollarSign, List, Home, Map, Plus, Trash2 } from 'lucide-react';
+import { X, Save, Globe, Plane, DollarSign, List, Home, Map, Plus, Trash2, ImageUp } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import AllezGoApi from "../../services/allezgo-api/allezGoApi.js";
+import ArrayInput from '../../components/admin/ArrayInput.jsx';
 
-// --- Sub-components for dynamic lists ---
-const ArrayInput = ({ label, items, setItems, placeholder }) => {
-    const [inputValue, setInputValue] = useState('');
-
-    const addItem = () => {
-        if (inputValue.trim()) {
-            setItems([...items, inputValue.trim()]);
-            setInputValue('');
-        }
-    };
-
-    return (
-        <div className="mb-5">
-            <label className="block text-sm font-semibold text-slate-700 mb-2">{label}</label>
-            <div className="flex gap-2 mb-3">
-                <input
-                    type="text"
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } }}
-                    className="block w-full px-3 py-2 border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all text-sm"
-                    placeholder={placeholder}
-                />
-                <button type="button" onClick={addItem} className="px-4 py-2 bg-sky-50 text-sky-600 hover:bg-sky-100 rounded-lg shrink-0 font-medium transition-colors">
-                    <Plus size={18} />
-                </button>
-            </div>
-            {items.length > 0 && (
-                <ul className="space-y-2">
-                    {items.map((item, index) => (
-                        <li key={index} className="flex justify-between items-center bg-white px-3 py-2 border border-slate-100 rounded-lg shadow-sm">
-                            <span className="text-sm text-slate-700 font-medium">{item}</span>
-                            <button type="button" onClick={() => setItems(items.filter((_, i) => i !== index))} className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-md transition-colors">
-                                <Trash2 size={16} />
-                            </button>
-                        </li>
-                    ))}
-                </ul>
-            )}
-        </div>
-    );
-};
+const BACKEND_BASE = 'https://api.allezgoo.com';
 
 export default function EditDestinationModal({ destination, onClose }) {
     const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState(1);
+    const [imagePreview, setImagePreview] = useState(null);
 
-    // --- Complex States ---
     const [mainCities, setMainCities] = useState([]);
     const [highlights, setHighlights] = useState([]);
     const [included, setIncluded] = useState([]);
     const [notIncluded, setNotIncluded] = useState([]);
     const [keyAttractions, setKeyAttractions] = useState([]);
-
     const [accommodations, setAccommodations] = useState([]);
     const [itineraries, setItineraries] = useState([]);
 
@@ -68,15 +27,39 @@ export default function EditDestinationModal({ destination, onClose }) {
             setIncluded(destination.included || []);
             setNotIncluded(destination.notIncluded || []);
             setKeyAttractions(destination.keyAttractions || []);
-            setAccommodations(destination.accommodations || []);
-            setItineraries(destination.itineraries || []);
+            const dedupedAccommodations = Object.values(
+                (destination.accommodations || []).reduce((map, entry) => {
+                    const key = `${entry.hotel}||${entry.location}`;
+                    if (!map[key] || (entry.id ?? 0) > (map[key].id ?? 0)) map[key] = entry;
+                    return map;
+                }, {})
+            );
+            setAccommodations(dedupedAccommodations);
+            const dedupedItineraries = Object.values(
+                (destination.itineraries || []).reduce((map, entry) => {
+                    const key = entry.day;
+                    if (!map[key] || (entry.id ?? 0) > (map[key].id ?? 0)) map[key] = entry;
+                    return map;
+                }, {})
+            ).sort((a, b) => a.day - b.day);
+            setItineraries(dedupedItineraries);
+            setImagePreview(null);
             setActiveTab(1);
         }
     }, [destination]);
 
     const handleClose = () => {
+        setImagePreview(null);
         onClose();
-    }
+    };
+
+    const handleImageChange = (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (imagePreview) URL.revokeObjectURL(imagePreview);
+            setImagePreview(URL.createObjectURL(file));
+        }
+    };
 
     const preventEnterSubmit = (e) => {
         if (e.key === 'Enter') e.preventDefault();
@@ -102,16 +85,30 @@ export default function EditDestinationModal({ destination, onClose }) {
         setItineraries(newItin);
     };
 
-    // --- Submission Action ---
     const submitDestination = async (prevState, formData) => {
         try {
-            // 1. Manual Validation Check
+            // 1. Validation
             const name = formData.get('name');
             if (!name) return { success: false, error: "Veuillez remplir le Nom de la destination (Onglet 1)." };
-            if (!formData.get('image_url')) return { success: false, error: "Veuillez ajouter une URL d'image (Onglet 1)." };
+            if (!formData.get('image_url') && !formData.get('image_file')?.size)
+                return { success: false, error: "Veuillez ajouter une image (Onglet 1)." };
             if (itineraries.length === 0) return { success: false, error: "Veuillez ajouter au moins un jour d'itinéraire (Onglet 5)." };
 
-            // 2. Data Compilation
+            // 2. Resolve image URL — upload new file if provided, else keep existing
+            let image_url = destination.image_url;
+            const imageFile = formData.get('image_file');
+            if (imageFile && imageFile.size > 0) {
+                const uploadFD = new FormData();
+                uploadFD.append('file', imageFile);
+                const uploadResult = await AllezGoApi.Destinations.uploadImage(uploadFD);
+                image_url = uploadResult?.url ?? uploadResult?.path ?? (uploadResult?.filename ? `/upload/destinations/${uploadResult.filename}` : null);
+                if (!image_url) throw new Error("Le serveur n'a pas retourné l'URL de l'image.");
+            }
+
+            // 3. Compile payload — strip `id` from nested arrays (backend rejects them on update)
+            const sanitizedAccommodations = accommodations.map(({ id, ...rest }) => rest);
+            const sanitizedItineraries = itineraries.map(({ id, ...rest }) => rest);
+
             const pricing = {
                 double: Number(formData.get('pricing.double') || 0),
                 single: Number(formData.get('pricing.single') || 0),
@@ -126,19 +123,15 @@ export default function EditDestinationModal({ destination, onClose }) {
             const flightDetails = {
                 via: formData.get('flightDetails.via') || '',
                 arrival: formData.get('flightDetails.arrival') || '',
-                departure: formData.get('flightDetails.departure') || ''
+                departure: formData.get('flightDetails.departure') || '',
             };
 
-            // 3. Payload Sanitization: Strip 'id' from nested arrays
-            const sanitizedAccommodations = accommodations.map(({ id, ...rest }) => rest);
-            const sanitizedItineraries = itineraries.map(({ id, ...rest }) => rest);
-
             const payload = {
-                name: name,
-                image_url: formData.get('image_url'),
+                name,
+                image_url,
                 duration: {
                     days: Number(formData.get('duration.days') || 0),
-                    nights: Number(formData.get('duration.nights') || 0)
+                    nights: Number(formData.get('duration.nights') || 0),
                 },
                 departureFrom: formData.get('departureFrom') || '',
                 airline: formData.get('airline') || '',
@@ -151,7 +144,7 @@ export default function EditDestinationModal({ destination, onClose }) {
                 notIncluded,
                 keyAttractions,
                 accommodations: sanitizedAccommodations,
-                itineraries: sanitizedItineraries
+                itineraries: sanitizedItineraries,
             };
 
             await AllezGoApi.Destinations.update(destination.id, payload);
@@ -171,6 +164,11 @@ export default function EditDestinationModal({ destination, onClose }) {
     const [state, formAction, isPending] = useActionState(submitDestination, null);
 
     if (!destination) return null;
+
+    // Resolve the URL to display the current image (may be relative path)
+    const currentImageSrc = destination.image_url?.startsWith('http')
+        ? destination.image_url
+        : `${BACKEND_BASE}${destination.image_url}`;
 
     const tabs = [
         { id: 1, label: 'Infos Générales', icon: Globe },
@@ -220,7 +218,6 @@ export default function EditDestinationModal({ destination, onClose }) {
                             })}
                         </nav>
 
-                        {/* Error output */}
                         {state?.error && (
                             <div className="mt-8 p-4 bg-red-50/80 rounded-xl border border-red-100">
                                 <p className="text-xs font-semibold text-red-600 uppercase tracking-wider mb-1">Erreur</p>
@@ -241,9 +238,52 @@ export default function EditDestinationModal({ destination, onClose }) {
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">Nom (ex: Istanbul Evasion)</label>
                                         <input type="text" name="name" defaultValue={destination.name} onKeyDown={preventEnterSubmit} required className="block w-full px-3 py-2 border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-2 focus:ring-sky-500" />
                                     </div>
+
+                                    {/* Image section */}
                                     <div className="col-span-2">
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">URL de l'image principale</label>
-                                        <input type="url" name="image_url" defaultValue={destination.image_url} placeholder="https://..." onKeyDown={preventEnterSubmit} required className="block w-full px-3 py-2 border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-2 focus:ring-sky-500" />
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">Image principale</label>
+
+                                        {/* Current image */}
+                                        {!imagePreview && destination.image_url && (
+                                            <div className="mb-3">
+                                                <p className="text-xs text-slate-400 mb-1">Image actuelle</p>
+                                                <img
+                                                    src={currentImageSrc}
+                                                    alt="Image actuelle"
+                                                    className="h-36 w-full object-cover rounded-lg border border-sky-100 shadow-sm"
+                                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                                />
+                                            </div>
+                                        )}
+
+                                        {/* New file preview */}
+                                        {imagePreview && (
+                                            <div className="mb-3">
+                                                <p className="text-xs text-sky-500 font-semibold mb-1">Nouvelle image</p>
+                                                <img
+                                                    src={imagePreview}
+                                                    alt="Aperçu nouvelle image"
+                                                    className="h-36 w-full object-cover rounded-lg border border-sky-300 shadow-sm"
+                                                />
+                                            </div>
+                                        )}
+
+                                        {/* Hidden field carries the existing image_url so validation passes when no new file */}
+                                        <input type="hidden" name="image_url" value={destination.image_url || ''} />
+
+                                        <label className="flex items-center gap-3 px-4 py-3 border-2 border-dashed border-sky-200 bg-sky-50/40 rounded-lg cursor-pointer hover:border-sky-400 hover:bg-sky-50 transition-colors">
+                                            <ImageUp size={20} className="text-sky-500 shrink-0" />
+                                            <span className="text-sm text-slate-500">
+                                                {imagePreview ? 'Changer l\'image…' : 'Remplacer l\'image (optionnel)'}
+                                            </span>
+                                            <input
+                                                type="file"
+                                                name="image_file"
+                                                accept="image/*"
+                                                onChange={handleImageChange}
+                                                className="sr-only"
+                                            />
+                                        </label>
                                     </div>
 
                                     <div>
@@ -370,7 +410,6 @@ export default function EditDestinationModal({ destination, onClose }) {
                                                 <button type="button" onClick={() => setAccommodations(accommodations.filter((_, i) => i !== index))} className="absolute top-4 right-4 text-slate-400 hover:text-red-500 transition-colors p-1 bg-slate-50 hover:bg-red-50 rounded-md">
                                                     <Trash2 size={16} />
                                                 </button>
-
                                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full pr-8">
                                                     <div className="col-span-2">
                                                         <label className="block text-xs font-semibold text-slate-500 mb-1">Localisation / Ville</label>
@@ -434,7 +473,6 @@ export default function EditDestinationModal({ destination, onClose }) {
 
                         {/* Modal Footer */}
                         <div className="px-6 py-4 border-t border-sky-50 bg-slate-50 flex justify-between items-center shrink-0">
-                            {/* Navigation hints */}
                             <div className="flex gap-2 text-sm">
                                 {activeTab > 1 && (
                                     <button type="button" onClick={() => setActiveTab(activeTab - 1)} className="px-4 py-2 text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg font-medium transition-colors">

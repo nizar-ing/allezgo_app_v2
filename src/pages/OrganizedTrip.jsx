@@ -24,6 +24,10 @@ import {
 import { MdVerifiedUser, MdTour } from "react-icons/md";
 import Button from "../ui/Button.jsx";
 
+const BACKEND_BASE = 'https://api.allezgoo.com';
+const resolveImageUrl = (url) =>
+  url?.startsWith('http') ? url : `${BACKEND_BASE}${url}`;
+
 function OrganizedTrip() {
   const { tripId: id } = useParams();
 
@@ -89,6 +93,22 @@ function OrganizedTrip() {
   const currentPricing =
     Object.values(pricingOptions)[selectedHotel] || destination.pricing || {};
 
+  const uniqueItineraries = Object.values(
+    (destination.itineraries ?? []).reduce((map, entry) => {
+      const key = entry.day;
+      if (!map[key] || (entry.id ?? 0) > (map[key].id ?? 0)) map[key] = entry;
+      return map;
+    }, {})
+  ).sort((a, b) => a.day - b.day);
+
+  const uniqueAccommodations = Object.values(
+    (destination.accommodations ?? []).reduce((map, entry) => {
+      const key = `${entry.hotel}||${entry.location}`;
+      if (!map[key] || (entry.id ?? 0) > (map[key].id ?? 0)) map[key] = entry;
+      return map;
+    }, {})
+  );
+
   return (
     <section className="min-h-screen w-full bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-50">
       <main className="max-w-6xl lg:max-w-4/5 mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-10 sm:pb-12">
@@ -96,7 +116,7 @@ function OrganizedTrip() {
         {/* Hero */}
         <div className="relative h-[260px] sm:h-[340px] md:h-[420px] lg:h-[500px] rounded-3xl overflow-hidden mb-8 sm:mb-10 shadow-2xl group">
           <img
-            src={destination.image_url}
+            src={resolveImageUrl(destination.image_url)}
             alt={destination.name}
             className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105"
           />
@@ -195,14 +215,14 @@ function OrganizedTrip() {
             )}
 
             {/* Accommodation (updated to accommodations) */}
-            {destination.accommodations && destination.accommodations.length > 0 && (
+            {uniqueAccommodations.length > 0 && (
               <div className="bg-white rounded-3xl shadow-lg hover:shadow-xl transition-all duration-300 p-5 sm:p-8 border border-gray-100">
                 <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 flex items-center gap-2">
                   <div className="w-1 h-7 sm:h-8 bg-gradient-to-b from-purple-500 to-purple-600 rounded-full" />
                   Hébergement
                 </h2>
                 <div className="space-y-3 sm:space-y-4">
-                  {destination.accommodations.map((acc, index) => (
+                  {uniqueAccommodations.map((acc, index) => (
                     <div
                       key={index}
                       className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-purple-50 to-white border border-purple-100 hover:shadow-md transition-all duration-200"
@@ -254,14 +274,14 @@ function OrganizedTrip() {
             )}
 
             {/* Itinerary (updated to itineraries) */}
-            {destination.itineraries && destination.itineraries.length > 0 && (
+            {uniqueItineraries.length > 0 && (
               <div className="bg-white rounded-3xl shadow-lg hover:shadow-xl transition-all duration-300 p-5 sm:p-8 border border-gray-100">
                 <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 flex items-center gap-2">
                   <div className="w-1 h-7 sm:h-8 bg-gradient-to-b from-orange-500 to-orange-600 rounded-full" />
                   Programme détaillé
                 </h2>
                 <div className="space-y-3">
-                  {destination.itineraries.map((day, index) => (
+                  {uniqueItineraries.map((day, index) => (
                     <div
                       key={index}
                       className="border border-gray-200 rounded-2xl overflow-hidden hover:border-orange-300 transition-all duration-200"
@@ -273,12 +293,15 @@ function OrganizedTrip() {
                         className="w-full px-3 py-4 sm:p-5 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white hover:from-orange-50 hover:to-white transition-all duration-200"
                       >
                         <div className="flex items-center gap-3 sm:gap-4">
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold shadow-lg text-sm sm:text-base">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold shadow-lg text-sm sm:text-base flex-shrink-0">
                             {day.day}
                           </div>
                           <div className="text-left">
-                            <h3 className="font-bold text-gray-800 text-sm sm:text-base">
+                            <p className="text-[11px] sm:text-xs text-orange-500 font-semibold uppercase tracking-wide mb-0.5">
                               Jour {day.day}
+                            </p>
+                            <h3 className="font-bold text-gray-800 text-sm sm:text-base leading-tight">
+                              {day.title || "Programme du jour"}
                             </h3>
                           </div>
                         </div>

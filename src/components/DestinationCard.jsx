@@ -13,6 +13,10 @@ import {
     ArrowBigRight
 } from 'lucide-react';
 
+const BACKEND_BASE = 'https://api.allezgoo.com';
+const resolveImageUrl = (url) =>
+    url?.startsWith('http') ? url : `${BACKEND_BASE}${url}`;
+
 const formatPrice = (price) =>
     new Intl.NumberFormat('fr-DZ').format(price);
 
@@ -65,6 +69,24 @@ function DestinationCard({
         );
     }, [pricing]);
 
+    const uniqueAccommodations = useMemo(() =>
+        Object.values(
+            accommodations.reduce((map, entry) => {
+                const key = `${entry.hotel}||${entry.location}`;
+                if (!map[key] || (entry.id ?? 0) > (map[key].id ?? 0)) map[key] = entry;
+                return map;
+            }, {})
+        ), [accommodations]);
+
+    const uniqueItineraries = useMemo(() =>
+        Object.values(
+            itineraries.reduce((map, entry) => {
+                const key = entry.day;
+                if (!map[key] || (entry.id ?? 0) > (map[key].id ?? 0)) map[key] = entry;
+                return map;
+            }, {})
+        ).sort((a, b) => a.day - b.day), [itineraries]);
+
     return (
         <div
             className="relative w-full min-w-[300px] sm:min-w-[340px] md:min-w-[420px] max-w-md h-[580px] md:h-[640px] cursor-pointer mx-auto"
@@ -91,7 +113,7 @@ function DestinationCard({
                     {/* Image */}
                     <div className="relative h-44 sm:h-48 md:h-52 overflow-hidden">
                         <img
-                            src={image_url || '/placeholder-image.jpg'}
+                            src={resolveImageUrl(image_url) || '/placeholder-image.jpg'}
                             alt={name}
                             loading="lazy"
                             className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-700"
@@ -199,14 +221,14 @@ function DestinationCard({
                         </h3>
 
                         {/* Accommodation */}
-                        {accommodations?.length > 0 && (
+                        {uniqueAccommodations.length > 0 && (
                             <div className="space-y-1.5 sm:space-y-2">
                                 <h4 className="text-xs sm:text-sm font-bold uppercase tracking-wide flex items-center gap-2">
                                     <Hotel className="w-3 h-3 sm:w-4 sm:h-4" />
                                     Hébergement
                                 </h4>
                                 <div className="space-y-1.5 sm:space-y-2">
-                                    {accommodations?.map((hotel, index) => (
+                                    {uniqueAccommodations.map((hotel, index) => (
                                         <div
                                             key={index}
                                             className="bg-white/15 rounded-xl p-2 sm:p-3 backdrop-blur-sm shadow-md hover:bg-white/20 transition-colors"
@@ -246,22 +268,22 @@ function DestinationCard({
                         )}
 
                         {/* Itinerary Preview */}
-                        {itineraries?.length > 0 && (
+                        {uniqueItineraries.length > 0 && (
                             <div className="space-y-1.5 sm:space-y-2">
                                 <h4 className="text-xs sm:text-sm font-bold uppercase tracking-wide flex items-center gap-2">
                                     <Navigation className="w-3 h-3 sm:w-4 sm:h-4" />
-                                    Programme ({itineraries?.length || 0} jours)
+                                    Programme ({uniqueItineraries.length} jours)
                                 </h4>
                                 <div className="space-y-1 sm:space-y-1.5 max-h-28 sm:max-h-32 overflow-y-auto">
-                                    {itineraries?.slice(0, 4).map((day, index) => (
+                                    {uniqueItineraries.slice(0, 4).map((day, index) => (
                                         <div key={index} className="text-[10px] sm:text-xs text-white/90 flex gap-1.5 sm:gap-2">
                                             <span className="font-bold text-yellow-400">J{day?.day}</span>
                                             <span className="font-medium">{day?.title}</span>
                                         </div>
                                     ))}
-                                    {itineraries?.length > 4 && (
+                                    {uniqueItineraries.length > 4 && (
                                         <div className="text-[10px] sm:text-xs text-white/70 italic">
-                                            + {itineraries.length - 4} autres jours...
+                                            + {uniqueItineraries.length - 4} autres jours...
                                         </div>
                                     )}
                                 </div>

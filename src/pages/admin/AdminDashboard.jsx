@@ -20,7 +20,8 @@ import {
     Ban,
     Clock,
     CheckCircle2,
-    Image as ImageIcon
+    Image as ImageIcon,
+    BarChart2,
 } from 'lucide-react';
 //import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -39,6 +40,7 @@ import VerifyBookingModal from '../../components/admin/VerifyBookingModal.jsx';
 import VoucherModal from '../../components/admin/VoucherModal.jsx';
 import CancelBookingModal from "../../components/admin/CancelBookingModal.jsx";
 import CarouselAdmin from "../../components/admin/CarouselAdmin.jsx";
+import BusinessStats from './BusinessStats.jsx';
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 function StatusBadge({status}) {
@@ -231,6 +233,7 @@ export default function AdminDashboard() {
         {id: 'testimonials', label: 'Témoignages', icon: MessageSquare},
         {id: 'users', label: 'Utilisateurs', icon: Users},
         {id: 'carousel', label: 'Carrousel', icon: ImageIcon},
+        {id: 'analytics', label: 'My Business Stats', icon: BarChart2},
     ];
 
     const renderContent = () => {
@@ -715,6 +718,8 @@ export default function AdminDashboard() {
                     </div>
                 </div>
             );
+        } else if (activeTab === 'analytics') {
+            return <BusinessStats />;
         } else if (activeTab === 'carousel') {
             return <CarouselAdmin />;
         }

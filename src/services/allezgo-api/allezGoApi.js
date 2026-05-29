@@ -4,6 +4,7 @@ const AUTH_STORAGE_KEY = "access_token";
 
 const ROUTES = {
   DESTINATIONS: "/api/destinations",
+  DESTINATIONS_UPLOAD: "/api/destinations/upload",
   E_VISAS: "/api/e-visas",
   TESTIMONIALS: "/api/testimonials",
   USERS: "/api/users",
@@ -284,6 +285,15 @@ const Destinations = {
    * @returns {Promise<void|Destination>}
    */
   remove: (id) => axiosInstance.delete(`${ROUTES.DESTINATIONS}${withId(id)}`),
+
+  /**
+   * @param {FormData} formData - must contain a `file` field
+   * @returns {Promise<{ url: string, filename: string }>}
+   */
+  uploadImage: (formData) =>
+    axiosInstance.post(ROUTES.DESTINATIONS_UPLOAD, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
 };
 
 const EVisas = {

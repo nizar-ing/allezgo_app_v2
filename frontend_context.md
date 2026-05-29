@@ -1,7 +1,7 @@
 # AllezGo Frontend Context
 
 Automated context generation of the AllezGo React architecture.
-Generated on: 5/6/2026, 6:59:41 PM
+Generated on: 5/29/2026, 9:27:47 AM
 
 File: package.json
 ```json
@@ -178,6 +178,55 @@ function App() {
 export default App;
 ```
 
+File: src/components/admin/ArrayInput.jsx
+```jsx
+import { useState } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
+
+export default function ArrayInput({ label, items, setItems, placeholder }) {
+    const [inputValue, setInputValue] = useState('');
+
+    const addItem = () => {
+        if (inputValue.trim()) {
+            setItems([...items, inputValue.trim()]);
+            setInputValue('');
+        }
+    };
+
+    return (
+        <div className="mb-5">
+            <label className="block text-sm font-semibold text-slate-700 mb-2">{label}</label>
+            <div className="flex gap-2 mb-3">
+                <input
+                    type="text"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } }}
+                    className="block w-full px-3 py-2 border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all text-sm"
+                    placeholder={placeholder}
+                />
+                <button type="button" onClick={addItem} className="px-4 py-2 bg-sky-50 text-sky-600 hover:bg-sky-100 rounded-lg shrink-0 font-medium transition-colors">
+                    <Plus size={18} />
+                </button>
+            </div>
+            {items.length > 0 && (
+                <ul className="space-y-2">
+                    {items.map((item, index) => (
+                        <li key={index} className="flex justify-between items-center bg-white px-3 py-2 border border-slate-100 rounded-lg shadow-sm">
+                            <span className="text-sm text-slate-700 font-medium">{item}</span>
+                            <button type="button" onClick={() => setItems(items.filter((_, i) => i !== index))} className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-md transition-colors">
+                                <Trash2 size={16} />
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+}
+
+```
+
 File: src/components/admin/CancelBookingModal.jsx
 ```jsx
 import { useState } from "react";
@@ -281,6 +330,243 @@ export default function CancelBookingModal({ isOpen, booking, onClose }) {
         </div>
     );
 }
+```
+
+File: src/components/admin/CarouselAdmin.jsx
+```jsx
+// src/components/admin/CarouselAdmin.jsx
+import React, { useState, useRef } from 'react';
+import { Plus, Trash2, ArrowUp, ArrowDown, Image as ImageIcon, Video, AlertCircle, Loader2 } from 'lucide-react';
+import useCarousel from '../../custom-hooks/useCarousel.js';
+import Loader from '../../ui/Loader.jsx';
+import toast from 'react-hot-toast';
+
+const API_BASE = "https://api.allezgoo.com";
+
+export default function CarouselAdmin() {
+    const { data: carouselItems, loading, uploadMedia, removeMedia, reorderMedia, actionLoading } = useCarousel();
+    const [uploading, setUploading] = useState(false);
+    const [altText, setAltText] = useState('');
+    const fileInputRef = useRef(null);
+
+    const handleUpload = async (e) => {
+        e.preventDefault();
+        const file = fileInputRef.current?.files?.[0];
+        if (!file) {
+            toast.error("Veuillez sélectionner un fichier.");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+        if (altText) {
+            formData.append('alt', altText);
+        }
+
+        try {
+            setUploading(true);
+            await uploadMedia(formData);
+            setAltText('');
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        } catch (error) {
+            console.error("Upload failed", error);
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleDelete = (id) => {
+        toast((t) => (
+            <div className="flex flex-col gap-3">
+                <p className="font-medium text-slate-800">Voulez-vous vraiment supprimer ce média ?</p>
+                <div className="flex justify-end gap-2">
+                    <button
+                        onClick={() => toast.dismiss(t.id)}
+                        className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded transition-colors"
+                    >
+                        Annuler
+                    </button>
+                    <button
+                        onClick={async () => {
+                            toast.dismiss(t.id);
+                            await removeMedia(id);
+                        }}
+                        className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded transition-colors"
+                    >
+                        Supprimer
+                    </button>
+                </div>
+            </div>
+        ), {
+            duration: 5000,
+            icon: '⚠️',
+            style: {
+                minWidth: '300px',
+            },
+        });
+    };
+
+    const handleMove = async (index, direction) => {
+        if (!carouselItems) return;
+
+        const newIndex = direction === 'up' ? index - 1 : index + 1;
+        if (newIndex < 0 || newIndex >= carouselItems.length) return;
+
+        // Create a copy of the items to compute new order
+        const updatedItems = [...carouselItems];
+
+        // Swap
+        const temp = updatedItems[index];
+        updatedItems[index] = updatedItems[newIndex];
+        updatedItems[newIndex] = temp;
+
+        // Reassign displayOrder sequentially based on array index
+        const reorderPayload = updatedItems.map((item, idx) => ({
+            id: item.id,
+            displayOrder: idx
+        }));
+
+        await reorderMedia(reorderPayload);
+    };
+
+    const isVideo = (media) => media.mimeType && media.mimeType.startsWith('video/');
+
+    if (loading) {
+        return (
+            <div className="py-12">
+                <Loader variant="minimal" fullHeight={false} message="Chargement du carrousel..." />
+            </div>
+        );
+    }
+
+    return (
+        <div className="bg-white rounded-xl shadow-sm border border-sky-100/50 overflow-hidden font-sans">
+            <div className="px-6 py-5 border-b border-gray-100 flex flex-col md:flex-row md:justify-between md:items-center items-start gap-4 bg-white">
+                <div>
+                    <h3 className="text-lg font-semibold text-sky-900 flex items-center gap-2">
+                        <ImageIcon className="w-5 h-5 text-sky-600" />
+                        Gestion du Carrousel
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1">Ajoutez, réorganisez ou supprimez les médias affichés sur l'accueil</p>
+                </div>
+            </div>
+
+            <div className="p-6">
+                {/* Upload Form */}
+                <form onSubmit={handleUpload} className="mb-8 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <h4 className="text-md font-semibold text-slate-800 mb-4">Ajouter un nouveau média</h4>
+                    <div className="flex flex-col md:flex-row gap-4 items-end">
+                        <div className="flex-1 w-full">
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Fichier (Image ou Vidéo MP4)</label>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                accept="image/*,video/mp4,video/webm,video/ogg"
+                                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100 border border-slate-300 rounded-md"
+                                required
+                            />
+                        </div>
+                        <div className="flex-1 w-full">
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Texte alternatif (optionnel)</label>
+                            <input
+                                type="text"
+                                value={altText}
+                                onChange={(e) => setAltText(e.target.value)}
+                                placeholder="Description pour l'accessibilité"
+                                className="w-full px-4 py-2 border border-slate-300 rounded-md focus:ring-sky-500 focus:border-sky-500"
+                            />
+                        </div>
+                        <button
+                            type="submit"
+                            disabled={uploading || actionLoading}
+                            className="bg-sky-600 hover:bg-sky-700 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2 w-full md:w-auto justify-center"
+                        >
+                            {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
+                            {uploading ? "Envoi..." : "Ajouter"}
+                        </button>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
+                        <AlertCircle size={12} /> Les vidéos seront jouées automatiquement (sans son) si configurées ainsi.
+                    </p>
+                </form>
+
+                {/* Media List */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {carouselItems && carouselItems.length > 0 ? (
+                        carouselItems.map((item, index) => {
+                            const isFirst = index === 0;
+                            const isLast = index === carouselItems.length - 1;
+                            const fullUrl = item.url.startsWith('http') ? item.url : `${API_BASE}${item.url}`;
+
+                            return (
+                                <div key={item.id} className="group relative bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                                    <div className="aspect-video bg-slate-100 relative">
+                                        {isVideo(item) ? (
+                                            <>
+                                                <video src={fullUrl} className="w-full h-full object-cover" muted loop playsInline />
+                                                <div className="absolute top-2 left-2 bg-black/60 text-white px-2 py-1 rounded text-xs flex items-center gap-1 backdrop-blur-sm">
+                                                    <Video size={12} /> Vidéo
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <img src={fullUrl} alt={item.alt || item.filename} className="w-full h-full object-cover" />
+                                                <div className="absolute top-2 left-2 bg-black/60 text-white px-2 py-1 rounded text-xs flex items-center gap-1 backdrop-blur-sm">
+                                                    <ImageIcon size={12} /> Image
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+
+                                    <div className="p-4 flex flex-col gap-3">
+                                        <div>
+                                            <p className="text-sm font-semibold text-slate-800 truncate" title={item.originalName}>{item.originalName}</p>
+                                            {item.alt && <p className="text-xs text-slate-500 truncate" title={item.alt}>Alt: {item.alt}</p>}
+                                        </div>
+
+                                        <div className="flex items-center justify-between mt-auto">
+                                            <div className="flex gap-1">
+                                                <button
+                                                    onClick={() => handleMove(index, 'up')}
+                                                    disabled={isFirst || actionLoading}
+                                                    className="p-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded transition-colors disabled:opacity-30"
+                                                    title="Déplacer vers le haut"
+                                                >
+                                                    <ArrowUp size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleMove(index, 'down')}
+                                                    disabled={isLast || actionLoading}
+                                                    className="p-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded transition-colors disabled:opacity-30"
+                                                    title="Déplacer vers le bas"
+                                                >
+                                                    <ArrowDown size={16} />
+                                                </button>
+                                            </div>
+
+                                            <button
+                                                onClick={() => handleDelete(item.id)}
+                                                disabled={actionLoading}
+                                                className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded transition-colors disabled:opacity-50 flex items-center gap-1 text-xs font-semibold px-2"
+                                            >
+                                                <Trash2 size={14} /> Supprimer
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    ) : (
+                        <div className="col-span-full py-12 text-center text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+                            Aucun média dans le carrousel. Ajoutez-en un pour commencer.
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 ```
 
 File: src/components/admin/VerifyBookingModal.jsx
@@ -499,7 +785,8 @@ export default function VerifyBookingModal({isOpen, booking, onClose}) {
             Hotel: parseInt(bData.Hotel || bookingEntity.hotelId || bData.hotelId || bData.hotel?.Id, 10),
             CheckIn: (bookingEntity.checkIn || bData.CheckIn || bData.checkIn).substring(0, 10),
             CheckOut: (bookingEntity.checkOut || bData.CheckOut || bData.checkOut).substring(0, 10),
-            // Source: iPayload.Source || bData.Source || "local-2",
+            // Source: iPro session identifier required for BookingCreation
+            Source: iPayload.Source || bData.Source || bData.source,
             Rooms: mappedRooms
         };
     };
@@ -535,7 +822,8 @@ export default function VerifyBookingModal({isOpen, booking, onClose}) {
                         // Option: Array.isArray(iPayload.Option)
                         //     ? iPayload.Option.filter(o => o != null).map(o => toInt(o))
                         //     : [],
-                        //Source: toStr(iPayload.Source || bData.Source || "local-2"),
+                        // 🟢 Source: iPro session identifier — required to resolve Code 421
+                        Source: toStr(iPayload.Source || bData.Source || bData.source),
                         Rooms: (iPayload.rawRooms || iPayload.Rooms || bData.rooms || []).map((room, index) => ({
                             Id: toStr(room.Id || room.roomId || (index + 1)),
                             // 🔴 FIX 3: Use resolveBoardingId — room.Boarding can be an object like
@@ -987,6 +1275,9 @@ export default function VoucherModal({ isOpen, onClose, booking }) {
             <div className="text-right">
               <h2 className="text-2xl font-bold text-slate-800 uppercase tracking-widest">Voucher</h2>
               <p className="text-sm text-slate-500 mt-1">Réf: <span className="font-bold text-slate-800">#{booking.id?.toString().padStart(6, '0')}</span></p>
+              {booking.externalId && (
+                <p className="text-sm text-slate-500">iPro Réf: <span className="font-bold text-sky-700">{booking.externalId}</span></p>
+              )}
               <p className="text-sm text-slate-500">Date d'émission: {new Date().toLocaleDateString('fr-FR')}</p>
             </div>
           </div>
@@ -3244,6 +3535,10 @@ import {
     ArrowBigRight
 } from 'lucide-react';
 
+const BACKEND_BASE = 'https://api.allezgoo.com';
+const resolveImageUrl = (url) =>
+    url?.startsWith('http') ? url : `${BACKEND_BASE}${url}`;
+
 const formatPrice = (price) =>
     new Intl.NumberFormat('fr-DZ').format(price);
 
@@ -3296,6 +3591,24 @@ function DestinationCard({
         );
     }, [pricing]);
 
+    const uniqueAccommodations = useMemo(() =>
+        Object.values(
+            accommodations.reduce((map, entry) => {
+                const key = `${entry.hotel}||${entry.location}`;
+                if (!map[key] || (entry.id ?? 0) > (map[key].id ?? 0)) map[key] = entry;
+                return map;
+            }, {})
+        ), [accommodations]);
+
+    const uniqueItineraries = useMemo(() =>
+        Object.values(
+            itineraries.reduce((map, entry) => {
+                const key = entry.day;
+                if (!map[key] || (entry.id ?? 0) > (map[key].id ?? 0)) map[key] = entry;
+                return map;
+            }, {})
+        ).sort((a, b) => a.day - b.day), [itineraries]);
+
     return (
         <div
             className="relative w-full min-w-[300px] sm:min-w-[340px] md:min-w-[420px] max-w-md h-[580px] md:h-[640px] cursor-pointer mx-auto"
@@ -3322,7 +3635,7 @@ function DestinationCard({
                     {/* Image */}
                     <div className="relative h-44 sm:h-48 md:h-52 overflow-hidden">
                         <img
-                            src={image_url || '/placeholder-image.jpg'}
+                            src={resolveImageUrl(image_url) || '/placeholder-image.jpg'}
                             alt={name}
                             loading="lazy"
                             className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-700"
@@ -3430,14 +3743,14 @@ function DestinationCard({
                         </h3>
 
                         {/* Accommodation */}
-                        {accommodations?.length > 0 && (
+                        {uniqueAccommodations.length > 0 && (
                             <div className="space-y-1.5 sm:space-y-2">
                                 <h4 className="text-xs sm:text-sm font-bold uppercase tracking-wide flex items-center gap-2">
                                     <Hotel className="w-3 h-3 sm:w-4 sm:h-4" />
                                     Hébergement
                                 </h4>
                                 <div className="space-y-1.5 sm:space-y-2">
-                                    {accommodations?.map((hotel, index) => (
+                                    {uniqueAccommodations.map((hotel, index) => (
                                         <div
                                             key={index}
                                             className="bg-white/15 rounded-xl p-2 sm:p-3 backdrop-blur-sm shadow-md hover:bg-white/20 transition-colors"
@@ -3477,22 +3790,22 @@ function DestinationCard({
                         )}
 
                         {/* Itinerary Preview */}
-                        {itineraries?.length > 0 && (
+                        {uniqueItineraries.length > 0 && (
                             <div className="space-y-1.5 sm:space-y-2">
                                 <h4 className="text-xs sm:text-sm font-bold uppercase tracking-wide flex items-center gap-2">
                                     <Navigation className="w-3 h-3 sm:w-4 sm:h-4" />
-                                    Programme ({itineraries?.length || 0} jours)
+                                    Programme ({uniqueItineraries.length} jours)
                                 </h4>
                                 <div className="space-y-1 sm:space-y-1.5 max-h-28 sm:max-h-32 overflow-y-auto">
-                                    {itineraries?.slice(0, 4).map((day, index) => (
+                                    {uniqueItineraries.slice(0, 4).map((day, index) => (
                                         <div key={index} className="text-[10px] sm:text-xs text-white/90 flex gap-1.5 sm:gap-2">
                                             <span className="font-bold text-yellow-400">J{day?.day}</span>
                                             <span className="font-medium">{day?.title}</span>
                                         </div>
                                     ))}
-                                    {itineraries?.length > 4 && (
+                                    {uniqueItineraries.length > 4 && (
                                         <div className="text-[10px] sm:text-xs text-white/70 italic">
-                                            + {itineraries.length - 4} autres jours...
+                                            + {uniqueItineraries.length - 4} autres jours...
                                         </div>
                                     )}
                                 </div>
@@ -3549,7 +3862,7 @@ import {
 import { Link } from 'react-router-dom';
 
 const footerLinks = {
-    destinations: ['Hotels el Algérie', 'Hotels en Tunisie', 'Hotels dans le reste du monde'],
+    destinations: ['Hotels En Algérie', 'Hotels En Tunisie', 'Hotels dans le reste du monde'],
     services: [
         "Réservation d'hôtels", 'Vols', 'Voyages organisés', 'Croisières'
     ],
@@ -3669,7 +3982,7 @@ function Footer() {
                         <ul className="space-y-3">
                             <li className="flex items-start gap-2 text-sm">
                                 <MapPin className="w-4 h-4 text-orange-500 mt-1 flex-shrink-0" />
-                                <span className="text-gray-300">Cité Elmostakbel, OEB</span>
+                                <span className="text-gray-300">Cité El Moustakbel, Aîn Beida - OEB</span>
                             </li>
                             <li className="flex items-center gap-2 text-sm">
                                 <Phone className="w-4 h-4 text-orange-500 flex-shrink-0" />
@@ -7111,6 +7424,7 @@ export function useBooking({ onSuccess: externalOnSuccess, onError: externalOnEr
             const selectedRooms = bookingState?.selectedRooms || bookingState?.rooms || [];
             const iproPayload = {
                 Token: bookingState?.Token || bookingState?.token,
+                Source: bookingState?.Source || bookingState?.source,
                 City: cityId,
                 Option: bookingState?.hotel?.Option || bookingState?.Option || selectedRooms?.[0]?.Option || [],
                 rawRooms: selectedRooms,
@@ -7238,6 +7552,121 @@ export function useBookingValidation() {
 
     return { validateSearch };
 }
+```
+
+File: src/custom-hooks/useCarousel.js
+```jsx
+// src/custom-hooks/useCarousel.js
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import toast from "react-hot-toast";
+import AllezGoApi, { isRequestCanceled } from "../services/allezgo-api/allezGoApi.js";
+
+const toApiError = (error) => ({
+  status: error?.status ?? null,
+  message: error?.message || "Request failed",
+  data: error?.data ?? null,
+});
+
+export default function useCarousel() {
+  const queryClient = useQueryClient();
+  const QUERY_KEY = ["carousel"];
+
+  const {
+    data = [],
+    isLoading: loading,
+    error: queryError,
+    isError,
+    refetch: fetchAll,
+  } = useQuery({
+    queryKey: QUERY_KEY,
+    queryFn: async ({ signal }) => {
+      try {
+        const result = await AllezGoApi.Carousel.getAll({ signal });
+        const items = Array.isArray(result) ? result : (result?.data || []);
+        // Sort items by displayOrder locally just to be sure
+        return items.sort((a, b) => a.displayOrder - b.displayOrder);
+      } catch (err) {
+        if (isRequestCanceled(err)) return [];
+        throw toApiError(err);
+      }
+    },
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 10,
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: async (formData) => {
+      try {
+        return await AllezGoApi.Carousel.upload(formData);
+      } catch (err) {
+        throw toApiError(err);
+      }
+    },
+    onSuccess: (created) => {
+      const newItem = created?.data || created;
+      queryClient.setQueryData(QUERY_KEY, (oldData) => {
+        if (!Array.isArray(oldData)) return [newItem];
+        const newData = [...oldData, newItem];
+        return newData.sort((a, b) => a.displayOrder - b.displayOrder);
+      });
+      toast.success("Média ajouté au carrousel avec succès !", { id: "carousel-upload-success" });
+    },
+    onError: () => toast.error("Erreur lors de l'ajout du média.", { id: "carousel-upload-error" })
+  });
+
+  const reorderMutation = useMutation({
+    mutationFn: async (items) => {
+      try {
+        return await AllezGoApi.Carousel.reorder(items);
+      } catch (err) {
+        throw toApiError(err);
+      }
+    },
+    onSuccess: (updated) => {
+      const updatedItems = updated?.data || updated;
+      queryClient.setQueryData(QUERY_KEY, () => {
+        const items = Array.isArray(updatedItems) ? updatedItems : [];
+        return items.sort((a, b) => a.displayOrder - b.displayOrder);
+      });
+      toast.success("Carrousel réorganisé !", { id: "carousel-reorder-success" });
+    },
+    onError: () => toast.error("Erreur lors de la réorganisation.", { id: "carousel-reorder-error" })
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: async (id) => {
+      try {
+        return await AllezGoApi.Carousel.remove(id);
+      } catch (err) {
+        throw toApiError(err);
+      }
+    },
+    onSuccess: (_, id) => {
+      queryClient.setQueryData(QUERY_KEY, (oldData) => {
+        if (!Array.isArray(oldData)) return [];
+        return oldData.filter((item) => String(item?.id) !== String(id));
+      });
+      toast.success("Média supprimé avec succès.", { id: "carousel-delete-success" });
+    },
+    onError: () => toast.error("Erreur lors de la suppression.", { id: "carousel-delete-error" })
+  });
+
+  const actionLoading = uploadMutation.isPending || reorderMutation.isPending || removeMutation.isPending;
+  const error = queryError || uploadMutation.error || reorderMutation.error || removeMutation.error || null;
+
+  return {
+    data,
+    loading,
+    actionLoading,
+    error,
+    isError,
+    fetchAll,
+    uploadMedia: uploadMutation.mutateAsync,
+    reorderMedia: reorderMutation.mutateAsync,
+    removeMedia: removeMutation.mutateAsync,
+  };
+}
+
 ```
 
 File: src/custom-hooks/useDebounce.js
@@ -8175,26 +8604,17 @@ File: src/data/carouselData.js
  */
 export const carouselImages = [
     {
-        url: "/images/allezgo_banner.jpeg",
-        alt: "banner_video",
-    },
-    {
         url: "/videos/banner.mp4",
         alt: "banner_video",
     },
     {
-        url: "/images/slide9.jpeg",
-        alt: "slide9",
+        url: "/images/allezgo_banner.jpeg",
+        alt: "banner_video",
     },
     {
-        url: "/images/slide8.webp",
-        alt: "Station balnéaire de luxe avec palmiers et eau cristalline",
+        url: "/images/slide1.jpeg",
+        alt: "slide1",
     },
-    {
-        url: "/images/slide7.webp",
-        alt: "Station balnéaire de luxe avec palmiers et eau cristalline",
-    },
-
 ];
 
 ```
@@ -8470,7 +8890,8 @@ import {
     XCircle,
     Ban,
     Clock,
-    CheckCircle2
+    CheckCircle2,
+    Image as ImageIcon
 } from 'lucide-react';
 //import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -8488,6 +8909,7 @@ import useAdminBookings from '../../custom-hooks/useAdminBookings.js';
 import VerifyBookingModal from '../../components/admin/VerifyBookingModal.jsx';
 import VoucherModal from '../../components/admin/VoucherModal.jsx';
 import CancelBookingModal from "../../components/admin/CancelBookingModal.jsx";
+import CarouselAdmin from "../../components/admin/CarouselAdmin.jsx";
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 function StatusBadge({status}) {
@@ -8679,6 +9101,7 @@ export default function AdminDashboard() {
         {id: 'bookings', label: 'Réservations', icon: CreditCard},
         {id: 'testimonials', label: 'Témoignages', icon: MessageSquare},
         {id: 'users', label: 'Utilisateurs', icon: Users},
+        {id: 'carousel', label: 'Carrousel', icon: ImageIcon},
     ];
 
     const renderContent = () => {
@@ -9163,6 +9586,8 @@ export default function AdminDashboard() {
                     </div>
                 </div>
             );
+        } else if (activeTab === 'carousel') {
+            return <CarouselAdmin />;
         }
 
         return (
@@ -9330,59 +9755,17 @@ export default function AdminDashboard() {
 File: src/pages/admin/CreateDestinationModal.jsx
 ```jsx
 import React, { useState, useActionState } from 'react';
-import { X, Save, Globe, Plane, DollarSign, List, Home, Map, Plus, Trash2 } from 'lucide-react';
+import { X, Save, Globe, Plane, DollarSign, List, Home, Map, Plus, Trash2, ImageUp } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import AllezGoApi from "../../services/allezgo-api/allezGoApi.js";
-
-// --- Sub-components for dynamic lists ---
-const ArrayInput = ({ label, items, setItems, placeholder }) => {
-    const [inputValue, setInputValue] = useState('');
-
-    const addItem = () => {
-        if (inputValue.trim()) {
-            setItems([...items, inputValue.trim()]);
-            setInputValue('');
-        }
-    };
-
-    return (
-        <div className="mb-5">
-            <label className="block text-sm font-semibold text-slate-700 mb-2">{label}</label>
-            <div className="flex gap-2 mb-3">
-                <input
-                    type="text"
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } }}
-                    className="block w-full px-3 py-2 border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all text-sm"
-                    placeholder={placeholder}
-                />
-                <button type="button" onClick={addItem} className="px-4 py-2 bg-sky-50 text-sky-600 hover:bg-sky-100 rounded-lg shrink-0 font-medium transition-colors">
-                    <Plus size={18} />
-                </button>
-            </div>
-            {items.length > 0 && (
-                <ul className="space-y-2">
-                    {items.map((item, index) => (
-                        <li key={index} className="flex justify-between items-center bg-white px-3 py-2 border border-slate-100 rounded-lg shadow-sm">
-                            <span className="text-sm text-slate-700 font-medium">{item}</span>
-                            <button type="button" onClick={() => setItems(items.filter((_, i) => i !== index))} className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-md transition-colors">
-                                <Trash2 size={16} />
-                            </button>
-                        </li>
-                    ))}
-                </ul>
-            )}
-        </div>
-    );
-};
+import ArrayInput from '../../components/admin/ArrayInput.jsx';
 
 export default function CreateDestinationModal({ isOpen, onClose }) {
     const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState(1);
+    const [imagePreview, setImagePreview] = useState(null);
 
-    // --- Complex States ---
     const [mainCities, setMainCities] = useState([]);
     const [highlights, setHighlights] = useState([]);
     const [included, setIncluded] = useState([]);
@@ -9399,12 +9782,21 @@ export default function CreateDestinationModal({ isOpen, onClose }) {
         setKeyAttractions([]);
         setAccommodations([]);
         setItineraries([]);
+        setImagePreview(null);
         setActiveTab(1);
     };
 
     const handleClose = () => {
         resetForm();
         onClose();
+    };
+
+    const handleImageChange = (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (imagePreview) URL.revokeObjectURL(imagePreview);
+            setImagePreview(URL.createObjectURL(file));
+        }
     };
 
     const preventEnterSubmit = (e) => {
@@ -9431,16 +9823,25 @@ export default function CreateDestinationModal({ isOpen, onClose }) {
         setItineraries(newItin);
     };
 
-    // --- Submission Action ---
     const submitDestination = async (prevState, formData) => {
         try {
             // 1. Validation
             const name = formData.get('name');
             if (!name) return { success: false, error: "Veuillez remplir le Nom de la destination (Onglet 1)." };
-            if (!formData.get('image_url')) return { success: false, error: "Veuillez ajouter une URL d'image (Onglet 1)." };
             if (itineraries.length === 0) return { success: false, error: "Veuillez ajouter au moins un jour d'itinéraire (Onglet 5)." };
 
-            // 2. Data Compilation
+            const imageFile = formData.get('image_file');
+            if (!imageFile || imageFile.size === 0)
+                return { success: false, error: "Veuillez sélectionner une image (Onglet 1)." };
+
+            // 2. Upload image
+            const uploadFD = new FormData();
+            uploadFD.append('file', imageFile);
+            const uploadResult = await AllezGoApi.Destinations.uploadImage(uploadFD);
+            const image_url = uploadResult?.url ?? uploadResult?.path ?? (uploadResult?.filename ? `/upload/destinations/${uploadResult.filename}` : null);
+            if (!image_url) throw new Error("Le serveur n'a pas retourné l'URL de l'image.");
+
+            // 3. Compile payload
             const pricing = {
                 double: Number(formData.get('pricing.double') || 0),
                 single: Number(formData.get('pricing.single') || 0),
@@ -9455,15 +9856,15 @@ export default function CreateDestinationModal({ isOpen, onClose }) {
             const flightDetails = {
                 via: formData.get('flightDetails.via') || '',
                 arrival: formData.get('flightDetails.arrival') || '',
-                departure: formData.get('flightDetails.departure') || ''
+                departure: formData.get('flightDetails.departure') || '',
             };
 
             const payload = {
                 name,
-                image_url: formData.get('image_url'),
+                image_url,
                 duration: {
                     days: Number(formData.get('duration.days') || 0),
-                    nights: Number(formData.get('duration.nights') || 0)
+                    nights: Number(formData.get('duration.nights') || 0),
                 },
                 departureFrom: formData.get('departureFrom') || '',
                 airline: formData.get('airline') || '',
@@ -9476,23 +9877,18 @@ export default function CreateDestinationModal({ isOpen, onClose }) {
                 notIncluded,
                 keyAttractions,
                 accommodations,
-                itineraries
+                itineraries,
             };
 
-            // 3. API Execution
+            // 4. Create destination
             const response = await AllezGoApi.Destinations.create(payload);
-
-            // Extract the newly created object returned by the backend
             const newDestination = response?.data || response;
 
-            // 4. THE FIX: Direct Cache Injection (Trusting the backend response)
+            // Direct cache injection to avoid race condition with invalidateQueries
             queryClient.setQueryData(['destinations'], (oldData) => {
                 const safeOldData = Array.isArray(oldData) ? oldData : [];
-                // Prepend the new destination to the top of the list instantly
                 return [newDestination, ...safeOldData];
             });
-
-            // 🚨 We explicitly DO NOT call invalidateQueries here anymore to prevent the race condition!
 
             toast.success('Destination créée avec succès !');
             handleClose();
@@ -9557,7 +9953,6 @@ export default function CreateDestinationModal({ isOpen, onClose }) {
                             })}
                         </nav>
 
-                        {/* Error output */}
                         {state?.error && (
                             <div className="mt-8 p-4 bg-red-50/80 rounded-xl border border-red-100">
                                 <p className="text-xs font-semibold text-red-600 uppercase tracking-wider mb-1">Erreur</p>
@@ -9578,9 +9973,29 @@ export default function CreateDestinationModal({ isOpen, onClose }) {
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">Nom (ex: Istanbul Evasion)</label>
                                         <input type="text" name="name" onKeyDown={preventEnterSubmit} required className="block w-full px-3 py-2 border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-2 focus:ring-sky-500" />
                                     </div>
+
+                                    {/* Image upload */}
                                     <div className="col-span-2">
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">URL de l'image principale</label>
-                                        <input type="url" name="image_url" placeholder="https://..." onKeyDown={preventEnterSubmit} required className="block w-full px-3 py-2 border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-2 focus:ring-sky-500" />
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">Image principale</label>
+                                        <label className="flex items-center gap-3 px-4 py-3 border-2 border-dashed border-sky-200 bg-sky-50/40 rounded-lg cursor-pointer hover:border-sky-400 hover:bg-sky-50 transition-colors">
+                                            <ImageUp size={20} className="text-sky-500 shrink-0" />
+                                            <span className="text-sm text-slate-500">Choisir un fichier image…</span>
+                                            <input
+                                                type="file"
+                                                name="image_file"
+                                                accept="image/*"
+                                                onChange={handleImageChange}
+                                                className="sr-only"
+                                                required
+                                            />
+                                        </label>
+                                        {imagePreview && (
+                                            <img
+                                                src={imagePreview}
+                                                alt="Aperçu"
+                                                className="mt-3 h-36 w-full object-cover rounded-lg border border-sky-100 shadow-sm"
+                                            />
+                                        )}
                                     </div>
 
                                     <div>
@@ -9707,7 +10122,6 @@ export default function CreateDestinationModal({ isOpen, onClose }) {
                                                 <button type="button" onClick={() => setAccommodations(accommodations.filter((_, i) => i !== index))} className="absolute top-4 right-4 text-slate-400 hover:text-red-500 transition-colors p-1 bg-slate-50 hover:bg-red-50 rounded-md">
                                                     <Trash2 size={16} />
                                                 </button>
-
                                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full pr-8">
                                                     <div className="col-span-2">
                                                         <label className="block text-xs font-semibold text-slate-500 mb-1">Localisation / Ville</label>
@@ -9771,7 +10185,6 @@ export default function CreateDestinationModal({ isOpen, onClose }) {
 
                         {/* Modal Footer */}
                         <div className="px-6 py-4 border-t border-sky-50 bg-slate-50 flex justify-between items-center shrink-0">
-                            {/* Navigation hints */}
                             <div className="flex gap-2 text-sm">
                                 {activeTab > 1 && (
                                     <button type="button" onClick={() => setActiveTab(activeTab - 1)} className="px-4 py-2 text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg font-medium transition-colors">
@@ -9815,6 +10228,7 @@ export default function CreateDestinationModal({ isOpen, onClose }) {
         </div>
     );
 }
+
 ```
 
 File: src/pages/admin/CreateTestimonialModal.jsx
@@ -10072,65 +10486,24 @@ export default function CreateUserModal({ isOpen, onClose }) {
 File: src/pages/admin/EditDestinationModal.jsx
 ```jsx
 import React, { useState, useActionState, useEffect } from 'react';
-import { X, Save, Globe, Plane, DollarSign, List, Home, Map, Plus, Trash2 } from 'lucide-react';
+import { X, Save, Globe, Plane, DollarSign, List, Home, Map, Plus, Trash2, ImageUp } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import AllezGoApi from "../../services/allezgo-api/allezGoApi.js";
+import ArrayInput from '../../components/admin/ArrayInput.jsx';
 
-// --- Sub-components for dynamic lists ---
-const ArrayInput = ({ label, items, setItems, placeholder }) => {
-    const [inputValue, setInputValue] = useState('');
-
-    const addItem = () => {
-        if (inputValue.trim()) {
-            setItems([...items, inputValue.trim()]);
-            setInputValue('');
-        }
-    };
-
-    return (
-        <div className="mb-5">
-            <label className="block text-sm font-semibold text-slate-700 mb-2">{label}</label>
-            <div className="flex gap-2 mb-3">
-                <input
-                    type="text"
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } }}
-                    className="block w-full px-3 py-2 border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all text-sm"
-                    placeholder={placeholder}
-                />
-                <button type="button" onClick={addItem} className="px-4 py-2 bg-sky-50 text-sky-600 hover:bg-sky-100 rounded-lg shrink-0 font-medium transition-colors">
-                    <Plus size={18} />
-                </button>
-            </div>
-            {items.length > 0 && (
-                <ul className="space-y-2">
-                    {items.map((item, index) => (
-                        <li key={index} className="flex justify-between items-center bg-white px-3 py-2 border border-slate-100 rounded-lg shadow-sm">
-                            <span className="text-sm text-slate-700 font-medium">{item}</span>
-                            <button type="button" onClick={() => setItems(items.filter((_, i) => i !== index))} className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-md transition-colors">
-                                <Trash2 size={16} />
-                            </button>
-                        </li>
-                    ))}
-                </ul>
-            )}
-        </div>
-    );
-};
+const BACKEND_BASE = 'https://api.allezgoo.com';
 
 export default function EditDestinationModal({ destination, onClose }) {
     const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState(1);
+    const [imagePreview, setImagePreview] = useState(null);
 
-    // --- Complex States ---
     const [mainCities, setMainCities] = useState([]);
     const [highlights, setHighlights] = useState([]);
     const [included, setIncluded] = useState([]);
     const [notIncluded, setNotIncluded] = useState([]);
     const [keyAttractions, setKeyAttractions] = useState([]);
-
     const [accommodations, setAccommodations] = useState([]);
     const [itineraries, setItineraries] = useState([]);
 
@@ -10141,15 +10514,39 @@ export default function EditDestinationModal({ destination, onClose }) {
             setIncluded(destination.included || []);
             setNotIncluded(destination.notIncluded || []);
             setKeyAttractions(destination.keyAttractions || []);
-            setAccommodations(destination.accommodations || []);
-            setItineraries(destination.itineraries || []);
+            const dedupedAccommodations = Object.values(
+                (destination.accommodations || []).reduce((map, entry) => {
+                    const key = `${entry.hotel}||${entry.location}`;
+                    if (!map[key] || (entry.id ?? 0) > (map[key].id ?? 0)) map[key] = entry;
+                    return map;
+                }, {})
+            );
+            setAccommodations(dedupedAccommodations);
+            const dedupedItineraries = Object.values(
+                (destination.itineraries || []).reduce((map, entry) => {
+                    const key = entry.day;
+                    if (!map[key] || (entry.id ?? 0) > (map[key].id ?? 0)) map[key] = entry;
+                    return map;
+                }, {})
+            ).sort((a, b) => a.day - b.day);
+            setItineraries(dedupedItineraries);
+            setImagePreview(null);
             setActiveTab(1);
         }
     }, [destination]);
 
     const handleClose = () => {
+        setImagePreview(null);
         onClose();
-    }
+    };
+
+    const handleImageChange = (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (imagePreview) URL.revokeObjectURL(imagePreview);
+            setImagePreview(URL.createObjectURL(file));
+        }
+    };
 
     const preventEnterSubmit = (e) => {
         if (e.key === 'Enter') e.preventDefault();
@@ -10175,16 +10572,30 @@ export default function EditDestinationModal({ destination, onClose }) {
         setItineraries(newItin);
     };
 
-    // --- Submission Action ---
     const submitDestination = async (prevState, formData) => {
         try {
-            // 1. Manual Validation Check
+            // 1. Validation
             const name = formData.get('name');
             if (!name) return { success: false, error: "Veuillez remplir le Nom de la destination (Onglet 1)." };
-            if (!formData.get('image_url')) return { success: false, error: "Veuillez ajouter une URL d'image (Onglet 1)." };
+            if (!formData.get('image_url') && !formData.get('image_file')?.size)
+                return { success: false, error: "Veuillez ajouter une image (Onglet 1)." };
             if (itineraries.length === 0) return { success: false, error: "Veuillez ajouter au moins un jour d'itinéraire (Onglet 5)." };
 
-            // 2. Data Compilation
+            // 2. Resolve image URL — upload new file if provided, else keep existing
+            let image_url = destination.image_url;
+            const imageFile = formData.get('image_file');
+            if (imageFile && imageFile.size > 0) {
+                const uploadFD = new FormData();
+                uploadFD.append('file', imageFile);
+                const uploadResult = await AllezGoApi.Destinations.uploadImage(uploadFD);
+                image_url = uploadResult?.url ?? uploadResult?.path ?? (uploadResult?.filename ? `/upload/destinations/${uploadResult.filename}` : null);
+                if (!image_url) throw new Error("Le serveur n'a pas retourné l'URL de l'image.");
+            }
+
+            // 3. Compile payload — strip `id` from nested arrays (backend rejects them on update)
+            const sanitizedAccommodations = accommodations.map(({ id, ...rest }) => rest);
+            const sanitizedItineraries = itineraries.map(({ id, ...rest }) => rest);
+
             const pricing = {
                 double: Number(formData.get('pricing.double') || 0),
                 single: Number(formData.get('pricing.single') || 0),
@@ -10199,19 +10610,15 @@ export default function EditDestinationModal({ destination, onClose }) {
             const flightDetails = {
                 via: formData.get('flightDetails.via') || '',
                 arrival: formData.get('flightDetails.arrival') || '',
-                departure: formData.get('flightDetails.departure') || ''
+                departure: formData.get('flightDetails.departure') || '',
             };
 
-            // 3. Payload Sanitization: Strip 'id' from nested arrays
-            const sanitizedAccommodations = accommodations.map(({ id, ...rest }) => rest);
-            const sanitizedItineraries = itineraries.map(({ id, ...rest }) => rest);
-
             const payload = {
-                name: name,
-                image_url: formData.get('image_url'),
+                name,
+                image_url,
                 duration: {
                     days: Number(formData.get('duration.days') || 0),
-                    nights: Number(formData.get('duration.nights') || 0)
+                    nights: Number(formData.get('duration.nights') || 0),
                 },
                 departureFrom: formData.get('departureFrom') || '',
                 airline: formData.get('airline') || '',
@@ -10224,7 +10631,7 @@ export default function EditDestinationModal({ destination, onClose }) {
                 notIncluded,
                 keyAttractions,
                 accommodations: sanitizedAccommodations,
-                itineraries: sanitizedItineraries
+                itineraries: sanitizedItineraries,
             };
 
             await AllezGoApi.Destinations.update(destination.id, payload);
@@ -10244,6 +10651,11 @@ export default function EditDestinationModal({ destination, onClose }) {
     const [state, formAction, isPending] = useActionState(submitDestination, null);
 
     if (!destination) return null;
+
+    // Resolve the URL to display the current image (may be relative path)
+    const currentImageSrc = destination.image_url?.startsWith('http')
+        ? destination.image_url
+        : `${BACKEND_BASE}${destination.image_url}`;
 
     const tabs = [
         { id: 1, label: 'Infos Générales', icon: Globe },
@@ -10293,7 +10705,6 @@ export default function EditDestinationModal({ destination, onClose }) {
                             })}
                         </nav>
 
-                        {/* Error output */}
                         {state?.error && (
                             <div className="mt-8 p-4 bg-red-50/80 rounded-xl border border-red-100">
                                 <p className="text-xs font-semibold text-red-600 uppercase tracking-wider mb-1">Erreur</p>
@@ -10314,9 +10725,52 @@ export default function EditDestinationModal({ destination, onClose }) {
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">Nom (ex: Istanbul Evasion)</label>
                                         <input type="text" name="name" defaultValue={destination.name} onKeyDown={preventEnterSubmit} required className="block w-full px-3 py-2 border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-2 focus:ring-sky-500" />
                                     </div>
+
+                                    {/* Image section */}
                                     <div className="col-span-2">
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">URL de l'image principale</label>
-                                        <input type="url" name="image_url" defaultValue={destination.image_url} placeholder="https://..." onKeyDown={preventEnterSubmit} required className="block w-full px-3 py-2 border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-2 focus:ring-sky-500" />
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">Image principale</label>
+
+                                        {/* Current image */}
+                                        {!imagePreview && destination.image_url && (
+                                            <div className="mb-3">
+                                                <p className="text-xs text-slate-400 mb-1">Image actuelle</p>
+                                                <img
+                                                    src={currentImageSrc}
+                                                    alt="Image actuelle"
+                                                    className="h-36 w-full object-cover rounded-lg border border-sky-100 shadow-sm"
+                                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                                />
+                                            </div>
+                                        )}
+
+                                        {/* New file preview */}
+                                        {imagePreview && (
+                                            <div className="mb-3">
+                                                <p className="text-xs text-sky-500 font-semibold mb-1">Nouvelle image</p>
+                                                <img
+                                                    src={imagePreview}
+                                                    alt="Aperçu nouvelle image"
+                                                    className="h-36 w-full object-cover rounded-lg border border-sky-300 shadow-sm"
+                                                />
+                                            </div>
+                                        )}
+
+                                        {/* Hidden field carries the existing image_url so validation passes when no new file */}
+                                        <input type="hidden" name="image_url" value={destination.image_url || ''} />
+
+                                        <label className="flex items-center gap-3 px-4 py-3 border-2 border-dashed border-sky-200 bg-sky-50/40 rounded-lg cursor-pointer hover:border-sky-400 hover:bg-sky-50 transition-colors">
+                                            <ImageUp size={20} className="text-sky-500 shrink-0" />
+                                            <span className="text-sm text-slate-500">
+                                                {imagePreview ? 'Changer l\'image…' : 'Remplacer l\'image (optionnel)'}
+                                            </span>
+                                            <input
+                                                type="file"
+                                                name="image_file"
+                                                accept="image/*"
+                                                onChange={handleImageChange}
+                                                className="sr-only"
+                                            />
+                                        </label>
                                     </div>
 
                                     <div>
@@ -10443,7 +10897,6 @@ export default function EditDestinationModal({ destination, onClose }) {
                                                 <button type="button" onClick={() => setAccommodations(accommodations.filter((_, i) => i !== index))} className="absolute top-4 right-4 text-slate-400 hover:text-red-500 transition-colors p-1 bg-slate-50 hover:bg-red-50 rounded-md">
                                                     <Trash2 size={16} />
                                                 </button>
-
                                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full pr-8">
                                                     <div className="col-span-2">
                                                         <label className="block text-xs font-semibold text-slate-500 mb-1">Localisation / Ville</label>
@@ -10507,7 +10960,6 @@ export default function EditDestinationModal({ destination, onClose }) {
 
                         {/* Modal Footer */}
                         <div className="px-6 py-4 border-t border-sky-50 bg-slate-50 flex justify-between items-center shrink-0">
-                            {/* Navigation hints */}
                             <div className="flex gap-2 text-sm">
                                 {activeTab > 1 && (
                                     <button type="button" onClick={() => setActiveTab(activeTab - 1)} className="px-4 py-2 text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg font-medium transition-colors">
@@ -10551,6 +11003,7 @@ export default function EditDestinationModal({ destination, onClose }) {
         </div>
     );
 }
+
 ```
 
 File: src/pages/admin/EditTestimonialModal.jsx
@@ -11515,31 +11968,45 @@ File: src/pages/HomePage.jsx
 ```jsx
 // src/pages/HomePage.jsx
 import Carousel from "../ui/Carrousel.jsx";
-import { carouselImages } from "../data";
 import useTestimonials from "../custom-hooks/useTestimonials.js";
+import useCarousel from "../custom-hooks/useCarousel.js";
 import BookingHotels from "../components/booking/BookingHotels.jsx";
 import TestimonialCarousel from "../components/TestimonialsCarousel.jsx";
 import Gallery from "../ui/Gallery.jsx";
 import PartnerCarrousel from "../ui/PartnerCarrousel.jsx";
 import HotelShowcase from "../components/HotelShowcase.jsx";
 
+const API_BASE = "https://api.allezgoo.com";
+
 function HomePage() {
-    const { data: testimonials, loading, error } = useTestimonials();
+    const { data: testimonials, loading: loadingTestimonials, error: errorTestimonials } = useTestimonials();
+    const { data: carouselData, loading: loadingCarousel } = useCarousel();
+
+    const mappedCarouselImages = carouselData?.map(item => ({
+        ...item,
+        url: item.url.startsWith('http') ? item.url : `${API_BASE}${item.url}`,
+    })) || [];
 
     return (
         <section
             id="nos-atouts"
             className="flex flex-col text-white items-center justify-center scroll-mt-[100vh]"
         >
-            <Carousel images={carouselImages} />
+            {!loadingCarousel && mappedCarouselImages.length > 0 ? (
+                <Carousel images={mappedCarouselImages} />
+            ) : (
+                <div className="w-full h-[calc(63vh-80px)] md:h-[calc(73vh-80px)] bg-slate-900/50 animate-pulse flex items-center justify-center rounded-2xl">
+                    <span className="text-sky-300">Chargement...</span>
+                </div>
+            )}
             <BookingHotels />
             {/* ✅ Ce composant utilise listHotelEnhanced */}
             <HotelShowcase cityId={34} />
             <Gallery />
             <TestimonialCarousel
                 testimonials={testimonials}
-                loading={loading}
-                error={error}
+                loading={loadingTestimonials}
+                error={errorTestimonials}
             />
             <PartnerCarrousel />
         </section>
@@ -11733,6 +12200,7 @@ function HotelDetails() {
     const [roomsByPax,        setRoomsByPax]        = useState(() => preloadedPricing?.paxGroups ?? []);
     const [selectedRoomTypes, setSelectedRoomTypes] = useState({});
     const [currentToken,      setCurrentToken]      = useState(preloadedPricing?.token || null);
+    const [currentSource,     setCurrentSource]     = useState(preloadedPricing?.source || null);
 
     const checkInDate  = useMemo(() => toDateString(range.from), [range.from]);
     const checkOutDate = useMemo(() => toDateString(range.to),   [range.to]);
@@ -11921,6 +12389,7 @@ function HotelDetails() {
             setActiveBoardingTab(fetchedRooms.length > 0 ? fetchedRooms[0].boardingCode : null);
             setHasSearched(true);
             setCurrentToken(response.token || null);
+            setCurrentSource(response.source || null);
             if (fetchedRooms.length > 0)
                 toast.success(`${fetchedRooms.length} option${fetchedRooms.length > 1 ? "s" : ""} disponible${fetchedRooms.length > 1 ? "s" : ""} !`);
             else
@@ -11975,6 +12444,8 @@ function HotelDetails() {
             checkOut:     checkOutDate,
             nights,
             boardingType: activeBoardingTab,
+            Source:       currentSource,
+            source:       currentSource,
             rooms:        selectedRoomsList,
             totalPrice:   computedTotalPrice,
             currency:     "DZD",
@@ -11987,7 +12458,7 @@ function HotelDetails() {
         navigate(`/booking/${hotelId}`, { state: bookingData });
         toast.success("Redirection vers la réservation...");
     }, [allSelected, computedTotalPrice, hasStopReservation, effectiveRoomsByPax, selectedRoomTypes, activeBoardingTab,
-        rooms, hotelId, hotelData, checkInDate, checkOutDate, navigate, nights, currentToken, roomsByPax]);
+        rooms, hotelId, hotelData, checkInDate, checkOutDate, navigate, nights, currentToken, currentSource, roomsByPax]);
 
     // ── Guards ────────────────────────────────────────────────────────────────
     if (!hotelId) return (
@@ -12956,7 +13427,7 @@ function HotelsPerCityPage() {
         retry: 2,
     });
 
-    // ── Step 2 — Fetch pricing + extract preloaded room availability ───────────
+    // ── Step 2 — Fetch pricing via geo-targeting + extract preloaded rooms ──────
     const {
         data: pricingData,
         isLoading: isLoadingPricing,
@@ -12965,17 +13436,17 @@ function HotelsPerCityPage() {
         queryKey: ['hotel-pricing', cityId,
             searchParams.checkIn, searchParams.checkOut, searchParams.rooms],
         queryFn: async () => {
-            if (!allHotelsData?.length || !searchParams.checkIn || !searchParams.checkOut)
+            if (!searchParams.checkIn || !searchParams.checkOut)
                 return null;
 
-            const hotelIds = allHotelsData.map(h => h.Id);
+            // ✅ GEO-TARGETING: Let iPro resolve all available hotels for this city
             const result = await apiClient.searchHotel({
                 checkIn: searchParams.checkIn,
                 checkOut: searchParams.checkOut,
-                hotels: hotelIds,
+                cityId,
                 rooms: searchParams.rooms.map(room => ({
                     adult: room.adults,
-                    child: room.children, // ApiClient handles array or count transformation
+                    child: room.children,
                 })),
                 filters: { keywords: '', category: '', onlyAvailable: false, tags: '' },
             });
@@ -12987,17 +13458,19 @@ function HotelsPerCityPage() {
                 pricingMap[th.id] = {
                     minPrice: th.minPrice,
                     currency: th.currency,
-                    isAvailable: th.isAvailable, // ✅ Fix: Synchronisé avec HotelLightCard status
-                    availabilityStatus: th.availabilityStatus, // ✅ NOUVEAU: Transmet le statut "Sur demande" ou "Complet"
+                    isAvailable: th.isAvailable,
+                    availabilityStatus: th.availabilityStatus,
                     token: th.token,
+                    source: th.source,
                     discountPercent: th.maxDiscount,
-                    paxGroups: th.paxGroups,   // ✅ Fix: Données injectées pour affichage immédiat
+                    paxGroups: th.paxGroups,
                 };
             });
 
-            return pricingMap;
+            // ✅ Return raw search results so we can inject new hotels into the display
+            return { pricingMap, hotelSearch: result.hotelSearch || [] };
         },
-        enabled: !!allHotelsData && !!searchParams.checkIn && !!searchParams.checkOut,
+        enabled: !!cityId && !!searchParams.checkIn && !!searchParams.checkOut,
         staleTime: 2 * 60 * 1000,
     });
 
@@ -13019,15 +13492,45 @@ function HotelsPerCityPage() {
     }, [isErrorPricing]);
 
     // ── Derived data ───────────────────────────────────────────────────────────
+    const pricingMap = pricingData?.pricingMap ?? null;
+
     const hotelsWithPricing = useMemo(() => {
-        if (!allHotelsData) return [];
-        return allHotelsData.map(hotel =>
+        // Start with enriched hotels from listHotelEnhanced
+        const catalogHotels = (allHotelsData ?? []).map(hotel =>
             normalizeHotelForCard({
                 ...hotel,
-                pricing: pricingData?.[hotel.Id] ?? null,
+                pricing: pricingMap?.[hotel.Id] ?? null,
             })
         );
-    }, [allHotelsData, pricingData]);
+
+        // ✅ GEO-TARGETING MERGE: Inject hotels discovered by iPro that aren't in our catalog
+        if (pricingData?.hotelSearch?.length) {
+            const existingIds = new Set(catalogHotels.map(h => h.Id));
+            const seenNewIds = new Set();
+
+            pricingData.hotelSearch.forEach(sr => {
+                const id = sr.Hotel?.Id;
+                if (!id || existingIds.has(id) || seenNewIds.has(id)) return;
+                seenNewIds.add(id);
+
+                // Build a minimal hotel object from the search response
+                catalogHotels.push(normalizeHotelForCard({
+                    Id: id,
+                    Name: sr.Hotel.Name,
+                    Category: sr.Hotel.Category,
+                    City: sr.Hotel.City,
+                    ShortDescription: sr.Hotel.ShortDescription,
+                    Adress: sr.Hotel.Adress,
+                    Localization: sr.Hotel.Localization,
+                    Image: sr.Hotel.Image,
+                    pricing: pricingMap?.[id] ?? null,
+                    dataSource: 'geo-targeting',
+                }));
+            });
+        }
+
+        return catalogHotels;
+    }, [allHotelsData, pricingMap, pricingData]);
 
     const filteredHotels = useMemo(() => {
         let result = [...hotelsWithPricing];
@@ -13040,16 +13543,16 @@ function HotelsPerCityPage() {
                 )
             );
         // ✅ FIX : On masque uniquement les hôtels vraiment "full" si l'utilisateur coche la case "Disponible"
-        if (filters.disponibleSeulement && pricingData)
+        if (filters.disponibleSeulement && pricingMap)
             result = result.filter(h => h.pricing?.availabilityStatus !== 'full');
-        if (filters.priceRange && pricingData)
+        if (filters.priceRange && pricingMap)
             result = result.filter(h => {
                 const p = h.pricing?.minPrice;
                 if (!p) return false;
                 return p >= filters.priceRange.min && p <= filters.priceRange.max;
             });
         return result;
-    }, [hotelsWithPricing, filters, pricingData]);
+    }, [hotelsWithPricing, filters, pricingMap]);
 
     const sortedHotels = useMemo(() => {
         const sorted = [...filteredHotels];
@@ -13261,8 +13764,8 @@ function HotelsPerCityPage() {
     // ── Rendering Helpers ──────────────────────────────────────────────────────
     const sortOptions = [
         { value: 'recommended', label: 'Recommandés' },
-        { value: 'price-asc', label: 'Prix croissant', disabled: !pricingData },
-        { value: 'price-desc', label: 'Prix décroissant', disabled: !pricingData },
+        { value: 'price-asc', label: 'Prix croissant', disabled: !pricingMap },
+        { value: 'price-desc', label: 'Prix décroissant', disabled: !pricingMap },
         { value: 'rating', label: 'Meilleures notes' },
         { value: 'name-asc', label: 'Nom A-Z' },
     ];
@@ -14300,6 +14803,10 @@ import {
 import { MdVerifiedUser, MdTour } from "react-icons/md";
 import Button from "../ui/Button.jsx";
 
+const BACKEND_BASE = 'https://api.allezgoo.com';
+const resolveImageUrl = (url) =>
+  url?.startsWith('http') ? url : `${BACKEND_BASE}${url}`;
+
 function OrganizedTrip() {
   const { tripId: id } = useParams();
 
@@ -14365,6 +14872,22 @@ function OrganizedTrip() {
   const currentPricing =
     Object.values(pricingOptions)[selectedHotel] || destination.pricing || {};
 
+  const uniqueItineraries = Object.values(
+    (destination.itineraries ?? []).reduce((map, entry) => {
+      const key = entry.day;
+      if (!map[key] || (entry.id ?? 0) > (map[key].id ?? 0)) map[key] = entry;
+      return map;
+    }, {})
+  ).sort((a, b) => a.day - b.day);
+
+  const uniqueAccommodations = Object.values(
+    (destination.accommodations ?? []).reduce((map, entry) => {
+      const key = `${entry.hotel}||${entry.location}`;
+      if (!map[key] || (entry.id ?? 0) > (map[key].id ?? 0)) map[key] = entry;
+      return map;
+    }, {})
+  );
+
   return (
     <section className="min-h-screen w-full bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-50">
       <main className="max-w-6xl lg:max-w-4/5 mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-10 sm:pb-12">
@@ -14372,7 +14895,7 @@ function OrganizedTrip() {
         {/* Hero */}
         <div className="relative h-[260px] sm:h-[340px] md:h-[420px] lg:h-[500px] rounded-3xl overflow-hidden mb-8 sm:mb-10 shadow-2xl group">
           <img
-            src={destination.image_url}
+            src={resolveImageUrl(destination.image_url)}
             alt={destination.name}
             className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105"
           />
@@ -14471,14 +14994,14 @@ function OrganizedTrip() {
             )}
 
             {/* Accommodation (updated to accommodations) */}
-            {destination.accommodations && destination.accommodations.length > 0 && (
+            {uniqueAccommodations.length > 0 && (
               <div className="bg-white rounded-3xl shadow-lg hover:shadow-xl transition-all duration-300 p-5 sm:p-8 border border-gray-100">
                 <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 flex items-center gap-2">
                   <div className="w-1 h-7 sm:h-8 bg-gradient-to-b from-purple-500 to-purple-600 rounded-full" />
                   Hébergement
                 </h2>
                 <div className="space-y-3 sm:space-y-4">
-                  {destination.accommodations.map((acc, index) => (
+                  {uniqueAccommodations.map((acc, index) => (
                     <div
                       key={index}
                       className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-purple-50 to-white border border-purple-100 hover:shadow-md transition-all duration-200"
@@ -14530,14 +15053,14 @@ function OrganizedTrip() {
             )}
 
             {/* Itinerary (updated to itineraries) */}
-            {destination.itineraries && destination.itineraries.length > 0 && (
+            {uniqueItineraries.length > 0 && (
               <div className="bg-white rounded-3xl shadow-lg hover:shadow-xl transition-all duration-300 p-5 sm:p-8 border border-gray-100">
                 <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 flex items-center gap-2">
                   <div className="w-1 h-7 sm:h-8 bg-gradient-to-b from-orange-500 to-orange-600 rounded-full" />
                   Programme détaillé
                 </h2>
                 <div className="space-y-3">
-                  {destination.itineraries.map((day, index) => (
+                  {uniqueItineraries.map((day, index) => (
                     <div
                       key={index}
                       className="border border-gray-200 rounded-2xl overflow-hidden hover:border-orange-300 transition-all duration-200"
@@ -14549,12 +15072,15 @@ function OrganizedTrip() {
                         className="w-full px-3 py-4 sm:p-5 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white hover:from-orange-50 hover:to-white transition-all duration-200"
                       >
                         <div className="flex items-center gap-3 sm:gap-4">
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold shadow-lg text-sm sm:text-base">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold shadow-lg text-sm sm:text-base flex-shrink-0">
                             {day.day}
                           </div>
                           <div className="text-left">
-                            <h3 className="font-bold text-gray-800 text-sm sm:text-base">
+                            <p className="text-[11px] sm:text-xs text-orange-500 font-semibold uppercase tracking-wide mb-0.5">
                               Jour {day.day}
+                            </p>
+                            <h3 className="font-bold text-gray-800 text-sm sm:text-base leading-tight">
+                              {day.title || "Programme du jour"}
                             </h3>
                           </div>
                         </div>
@@ -15424,6 +15950,10 @@ function SearchResultsPage() {
     } = useQuery({
         queryKey: ["hotelDetails", cityId, hotelId, selectionType],
         queryFn: async () => {
+            // ✅ CITY SEARCH: Skip listHotel — iPro resolves hotels via geo-targeting
+            if (selectionType === "city") {
+                return { hotels: [], hotelIds: [], cityId: Number(cityId) };
+            }
             if (selectionType === "hotel") {
                 try {
                     const hotelDetail = await apiClient.getHotel(Number(hotelId));
@@ -15437,10 +15967,6 @@ function SearchResultsPage() {
                     }
                     return { hotels: [], hotelIds: [Number(hotelId)] };
                 }
-            }
-            if (selectionType === "city") {
-                const hotels = await apiClient.listHotel(Number(cityId));
-                return { hotels, hotelIds: hotels.map((h) => h.Id) };
             }
             return { hotels: [], hotelIds: [] };
         },
@@ -15458,20 +15984,23 @@ function SearchResultsPage() {
     const hotelIds = useMemo(() => hotelsData?.hotelIds ?? [], [hotelsData]);
 
     // ── Step 2: Search hotels + pricing ────────────────────────────────────────
+    const isCitySearch = selectionType === "city" && !!cityId;
+
     const {
         data: searchResults,
         isLoading: isLoadingSearch,
         isError: isErrorSearch,
         error: errorSearch,
     } = useQuery({
-        queryKey: ["hotelSearch", hotelIds, checkIn, checkOut, rooms],
+        queryKey: ["hotelSearch", selectionType, cityId, hotelIds, checkIn, checkOut, rooms],
         queryFn: async () => {
-            if (!hotelIds.length) throw new Error("Aucun hôtel à rechercher");
+            if (!isCitySearch && !hotelIds.length) throw new Error("Aucun hôtel à rechercher");
 
             const result = await apiClient.searchHotel({
                 checkIn,
                 checkOut,
-                hotels: hotelIds,
+                // ✅ DUAL-MODE: Pass cityId for geo-targeting, or hotels for explicit search
+                ...(isCitySearch ? { cityId: Number(cityId) } : { hotels: hotelIds }),
                 rooms: rooms.map((room) => ({
                     adult: room.adults,
                     child: Array.isArray(room.children)
@@ -15485,7 +16014,7 @@ function SearchResultsPage() {
                 throw new Error(result.errorMessage.Description ?? "Erreur de recherche");
             return result;
         },
-        enabled: !!hotelIds.length && !!checkIn && !!checkOut,
+        enabled: (!!hotelIds.length || isCitySearch) && !!checkIn && !!checkOut,
         staleTime: 2 * 60 * 1000,
         retry: 1,
     });
@@ -15499,7 +16028,18 @@ function SearchResultsPage() {
             transformedMap[th.id] = th;
         });
 
-        return searchResults.hotelSearch.map((sr) => {
+        // ✅ DEDUP: Geo-targeting with Source:"all" can return the same hotel from
+        // multiple suppliers (different Source values). Keep only the first occurrence
+        // per Hotel.Id (iPro returns them sorted by price, so first = cheapest).
+        const seenIds = new Set();
+        const dedupedHotelSearch = searchResults.hotelSearch.filter((sr) => {
+            const id = sr.Hotel?.Id;
+            if (seenIds.has(id)) return false;
+            seenIds.add(id);
+            return true;
+        });
+
+        return dedupedHotelSearch.map((sr) => {
             const fromSearch = sr.Hotel;
             const full = hotelsDetailsMap[fromSearch.Id];
             const transformed = transformedMap[fromSearch.Id];
@@ -15726,6 +16266,8 @@ function SearchResultsPage() {
                     currency: hotel.pricing?.currency ?? "DZD",
                     Token: hotel.Token || hotel.pricing?.token,
                     token: hotel.pricing?.token ?? hotel.Token,
+                    Source: hotel.Source,
+                    source: hotel.Source,
                     selectedRooms: roomsList,
                     searchParams: { checkIn, checkOut, rooms },
                 },
@@ -15779,6 +16321,8 @@ function SearchResultsPage() {
                 currency: hotel.pricing?.currency ?? "DZD",
                 Token: hotel.Token || hotel.pricing?.token,
                 token: hotel.pricing?.token ?? hotel.Token,
+                Source: hotel.Source,
+                source: hotel.Source,
                 selectedRooms: selectedRoomsList,
                 Option: hotel?.Option ?? [],
             },
@@ -15979,7 +16523,7 @@ function SearchResultsPage() {
                             <div className="min-w-0 flex-1">
                                 <p className="text-xs text-gray-500 mb-1">Type de recherche</p>
                                 <p className="font-semibold text-gray-800 text-sm">{selectionType === "city" ? "Tous les hôtels" : "Hôtel spécifique"}</p>
-                                <p className="text-xs text-gray-500">{hotelIds?.length ?? 0} hôtel{(hotelIds?.length ?? 0) > 1 ? "s" : ""} recherché{(hotelIds?.length ?? 0) > 1 ? "s" : ""}</p>
+                                <p className="text-xs text-gray-500">{isCitySearch ? (processedHotels?.length ?? 0) : (hotelIds?.length ?? 0)} hôtel{((isCitySearch ? processedHotels?.length : hotelIds?.length) ?? 0) > 1 ? "s" : ""} trouvé{((isCitySearch ? processedHotels?.length : hotelIds?.length) ?? 0) > 1 ? "s" : ""}</p>
                             </div>
                         </div>
                     </div>
@@ -17416,12 +17960,14 @@ const AUTH_STORAGE_KEY = "access_token";
 
 const ROUTES = {
   DESTINATIONS: "/api/destinations",
+  DESTINATIONS_UPLOAD: "/api/destinations/upload",
   E_VISAS: "/api/e-visas",
   TESTIMONIALS: "/api/testimonials",
   USERS: "/api/users",
   AUTH_REGISTER: "/api/auth/register",
   AUTH_LOGIN: "/api/auth/login",
   BOOKINGS: "/api/bookings",
+  CAROUSEL: "/carousel",
 };
 
 /** Same origin as API_GUIDE.md example; override with `VITE_API_BASE_URL`. */
@@ -17569,10 +18115,23 @@ function resolveApiBaseURL() {
  */
 
 /**
- * @typedef {Object} ApiErrorResponse
- * @property {number} [status]
- * @property {string} [message]
- * @property {any} [data]
+ * @typedef {Object} CarouselMedia
+ * @property {string} id
+ * @property {string} filename
+ * @property {string} originalName
+ * @property {string} mimeType
+ * @property {string} url
+ * @property {string|null} alt
+ * @property {number} displayOrder
+ * @property {boolean} isActive
+ * @property {string} createdAt
+ * @property {string} updatedAt
+ */
+
+/**
+ * @typedef {Object} ReorderItemDto
+ * @property {string} id
+ * @property {number} displayOrder
  */
 
 const axiosInstance = axios.create({
@@ -17682,6 +18241,15 @@ const Destinations = {
    * @returns {Promise<void|Destination>}
    */
   remove: (id) => axiosInstance.delete(`${ROUTES.DESTINATIONS}${withId(id)}`),
+
+  /**
+   * @param {FormData} formData - must contain a `file` field
+   * @returns {Promise<{ url: string, filename: string }>}
+   */
+  uploadImage: (formData) =>
+    axiosInstance.post(ROUTES.DESTINATIONS_UPLOAD, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
 };
 
 const EVisas = {
@@ -17831,6 +18399,31 @@ const Bookings = {
   }
 };
 
+const Carousel = {
+  /**
+   * @returns {Promise<CarouselMedia[]>}
+   */
+  getAll: () => axiosInstance.get(ROUTES.CAROUSEL),
+
+  /**
+   * @param {FormData} formData
+   * @returns {Promise<CarouselMedia>}
+   */
+  upload: (formData) => axiosInstance.post(`${ROUTES.CAROUSEL}/upload`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+
+  /**
+   * @param {ReorderItemDto[]} items
+   * @returns {Promise<CarouselMedia[]>}
+   */
+  reorder: (items) => axiosInstance.patch(`${ROUTES.CAROUSEL}/reorder`, { items }),
+
+  /**
+   * @param {string|number} id
+   * @returns {Promise<void>}
+   */
+  remove: (id) => axiosInstance.delete(`${ROUTES.CAROUSEL}${withId(id)}`),
+};
+
 /**
  * Fetches bookings specific to the authenticated client.
  * @param {number|string} userId - The ID of the current user
@@ -17851,6 +18444,7 @@ export const AllezGoApi = {
   Users,
   Auth,
   Bookings,
+  Carousel,
   async getMine() {
       // Hits the secure B2C endpoint
       return this.client.get('/api/bookings/my');
@@ -18332,7 +18926,7 @@ class ApiClient {
         };
 
         return response.HotelSearch.map(hotelData => {
-            const { Hotel, Token, Price, Currency } = hotelData;
+            const { Hotel, Token, Price, Currency, Source } = hotelData;
             const roomsByPaxKey = new Map();
 
             if (Price?.Boarding) {
@@ -18431,6 +19025,7 @@ class ApiClient {
                 id: Hotel.Id,
                 name: Hotel.Name,
                 token: Token,
+                source: Source,
                 image: Hotel.Image,
                 category: Hotel.Category,
                 city: Hotel.City,
@@ -18455,18 +19050,38 @@ class ApiClient {
 
             const isTunisianCity = TUNISIAN_CITY_IDS.includes(Number(searchParams.cityId));
 
+            // ✅ DUAL-MODE: City geo-targeting vs. explicit Hotel IDs
+            const useCityStrategy = !!searchParams.cityId && !searchParams.hotels?.length;
+
+            const bookingDetails = {
+                CheckIn: searchParams.checkIn,
+                CheckOut: searchParams.checkOut,
+                GuestNationality: isTunisianCity ? 'DZ' : searchParams.guestNationality,
+                Currency: isTunisianCity ? 'DZD' : searchParams.currency,
+            };
+
+            if (useCityStrategy) {
+                // ✅ GEO-TARGETING: Let iPro resolve all available hotels for this city
+                bookingDetails.City = String(searchParams.cityId);
+                bookingDetails.GroupingHotel = true;
+                bookingDetails.CombinationRooms = false;
+                if (import.meta.env.DEV) console.log('🌍 searchHotel: CITY geo-targeting mode — City:', searchParams.cityId);
+            } else {
+                // ✅ LEGACY: Explicit hotel ID array (single-hotel, legacy pages)
+                bookingDetails.Hotels = searchParams.hotels.slice(0, CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH);
+                if (import.meta.env.DEV) console.log('🏨 searchHotel: HOTELS array mode —', searchParams.hotels?.length, 'hotels');
+            }
+
+            // ✅ Inject Source: "all" for city strategy to search across all suppliers
+            const filters = useCityStrategy
+                ? { Source: "all", OnlyAvailable: false, ...(searchParams.filters || {}) }
+                : (searchParams.filters || {});
+
             const response = await this.retryRequest(async () => {
                 return await this.client.post('/HotelSearch', this.createRequestBody({
                     SearchDetails: {
-                        BookingDetails: {
-                            CheckIn: searchParams.checkIn,
-                            CheckOut: searchParams.checkOut,
-                            Hotels: searchParams.hotels.slice(0, CONFIG.LIMITS.MAX_HOTELS_PER_SEARCH),
-                            // ✅ MODIFIER: Support for Maghreb rates (force DZ/DZD for Tunisian cities)
-                            GuestNationality: isTunisianCity ? 'DZ' : searchParams.guestNationality,
-                            Currency: isTunisianCity ? 'DZD' : searchParams.currency,
-                        },
-                        Filters: searchParams.filters || {},
+                        BookingDetails: bookingDetails,
+                        Filters: filters,
                         Rooms: roomsForRequest,
                     },
                 }), { timeout: CONFIG.TIMEOUT.SEARCH, cancelToken: cancelToken.token });
@@ -18515,7 +19130,8 @@ class ApiClient {
             return {
                 rooms: this._processRoomResults(hotelResult, params.boardingType),
                 roomsByPax: this._processRoomsByPax(hotelResult, params.rooms, params.boardingType),
-                token: hotelResult.Token
+                token: hotelResult.Token,
+                source: hotelResult.Source
             };
         } finally {
             this.cancelTokens.delete('roomAvailability');
@@ -21784,13 +22400,20 @@ const Carrousel = ({
     const [isFirstLoad,     setIsFirstLoad]     = useState(true);
     const videoRefs = useRef([]);
 
-    const isVideo = (url) => {
+    const isVideo = (media) => {
+        if (!media) return false;
+        // Backend returns `video/mp4` etc.
+        if (media.mimeType && media.mimeType.startsWith('video/')) {
+            return true;
+        }
+        // Fallback for static items
+        const url = media.url || '';
         const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
         return videoExtensions.some(ext => url.toLowerCase().includes(ext));
     };
 
     const currentMedia    = images[currentIndex];
-    const isCurrentVideo  = currentMedia ? isVideo(currentMedia.url) : false;
+    const isCurrentVideo  = currentMedia ? isVideo(currentMedia) : false;
 
     const goToSlide = useCallback((index) => {
         if (isTransitioning) return;
@@ -21846,7 +22469,7 @@ const Carrousel = ({
         if (isFirstLoad && images.length > 0) {
             const firstVideoRef = videoRefs.current[0];
             const firstMedia    = images[0];
-            if (firstVideoRef && isVideo(firstMedia.url) && videoAutoPlay) {
+            if (firstVideoRef && isVideo(firstMedia) && videoAutoPlay) {
                 const timer = setTimeout(() => {
                     firstVideoRef.play()
                         .then(() => console.log('First video autoplayed successfully'))
@@ -21920,7 +22543,7 @@ const Carrousel = ({
                 style={{ transform: `translateX(-${currentIndex * 100}%)` }}
             >
                 {images.map((media, index) => {
-                    const isVideoSlide = isVideo(media.url);
+                    const isVideoSlide = isVideo(media);
                     return (
                         <div key={index} className="relative flex-shrink-0 w-full h-full">
                             {isVideoSlide ? (
@@ -21940,7 +22563,7 @@ const Carrousel = ({
                                 <img
                                     src={media.url}
                                     alt={media.alt}
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-fill"
                                     loading={index === 0 ? 'eager' : 'lazy'}
                                 />
                             )}
@@ -22037,7 +22660,7 @@ const Carrousel = ({
             {showDots && (
                 <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-10 flex space-x-3">
                     {images.map((media, index) => {
-                        const isDotVideo = isVideo(media.url);
+                        const isDotVideo = isVideo(media);
                         return (
                             <button
                                 key={index}

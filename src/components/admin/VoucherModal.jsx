@@ -132,6 +132,9 @@ export default function VoucherModal({ isOpen, onClose, booking }) {
             <div className="text-right">
               <h2 className="text-2xl font-bold text-slate-800 uppercase tracking-widest">Voucher</h2>
               <p className="text-sm text-slate-500 mt-1">Réf: <span className="font-bold text-slate-800">#{booking.id?.toString().padStart(6, '0')}</span></p>
+              {booking.externalId && (
+                <p className="text-sm text-slate-500">iPro Réf: <span className="font-bold text-sky-700">{booking.externalId}</span></p>
+              )}
               <p className="text-sm text-slate-500">Date d'émission: {new Date().toLocaleDateString('fr-FR')}</p>
             </div>
           </div>
