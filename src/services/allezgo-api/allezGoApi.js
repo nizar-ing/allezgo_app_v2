@@ -12,6 +12,7 @@ const ROUTES = {
   AUTH_LOGIN: "/api/auth/login",
   BOOKINGS: "/api/bookings",
   CAROUSEL: "/carousel",
+  SETTINGS: "/api/settings",
 };
 
 /** Same origin as API_GUIDE.md example; override with `VITE_API_BASE_URL`. */
@@ -443,6 +444,30 @@ const Bookings = {
   }
 };
 
+/**
+ * @typedef {Object} Settings
+ * @property {number} id
+ * @property {number} benefit_marge
+ */
+
+/**
+ * @typedef {Object} UpdateSettingsDto
+ * @property {number} benefit_marge - Integer between 0 and 100
+ */
+
+const Settings = {
+  /**
+   * @returns {Promise<Settings>}
+   */
+  get: () => axiosInstance.get(ROUTES.SETTINGS),
+
+  /**
+   * @param {UpdateSettingsDto} payload
+   * @returns {Promise<Settings>}
+   */
+  update: (payload) => axiosInstance.patch(ROUTES.SETTINGS, payload),
+};
+
 const Carousel = {
   /**
    * @returns {Promise<CarouselMedia[]>}
@@ -489,6 +514,7 @@ export const AllezGoApi = {
   Auth,
   Bookings,
   Carousel,
+  Settings,
   async getMine() {
       // Hits the secure B2C endpoint
       return this.client.get('/api/bookings/my');

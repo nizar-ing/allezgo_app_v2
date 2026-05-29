@@ -2,7 +2,6 @@
 import axios from 'axios';
 
 // ==================== CONSTANTS ====================
-const MY_BENEFIT_CAUTION = 0.08;
 const TUNISIAN_CITY_IDS = [34, 35, 36, 37, 38]; // 34 is Sousse
 
 const CONFIG = {
@@ -110,6 +109,7 @@ class ApiClient {
         this.credentials = CREDENTIALS;
         this.cache = new CacheManager(CONFIG.CACHE.TTL);
         this.cancelTokens = new Map();
+        this.benefitRate = 0.08;
         this.setupInterceptors();
     }
 
@@ -179,7 +179,7 @@ class ApiClient {
                         const markup = (val) => {
                             const num = parseFloat(val);
                             if (isNaN(num)) return val;
-                            return Number((num * (1 + MY_BENEFIT_CAUTION)).toFixed(2));
+                            return Number((num * (1 + this.benefitRate)).toFixed(2));
                         };
                         r.Price = markup(r.Price);
                         r.BasePrice = markup(r.BasePrice);
@@ -701,6 +701,13 @@ class ApiClient {
         } catch (error) {
             if (error.name === 'ApiError' || error instanceof ApiError) throw error;
             throw new ApiError('Erreur d\'exécution de l\'annulation', error.response?.status, error);
+        }
+    }
+
+    setBenefitRate(rate) {
+        const parsed = Number(rate);
+        if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
+            this.benefitRate = parsed;
         }
     }
 

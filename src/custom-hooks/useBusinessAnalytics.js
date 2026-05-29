@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
-
-const BENEFIT_RATE = 0.08;
+import useSettings from './useSettings.js';
 
 const FR_MONTHS_SHORT = [
     'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
@@ -33,6 +32,11 @@ function monthLabel(d) {
 }
 
 export function useBusinessAnalytics(bookings, selectedYear) {
+    const { settings } = useSettings();
+    const benefitRate = settings?.benefit_marge !== undefined
+        ? settings.benefit_marge / 100
+        : 0.08;
+
     const all = bookings ?? [];
 
     const availableYears = useMemo(() => {
@@ -65,7 +69,7 @@ export function useBusinessAnalytics(bookings, selectedYear) {
         const total = filtered.length;
         return {
             totalRevenue: revenue,
-            totalBenefit: revenue * BENEFIT_RATE,
+            totalBenefit: revenue * benefitRate,
             confirmedCount: confirmed,
             pendingCount: pending,
             rejectedCount: rejected,
@@ -75,7 +79,7 @@ export function useBusinessAnalytics(bookings, selectedYear) {
             conversionRate: total > 0 ? (confirmed / total) * 100 : 0,
             avgBookingValue: confirmed > 0 ? revenue / confirmed : 0,
         };
-    }, [filtered]);
+    }, [filtered, benefitRate]);
 
     const revenueByMonth = useMemo(() => {
         const map = new Map();
@@ -89,7 +93,7 @@ export function useBusinessAnalytics(bookings, selectedYear) {
             if (b.status?.toUpperCase() === 'CONFIRMED') {
                 const p = Number(b.clientPrice) || 0;
                 e.revenue += p;
-                e.benefit += p * BENEFIT_RATE;
+                e.benefit += p * benefitRate;
             }
         });
         return [...map.entries()]
@@ -100,7 +104,7 @@ export function useBusinessAnalytics(bookings, selectedYear) {
                 benefit: Math.round(v.benefit),
                 count: v.count,
             }));
-    }, [filtered]);
+    }, [filtered, benefitRate]);
 
     const bookingsByMonth = useMemo(
         () => revenueByMonth.map(({ month, count }) => ({ month, count })),
@@ -151,12 +155,12 @@ export function useBusinessAnalytics(bookings, selectedYear) {
             const e = map.get(yr);
             const p = Number(b.clientPrice) || 0;
             e.revenue += p;
-            e.benefit += p * BENEFIT_RATE;
+            e.benefit += p * benefitRate;
         });
         return [...map.entries()]
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([, v]) => ({ annee: v.annee, revenue: Math.round(v.revenue), benefit: Math.round(v.benefit) }));
-    }, [all]);
+    }, [all, benefitRate]);
 
     return {
         kpis,
