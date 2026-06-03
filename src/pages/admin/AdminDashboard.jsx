@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
     Plane,
     FileText,
@@ -87,6 +87,22 @@ export default function AdminDashboard() {
     const {data: users, loading: usersLoading, removeUser, actionLoading: userActionLoading} = useUsers();
 
     const {bookings, loading: bookingsLoading} = useAdminBookings();
+    const [seenBookingIds, setSeenBookingIds] = useState(
+        () => new Set(JSON.parse(localStorage.getItem('allez-go-admin-seen-bookings') || '[]'))
+    );
+
+    const pendingBookings = bookings?.filter(b => b.status === 'PENDING') ?? [];
+    const pendingCount = pendingBookings.length;
+    const unseenCount = pendingBookings.filter(b => !seenBookingIds.has(b.id)).length;
+
+    useEffect(() => {
+        if (activeTab !== 'bookings' || !bookings?.length) return;
+        const pendingIds = bookings.filter(b => b.status === 'PENDING').map(b => b.id);
+        const updated = new Set([...seenBookingIds, ...pendingIds]);
+        localStorage.setItem('allez-go-admin-seen-bookings', JSON.stringify([...updated]));
+        setSeenBookingIds(updated);
+    }, [activeTab, bookings]);
+
     const [selectedBooking, setSelectedBooking] = useState(null);
     const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
     const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
@@ -783,8 +799,21 @@ export default function AdminDashboard() {
                                 }
                 `}
                             >
-                                <Icon className={`w-5 h-5 ${isActive ? 'text-white font-bold' : 'text-sky-300'}`}/>
-                                {tab.label}
+                                <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-white font-bold' : 'text-sky-300'}`}/>
+                                <span className="flex-1 text-left truncate">{tab.label}</span>
+                                {tab.id === 'bookings' && pendingCount > 0 && (
+                                    <span className="ml-auto flex items-center gap-1.5 shrink-0">
+                                        {unseenCount > 0 && (
+                                            <span className="relative flex h-2 w-2">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"/>
+                                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"/>
+                                            </span>
+                                        )}
+                                        <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-bold rounded-full bg-amber-500 text-white shadow-sm">
+                                            {pendingCount}
+                                        </span>
+                                    </span>
+                                )}
                             </button>
                         );
                     })}
