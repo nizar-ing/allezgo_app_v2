@@ -1,7 +1,7 @@
 # AllezGo Frontend Context
 
 Automated context generation of the AllezGo React architecture.
-Generated on: 5/29/2026, 9:27:47 AM
+Generated on: 6/3/2026, 1:05:27 PM
 
 File: package.json
 ```json
@@ -30,6 +30,7 @@ File: package.json
     "react-icons": "^5.5.0",
     "react-router-dom": "^7.12.0",
     "react-window": "^2.2.5",
+    "recharts": "^3.8.1",
     "tailwindcss": "^4.1.18"
   },
   "devDependencies": {
@@ -176,6 +177,25 @@ function App() {
 }
 
 export default App;
+```
+
+File: src/components/admin/analytics/KpiCard.jsx
+```jsx
+export default function KpiCard({ value, label, subLabel, icon: Icon, colorClass, bgClass, borderClass }) {
+    return (
+        <div className={`bg-white rounded-xl shadow-sm border ${borderClass ?? 'border-sky-100/50'} p-5 flex items-start gap-4`}>
+            <div className={`w-10 h-10 rounded-xl ${bgClass} flex items-center justify-center flex-shrink-0 mt-0.5`}>
+                <Icon className={`w-5 h-5 ${colorClass}`} />
+            </div>
+            <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider leading-tight">{label}</p>
+                <p className={`text-2xl font-bold ${colorClass} mt-0.5 leading-tight`}>{value}</p>
+                {subLabel && <p className="text-xs text-gray-500 mt-0.5">{subLabel}</p>}
+            </div>
+        </div>
+    );
+}
+
 ```
 
 File: src/components/admin/ArrayInput.jsx
@@ -4127,7 +4147,7 @@ import {
     FaTags,
     FaBars,
     FaTimes,
-    FaPhone,
+    FaWhatsapp,
     FaPassport,
     FaChevronDown,
     FaPlane,
@@ -4296,6 +4316,55 @@ const RegularMenuItem = ({ item, hoveredMenu, setHoveredMenu }) => {
     );
 };
 
+// WhatsApp external link component
+const WhatsAppMenuItem = ({ item, hoveredMenu, setHoveredMenu }) => {
+    const Icon = item.icon;
+    const isHovered = hoveredMenu === item.name;
+
+    return (
+        <div className="relative group">
+            <a
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Nous contacter sur WhatsApp"
+                onMouseEnter={() => setHoveredMenu(item.name)}
+                onMouseLeave={() => setHoveredMenu(null)}
+                className="relative flex items-center px-3 py-2 rounded-xl transition-all duration-300"
+                style={{
+                    transform: isHovered ? "translateY(-3px) scale(1.08)" : "translateY(0) scale(1)",
+                    boxShadow: isHovered
+                        ? "0 8px 24px rgba(37, 211, 102, 0.45), 0 0 0 4px rgba(37, 211, 102, 0.12)"
+                        : "0 2px 8px rgba(37, 211, 102, 0.2)",
+                    background: isHovered
+                        ? "linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)"
+                        : "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)",
+                }}
+            >
+                <Icon
+                    size={28}
+                    style={{
+                        color: "#25D366",
+                        filter: isHovered
+                            ? "drop-shadow(0 0 8px rgba(37, 211, 102, 0.7))"
+                            : "drop-shadow(0 1px 3px rgba(37, 211, 102, 0.3))",
+                        transform: isHovered ? "rotate(-12deg)" : "rotate(0deg)",
+                        transition: "transform 0.3s ease, filter 0.3s ease",
+                    }}
+                />
+            </a>
+            {/* Tooltip */}
+            <span
+                className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 whitespace-nowrap rounded-md bg-gray-900 px-2.5 py-1 text-xs text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                role="tooltip"
+            >
+                Nous contacter
+                <span className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-gray-900" />
+            </span>
+        </div>
+    );
+};
+
 function Header() {
     const { isAuthenticated, user, logout } = useAuth();
     const [isScrolled, setIsScrolled] = useState(false);
@@ -4341,7 +4410,7 @@ function Header() {
         { name: "VOYAGES ORGANISES", icon: Plane, path: "/voyages-organises" },
         { name: "E-VISA", icon: FaPassport, path: "/e-visa" },
         { name: "OFFRES SPECIALES", icon: FaTags, path: "/offres-speciales" },
-        { name: "0770 93 25 63", icon: FaPhone, path: "/contact", isPhone: true },
+        { name: "WhatsApp", icon: FaWhatsapp, href: "https://wa.me/213770932563", isWhatsApp: true },
     ];
 
     return (
@@ -4392,7 +4461,14 @@ function Header() {
                     {/* COLUMN 2 — Navigation */}
                     <nav className="flex-2 hidden md:flex justify-center items-center gap-5">
                         {menuItems.map((item) =>
-                            item.hasSubmenu ? (
+                            item.isWhatsApp ? (
+                                <WhatsAppMenuItem
+                                    key={item.name}
+                                    item={item}
+                                    hoveredMenu={hoveredMenu}
+                                    setHoveredMenu={setHoveredMenu}
+                                />
+                            ) : item.hasSubmenu ? (
                                 <MenuItemWithSubmenu
                                     key={item.name}
                                     item={item}
@@ -4521,6 +4597,24 @@ function Header() {
                     <nav className="flex flex-col space-y-2 py-4">
                         {menuItems.map((item) => {
                             const Icon = item.icon;
+
+                            if (item.isWhatsApp) {
+                                return (
+                                    <a
+                                        key={item.name}
+                                        href={item.href}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        aria-label="Nous contacter sur WhatsApp"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                        className="flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-300 text-gray-700 hover:bg-green-50 hover:text-green-700"
+                                    >
+                                        <Icon className="text-xl" style={{ color: "#25D366" }} />
+                                        <span className="font-medium">0770 93 25 63</span>
+                                        <span className="ml-auto text-xs text-green-600 font-medium">WhatsApp</span>
+                                    </a>
+                                );
+                            }
 
                             if (item.hasSubmenu) {
                                 return (
@@ -6786,6 +6880,136 @@ export default function ProtectedRoute({ children, allowedRoles }) {
 
 ```
 
+File: src/components/SocialFloatingWidget.jsx
+```jsx
+import { useState } from 'react';
+import { FaFacebookF, FaInstagram, FaTiktok, FaYoutube } from 'react-icons/fa';
+
+const SOCIAL_LINKS = [
+    { icon: FaFacebookF, label: 'Facebook',  href: '#', brandColor: '#1877F2', glowColor: 'rgba(24,119,242,0.45)' },
+    { icon: FaInstagram, label: 'Instagram', href: '#', brandColor: '#E1306C', glowColor: 'rgba(225,48,108,0.45)' },
+    { icon: FaTiktok,    label: 'TikTok',    href: '#', brandColor: '#EE1D52', glowColor: 'rgba(238,29,82,0.45)' },
+    { icon: FaYoutube,   label: 'YouTube',   href: '#', brandColor: '#FF0000', glowColor: 'rgba(255,0,0,0.45)'   },
+];
+
+function SocialLink({ icon: Icon, label, href, brandColor, glowColor }) {
+    const [hovered, setHovered] = useState(false);
+
+    return (
+        <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={label}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            onFocus={() => setHovered(true)}
+            onBlur={() => setHovered(false)}
+            style={{
+                display: 'flex',
+                alignItems: 'center',
+                overflow: 'hidden',
+                height: '48px',
+                width: hovered ? '160px' : '48px',
+                borderRadius: '24px 0 0 24px',
+                background: hovered ? brandColor : 'rgba(15, 23, 42, 0.88)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRight: 'none',
+                boxShadow: hovered
+                    ? `0 4px 24px ${glowColor}, -2px 0 12px ${glowColor}`
+                    : '0 2px 10px rgba(0,0,0,0.35)',
+                transition: 'width 0.35s cubic-bezier(0.4,0,0.2,1), background 0.3s ease, box-shadow 0.3s ease',
+                cursor: 'pointer',
+                textDecoration: 'none',
+                outline: 'none',
+            }}
+        >
+            {/* Left expandable section — accent strip + label, hidden when collapsed */}
+            <div
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    width: hovered ? '112px' : '0px',
+                    overflow: 'hidden',
+                    flexShrink: 0,
+                    transition: 'width 0.35s cubic-bezier(0.4,0,0.2,1)',
+                }}
+            >
+                {/* Colored accent strip */}
+                <div
+                    style={{
+                        width: '3px',
+                        height: '22px',
+                        borderRadius: '0 3px 3px 0',
+                        background: 'rgba(255,255,255,0.55)',
+                        flexShrink: 0,
+                        marginLeft: '10px',
+                        marginRight: '8px',
+                    }}
+                />
+                {/* Platform label */}
+                <span
+                    style={{
+                        color: '#ffffff',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        letterSpacing: '0.04em',
+                        whiteSpace: 'nowrap',
+                        opacity: hovered ? 1 : 0,
+                        transform: hovered ? 'translateX(0)' : 'translateX(5px)',
+                        transition: 'opacity 0.2s ease 0.15s, transform 0.2s ease 0.15s',
+                    }}
+                >
+                    {label}
+                </span>
+            </div>
+
+            {/* Icon — always visible, right-anchored */}
+            <div
+                style={{
+                    width: '48px',
+                    height: '48px',
+                    flexShrink: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transform: hovered ? 'scale(1.18)' : 'scale(1)',
+                    transition: 'transform 0.3s ease',
+                }}
+            >
+                <Icon
+                    style={{
+                        fontSize: '17px',
+                        color: '#ffffff',
+                        filter: hovered ? 'drop-shadow(0 0 8px rgba(255,255,255,0.5))' : 'none',
+                        transition: 'filter 0.3s ease',
+                    }}
+                />
+            </div>
+        </a>
+    );
+}
+
+function SocialFloatingWidget() {
+    return (
+        <nav
+            role="complementary"
+            aria-label="Réseaux sociaux"
+            className="hidden sm:flex fixed right-0 top-1/2 -translate-y-1/2 z-40 flex-col gap-2 py-2"
+        >
+            {SOCIAL_LINKS.map((social) => (
+                <SocialLink key={social.label} {...social} />
+            ))}
+        </nav>
+    );
+}
+
+export default SocialFloatingWidget;
+
+```
+
 File: src/components/TestimonialCard.jsx
 ```jsx
 import React from "react";
@@ -7408,13 +7632,18 @@ File: src/custom-hooks/useBooking.js
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { AllezGoApi } from '../services/allezgo-api/allezGoApi';
+import useSettings from './useSettings.js';
 
 export function useBooking({ onSuccess: externalOnSuccess, onError: externalOnError } = {}) {
     const queryClient = useQueryClient();
+    const { settings } = useSettings();
+    const benefitRate = settings?.benefit_marge !== undefined
+        ? settings.benefit_marge / 100
+        : 0.08;
 
     return useMutation({
         mutationFn: async ({ bookingState, paymentMethod, receiptFile, clientPhone }) => {
-            // The price coming from the bookingState (via ApiClient) already contains the 8% margin.
+            // clientPrice comes from ApiClient which already applied the agency markup.
             const clientPrice = bookingState?.totalPrice || bookingState?.basePrice || 0;
 
             const cityId = Number(bookingState?.hotel?.City?.Id || bookingState?.hotel?.City);
@@ -7464,17 +7693,18 @@ export function useBooking({ onSuccess: externalOnSuccess, onError: externalOnEr
             const checkOut = bookingState?.checkOut;
 
             // Stringify the core data, keeping all B2C state intact!
-            formData.append('bookingData', JSON.stringify({ 
+            formData.append('bookingData', JSON.stringify({
                 ...bookingState, // 🔴 CRITICAL: Spreads hotel, rooms, and boarding details
-                Token: bookingState?.Token || bookingState?.token, 
-                hotelId, 
+                Token: bookingState?.Token || bookingState?.token,
+                hotelId,
                 hotelName,
-                checkIn, 
-                checkOut, 
-                clientPrice, 
-                paymentMethod, 
-                clientPhone, 
-                iproPayload 
+                checkIn,
+                checkOut,
+                clientPrice,
+                paymentMethod,
+                clientPhone,
+                appliedBenefitRate: benefitRate,
+                iproPayload
             }));
 
             // Append the file if it exists
@@ -7552,6 +7782,187 @@ export function useBookingValidation() {
 
     return { validateSearch };
 }
+```
+
+File: src/custom-hooks/useBusinessAnalytics.js
+```jsx
+import { useMemo } from 'react';
+import useSettings from './useSettings.js';
+
+const FR_MONTHS_SHORT = [
+    'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
+    'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.',
+];
+
+function resolveEventDate(b) {
+    if (b.createdAt) {
+        const d = new Date(b.createdAt);
+        if (!isNaN(d.getTime())) return d;
+    }
+    if (b.checkIn) {
+        const d = new Date(b.checkIn);
+        if (!isNaN(d.getTime())) return d;
+    }
+    return null;
+}
+
+function parseJSON(val) {
+    if (!val || typeof val === 'object') return val ?? null;
+    try { return JSON.parse(val); } catch { return null; }
+}
+
+function monthKey(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function monthLabel(d) {
+    return `${FR_MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+export function useBusinessAnalytics(bookings, selectedYear) {
+    const { settings } = useSettings();
+    const benefitRate = settings?.benefit_marge !== undefined
+        ? settings.benefit_marge / 100
+        : 0.08;
+
+    const all = bookings ?? [];
+
+    const availableYears = useMemo(() => {
+        const years = new Set([new Date().getFullYear()]);
+        all.forEach(b => {
+            const d = resolveEventDate(b);
+            if (d) years.add(d.getFullYear());
+        });
+        return [...years].sort((a, b) => b - a);
+    }, [all]);
+
+    const filtered = useMemo(() => {
+        if (selectedYear === 'all') return all;
+        return all.filter(b => resolveEventDate(b)?.getFullYear() === selectedYear);
+    }, [all, selectedYear]);
+
+    const kpis = useMemo(() => {
+        const phones = new Set();
+        let revenue = 0, confirmed = 0, pending = 0, rejected = 0, cancelled = 0;
+
+        filtered.forEach(b => {
+            const s = b.status?.toUpperCase();
+            if (s === 'CONFIRMED') { revenue += Number(b.clientPrice) || 0; confirmed++; }
+            else if (s === 'PENDING') pending++;
+            else if (s === 'REJECTED') rejected++;
+            else if (s === 'CANCELLED') cancelled++;
+            if (b.clientPhone) phones.add(b.clientPhone);
+        });
+
+        const total = filtered.length;
+        return {
+            totalRevenue: revenue,
+            totalBenefit: revenue * benefitRate,
+            confirmedCount: confirmed,
+            pendingCount: pending,
+            rejectedCount: rejected,
+            cancelledCount: cancelled,
+            totalBookings: total,
+            uniqueClients: phones.size,
+            conversionRate: total > 0 ? (confirmed / total) * 100 : 0,
+            avgBookingValue: confirmed > 0 ? revenue / confirmed : 0,
+        };
+    }, [filtered, benefitRate]);
+
+    const revenueByMonth = useMemo(() => {
+        const map = new Map();
+        filtered.forEach(b => {
+            const d = resolveEventDate(b);
+            if (!d) return;
+            const key = monthKey(d);
+            if (!map.has(key)) map.set(key, { key, month: monthLabel(d), revenue: 0, benefit: 0, count: 0 });
+            const e = map.get(key);
+            e.count++;
+            if (b.status?.toUpperCase() === 'CONFIRMED') {
+                const p = Number(b.clientPrice) || 0;
+                e.revenue += p;
+                e.benefit += p * benefitRate;
+            }
+        });
+        return [...map.entries()]
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([, v]) => ({
+                month: v.month,
+                revenue: Math.round(v.revenue),
+                benefit: Math.round(v.benefit),
+                count: v.count,
+            }));
+    }, [filtered, benefitRate]);
+
+    const bookingsByMonth = useMemo(
+        () => revenueByMonth.map(({ month, count }) => ({ month, count })),
+        [revenueByMonth]
+    );
+
+    const bookingsByStatus = useMemo(() => [
+        { name: 'Confirmées',   value: kpis.confirmedCount, color: '#10b981' },
+        { name: 'En attente',   value: kpis.pendingCount,   color: '#f59e0b' },
+        { name: 'Rejetées',     value: kpis.rejectedCount,  color: '#f43f5e' },
+        { name: 'Annulées',     value: kpis.cancelledCount, color: '#94a3b8' },
+    ].filter(i => i.value > 0), [kpis]);
+
+    const topDestinations = useMemo(() => {
+        const map = new Map();
+        all.forEach(b => {
+            if (b.status?.toUpperCase() !== 'CONFIRMED') return;
+            const ipro = parseJSON(b.iproPayload);
+            const bd   = parseJSON(b.bookingData);
+            const name = ipro?.HotelName || bd?.hotel?.name || b.hotelName || `Hôtel #${b.hotelId}`;
+            if (!map.has(name)) map.set(name, { hotel: name, count: 0, revenue: 0 });
+            const e = map.get(name);
+            e.count++;
+            e.revenue += Number(b.clientPrice) || 0;
+        });
+        return [...map.values()].sort((a, b) => b.count - a.count).slice(0, 7);
+    }, [all]);
+
+    // Uses checkIn (not createdAt) — travel month is the seasonality signal
+    const seasonalPattern = useMemo(() => {
+        const counts = new Array(12).fill(0);
+        all.forEach(b => {
+            if (!b.checkIn) return;
+            const d = new Date(b.checkIn);
+            if (!isNaN(d.getTime())) counts[d.getMonth()]++;
+        });
+        return FR_MONTHS_SHORT.map((mois, i) => ({ mois, reservations: counts[i] }));
+    }, [all]);
+
+    const revenueByYear = useMemo(() => {
+        const map = new Map();
+        all.forEach(b => {
+            if (b.status?.toUpperCase() !== 'CONFIRMED') return;
+            const d = resolveEventDate(b);
+            if (!d) return;
+            const yr = String(d.getFullYear());
+            if (!map.has(yr)) map.set(yr, { annee: yr, revenue: 0, benefit: 0 });
+            const e = map.get(yr);
+            const p = Number(b.clientPrice) || 0;
+            e.revenue += p;
+            e.benefit += p * benefitRate;
+        });
+        return [...map.entries()]
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([, v]) => ({ annee: v.annee, revenue: Math.round(v.revenue), benefit: Math.round(v.benefit) }));
+    }, [all, benefitRate]);
+
+    return {
+        kpis,
+        revenueByMonth,
+        bookingsByMonth,
+        bookingsByStatus,
+        topDestinations,
+        seasonalPattern,
+        revenueByYear,
+        availableYears,
+        isEmpty: all.length === 0,
+    };
+}
+
 ```
 
 File: src/custom-hooks/useCarousel.js
@@ -8363,6 +8774,86 @@ return {
 
 ```
 
+File: src/custom-hooks/useSettings.js
+```jsx
+import { useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import toast from "react-hot-toast";
+import AllezGoApi, { isRequestCanceled } from "../services/allezgo-api/allezGoApi.js";
+import apiClient from "../services/ApiClient.js";
+
+const toApiError = (error) => ({
+  status: error?.status ?? null,
+  message: error?.message || "Request failed",
+  data: error?.data ?? null,
+});
+
+const QUERY_KEY = ["settings"];
+
+export default function useSettings() {
+  const queryClient = useQueryClient();
+
+  const {
+    data: settings,
+    isLoading: loading,
+    error: queryError,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: QUERY_KEY,
+    queryFn: async ({ signal }) => {
+      try {
+        return await AllezGoApi.Settings.get({ signal });
+      } catch (err) {
+        if (isRequestCanceled(err)) return undefined;
+        throw toApiError(err);
+      }
+    },
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 10,
+  });
+
+  useEffect(() => {
+    if (settings?.benefit_marge !== undefined) {
+      apiClient.setBenefitRate(settings.benefit_marge / 100);
+    }
+  }, [settings?.benefit_marge]);
+
+  const updateMutation = useMutation({
+    mutationFn: async (payload) => {
+      try {
+        return await AllezGoApi.Settings.update(payload);
+      } catch (err) {
+        throw toApiError(err);
+      }
+    },
+    onSuccess: (updated) => {
+      const newSettings = updated?.data || updated;
+      queryClient.setQueryData(QUERY_KEY, newSettings);
+      if (newSettings?.benefit_marge !== undefined) {
+        apiClient.setBenefitRate(newSettings.benefit_marge / 100);
+      }
+      toast.success("Paramètres mis à jour avec succès !", { id: "settings-update-success" });
+    },
+    onError: () => toast.error("Erreur lors de la mise à jour des paramètres.", { id: "settings-update-error" }),
+  });
+
+  const actionLoading = updateMutation.isPending;
+  const error = queryError || updateMutation.error || null;
+
+  return {
+    settings,
+    loading,
+    actionLoading,
+    error,
+    isError,
+    refetch,
+    updateSettings: updateMutation.mutateAsync,
+  };
+}
+
+```
+
 File: src/custom-hooks/useTestimonials.js
 ```jsx
 // src/custom-hooks/useTestimonials.js
@@ -8891,7 +9382,9 @@ import {
     Ban,
     Clock,
     CheckCircle2,
-    Image as ImageIcon
+    Image as ImageIcon,
+    BarChart2,
+    Settings as SettingsIcon,
 } from 'lucide-react';
 //import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -8910,6 +9403,8 @@ import VerifyBookingModal from '../../components/admin/VerifyBookingModal.jsx';
 import VoucherModal from '../../components/admin/VoucherModal.jsx';
 import CancelBookingModal from "../../components/admin/CancelBookingModal.jsx";
 import CarouselAdmin from "../../components/admin/CarouselAdmin.jsx";
+import BusinessStats from './BusinessStats.jsx';
+import SettingsPanel from './SettingsPanel.jsx';
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 function StatusBadge({status}) {
@@ -9102,6 +9597,8 @@ export default function AdminDashboard() {
         {id: 'testimonials', label: 'Témoignages', icon: MessageSquare},
         {id: 'users', label: 'Utilisateurs', icon: Users},
         {id: 'carousel', label: 'Carrousel', icon: ImageIcon},
+        {id: 'analytics', label: 'My Business Stats', icon: BarChart2},
+        {id: 'settings', label: 'Paramètres', icon: SettingsIcon},
     ];
 
     const renderContent = () => {
@@ -9586,8 +10083,12 @@ export default function AdminDashboard() {
                     </div>
                 </div>
             );
+        } else if (activeTab === 'analytics') {
+            return <BusinessStats />;
         } else if (activeTab === 'carousel') {
             return <CarouselAdmin />;
+        } else if (activeTab === 'settings') {
+            return <SettingsPanel />;
         }
 
         return (
@@ -9746,6 +10247,413 @@ export default function AdminDashboard() {
                 onClose={() => setIsVoucherModalOpen(false)}
                 booking={selectedBooking}
             />
+        </div>
+    );
+}
+
+```
+
+File: src/pages/admin/BusinessStats.jsx
+```jsx
+import { useState } from 'react';
+import {
+    ResponsiveContainer,
+    ComposedChart, Area, Line,
+    BarChart, Bar,
+    PieChart, Pie, Cell,
+    XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+} from 'recharts';
+import {
+    BarChart2, TrendingUp, Wallet, CreditCard, CheckCircle2, Users,
+} from 'lucide-react';
+import useAdminBookings from '../../custom-hooks/useAdminBookings.js';
+import { useBusinessAnalytics } from '../../custom-hooks/useBusinessAnalytics.js';
+import KpiCard from '../../components/admin/analytics/KpiCard.jsx';
+import Loader from '../../ui/Loader.jsx';
+
+// ─── Formatters ───────────────────────────────────────────────────────────────
+
+const fmtDZD = (v) =>
+    new Intl.NumberFormat('fr-DZ').format(Math.round(v)) + ' DZD';
+
+const fmtCompact = (v) => {
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+    if (v >= 1_000) return `${(v / 1_000).toFixed(0)}k`;
+    return String(v);
+};
+
+const TOOLTIP_STYLE = {
+    backgroundColor: 'white',
+    border: '1px solid #e2e8f0',
+    borderRadius: '0.75rem',
+    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+    padding: '10px 14px',
+    fontSize: '0.78rem',
+    fontFamily: 'sans-serif',
+};
+
+// ─── Shared chart card wrapper ─────────────────────────────────────────────────
+
+function ChartCard({ title, subtitle, icon: Icon, children, className = '' }) {
+    return (
+        <div className={`bg-white rounded-xl shadow-sm border border-sky-100/50 overflow-hidden font-sans ${className}`}>
+            <div className="px-6 py-5 border-b border-gray-100 bg-white">
+                <h3 className="text-lg font-semibold text-sky-900 flex items-center gap-2">
+                    <Icon className="w-5 h-5 text-sky-600" />
+                    {title}
+                </h3>
+                {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
+            </div>
+            <div className="p-6">{children}</div>
+        </div>
+    );
+}
+
+function EmptyChart({ message = 'Aucune donnée pour cette période.' }) {
+    return (
+        <div className="flex flex-col items-center justify-center py-10 text-gray-400">
+            <BarChart2 className="w-8 h-8 mb-2 text-sky-200" />
+            <p className="text-sm">{message}</p>
+        </div>
+    );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
+export default function BusinessStats() {
+    const { bookings, loading } = useAdminBookings();
+    const [selectedYear, setSelectedYear] = useState('all');
+
+    const {
+        kpis,
+        revenueByMonth,
+        bookingsByMonth,
+        bookingsByStatus,
+        topDestinations,
+        seasonalPattern,
+        revenueByYear,
+        availableYears,
+        isEmpty,
+    } = useBusinessAnalytics(bookings, selectedYear);
+
+    if (loading) {
+        return (
+            <div className="py-12">
+                <Loader variant="minimal" message="Calcul des statistiques..." />
+            </div>
+        );
+    }
+
+    if (isEmpty) {
+        return (
+            <div className="bg-white rounded-xl shadow-sm border border-sky-100/50 p-12 text-center font-sans">
+                <BarChart2 className="w-16 h-16 text-sky-200 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-sky-900 mb-1">Aucune donnée disponible</h3>
+                <p className="text-sm text-gray-500">
+                    Les statistiques apparaîtront dès que des réservations seront enregistrées.
+                </p>
+            </div>
+        );
+    }
+
+    const totalCancelled = kpis.cancelledCount + kpis.rejectedCount;
+
+    return (
+        <div className="space-y-5 font-sans">
+
+            {/* ── Header + Year filter ──────────────────────────────────────────── */}
+            <div className="bg-white rounded-xl shadow-sm border border-sky-100/50 px-6 py-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <h3 className="text-lg font-semibold text-sky-900 flex items-center gap-2">
+                        <BarChart2 className="w-5 h-5 text-sky-600" />
+                        Business &amp; Statistiques
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                        Analyse de performance basée sur{' '}
+                        <span className="font-semibold text-sky-700">{kpis.totalBookings}</span>{' '}
+                        réservation{kpis.totalBookings !== 1 ? 's' : ''}{' '}
+                        {selectedYear === 'all' ? '— toutes périodes' : `— ${selectedYear}`}
+                    </p>
+                </div>
+                <select
+                    value={selectedYear}
+                    onChange={e => setSelectedYear(
+                        e.target.value === 'all' ? 'all' : Number(e.target.value)
+                    )}
+                    className="border border-sky-200 rounded-lg px-3 py-1.5 text-sm text-sky-800 bg-white focus:outline-none focus:ring-2 focus:ring-sky-400 self-start md:self-auto"
+                >
+                    <option value="all">Toutes les années</option>
+                    {availableYears.map(yr => (
+                        <option key={yr} value={yr}>{yr}</option>
+                    ))}
+                </select>
+            </div>
+
+            {/* ── KPI Grid ─────────────────────────────────────────────────────── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
+                <KpiCard
+                    label="Chiffre d'Affaires"
+                    value={fmtDZD(kpis.totalRevenue)}
+                    subLabel="réservations confirmées uniquement"
+                    icon={TrendingUp}
+                    colorClass="text-emerald-600"
+                    bgClass="bg-emerald-50"
+                    borderClass="border-emerald-100"
+                />
+                <KpiCard
+                    label="Bénéfice Agence"
+                    value={fmtDZD(kpis.totalBenefit)}
+                    subLabel="8% du chiffre d'affaires confirmé"
+                    icon={Wallet}
+                    colorClass="text-amber-600"
+                    bgClass="bg-amber-50"
+                    borderClass="border-amber-100"
+                />
+                <KpiCard
+                    label="Réservations Totales"
+                    value={String(kpis.totalBookings)}
+                    subLabel={`${kpis.confirmedCount} confirmées · ${kpis.pendingCount} en attente`}
+                    icon={CreditCard}
+                    colorClass="text-sky-600"
+                    bgClass="bg-sky-50"
+                    borderClass="border-sky-100"
+                />
+                <KpiCard
+                    label="Taux de Confirmation"
+                    value={`${kpis.conversionRate.toFixed(1)}%`}
+                    subLabel={`${totalCancelled} annulée${totalCancelled !== 1 ? 's' : ''} ou rejetée${totalCancelled !== 1 ? 's' : ''}`}
+                    icon={CheckCircle2}
+                    colorClass="text-emerald-600"
+                    bgClass="bg-emerald-50"
+                    borderClass="border-emerald-100"
+                />
+                <KpiCard
+                    label="Clients Uniques"
+                    value={String(kpis.uniqueClients)}
+                    subLabel="par numéro de téléphone"
+                    icon={Users}
+                    colorClass="text-sky-600"
+                    bgClass="bg-sky-50"
+                    borderClass="border-sky-100"
+                />
+                <KpiCard
+                    label="Valeur Moy. Réservation"
+                    value={kpis.confirmedCount > 0 ? fmtDZD(kpis.avgBookingValue) : '—'}
+                    subLabel="sur les réservations confirmées"
+                    icon={BarChart2}
+                    colorClass="text-violet-600"
+                    bgClass="bg-violet-50"
+                    borderClass="border-violet-100"
+                />
+            </div>
+
+            {/* ── Charts Grid ──────────────────────────────────────────────────── */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                {/* Revenue + Benefit over time — full width */}
+                <ChartCard
+                    title="Chiffre d'Affaires & Bénéfices"
+                    subtitle="Évolution mensuelle du CA confirmé et du bénéfice agence (8%)"
+                    icon={TrendingUp}
+                    className="md:col-span-2"
+                >
+                    {revenueByMonth.length === 0 ? (
+                        <EmptyChart />
+                    ) : (
+                        <ResponsiveContainer width="100%" height={300}>
+                            <ComposedChart data={revenueByMonth} margin={{ top: 4, right: 24, left: 0, bottom: 64 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                                <XAxis
+                                    dataKey="month"
+                                    tick={{ fontSize: 11, angle: -35, textAnchor: 'end' }}
+                                    height={70}
+                                />
+                                <YAxis tickFormatter={fmtCompact} tick={{ fontSize: 11 }} width={64} />
+                                <Tooltip
+                                    contentStyle={TOOLTIP_STYLE}
+                                    formatter={(value, name) => [fmtDZD(value), name]}
+                                />
+                                <Legend verticalAlign="top" height={36} />
+                                <Area
+                                    type="monotone"
+                                    dataKey="revenue"
+                                    name="Chiffre d'affaires"
+                                    fill="#bae6fd"
+                                    stroke="#0284c7"
+                                    strokeWidth={2}
+                                    fillOpacity={0.6}
+                                />
+                                <Line
+                                    type="monotone"
+                                    dataKey="benefit"
+                                    name="Bénéfice agence"
+                                    stroke="#f59e0b"
+                                    strokeWidth={2.5}
+                                    dot={false}
+                                />
+                            </ComposedChart>
+                        </ResponsiveContainer>
+                    )}
+                </ChartCard>
+
+                {/* Bookings per month */}
+                <ChartCard
+                    title="Réservations par Mois"
+                    subtitle="Tous statuts confondus"
+                    icon={CreditCard}
+                >
+                    {bookingsByMonth.length === 0 ? (
+                        <EmptyChart />
+                    ) : (
+                        <ResponsiveContainer width="100%" height={260}>
+                            <BarChart data={bookingsByMonth} margin={{ top: 4, right: 8, left: 0, bottom: 64 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                                <XAxis
+                                    dataKey="month"
+                                    tick={{ fontSize: 10, angle: -35, textAnchor: 'end' }}
+                                    height={70}
+                                />
+                                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} width={30} />
+                                <Tooltip
+                                    contentStyle={TOOLTIP_STYLE}
+                                    formatter={(v) => [v, 'Réservations']}
+                                />
+                                <Bar dataKey="count" name="Réservations" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    )}
+                </ChartCard>
+
+                {/* Status distribution donut */}
+                <ChartCard
+                    title={`Répartition par Statut · ${kpis.totalBookings} total`}
+                    subtitle="Distribution des réservations par statut"
+                    icon={CheckCircle2}
+                >
+                    {bookingsByStatus.length === 0 ? (
+                        <EmptyChart />
+                    ) : (
+                        <ResponsiveContainer width="100%" height={260}>
+                            <PieChart>
+                                <Pie
+                                    data={bookingsByStatus}
+                                    cx="50%"
+                                    cy="45%"
+                                    innerRadius={55}
+                                    outerRadius={95}
+                                    paddingAngle={3}
+                                    dataKey="value"
+                                >
+                                    {bookingsByStatus.map((entry, i) => (
+                                        <Cell key={i} fill={entry.color} />
+                                    ))}
+                                </Pie>
+                                <Tooltip
+                                    contentStyle={TOOLTIP_STYLE}
+                                    formatter={(v, name) => [v, name]}
+                                />
+                                <Legend iconType="circle" iconSize={10} />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    )}
+                </ChartCard>
+
+                {/* Top destinations — full width */}
+                <ChartCard
+                    title="Top Destinations"
+                    subtitle="Hôtels les plus réservés parmi les réservations confirmées"
+                    icon={BarChart2}
+                    className="md:col-span-2"
+                >
+                    {topDestinations.length === 0 ? (
+                        <EmptyChart message="Aucune réservation confirmée pour établir un classement." />
+                    ) : (
+                        <ResponsiveContainer width="100%" height={Math.max(200, topDestinations.length * 52)}>
+                            <BarChart
+                                data={topDestinations}
+                                layout="vertical"
+                                margin={{ top: 4, right: 48, left: 0, bottom: 4 }}
+                            >
+                                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
+                                <YAxis
+                                    type="category"
+                                    dataKey="hotel"
+                                    width={200}
+                                    tick={{ fontSize: 11 }}
+                                    tickLine={false}
+                                />
+                                <Tooltip
+                                    contentStyle={TOOLTIP_STYLE}
+                                    formatter={(v, name) =>
+                                        name === 'count' ? [v, 'Réservations'] : [fmtDZD(v), 'Revenu']
+                                    }
+                                />
+                                <Bar dataKey="count" name="count" fill="#0284c7" radius={[0, 4, 4, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    )}
+                </ChartCard>
+
+                {/* Seasonal pattern — full width */}
+                <ChartCard
+                    title="Saisonnalité des Réservations"
+                    subtitle="Répartition des check-ins par mois calendaire (toutes années confondues)"
+                    icon={TrendingUp}
+                    className="md:col-span-2"
+                >
+                    <ResponsiveContainer width="100%" height={220}>
+                        <BarChart data={seasonalPattern} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                            <XAxis dataKey="mois" tick={{ fontSize: 11 }} />
+                            <YAxis allowDecimals={false} tick={{ fontSize: 11 }} width={30} />
+                            <Tooltip
+                                contentStyle={TOOLTIP_STYLE}
+                                formatter={(v) => [v, 'Check-ins']}
+                            />
+                            <Bar dataKey="reservations" name="Check-ins" fill="#f97316" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </ChartCard>
+
+                {/* Revenue by year — full width, only in 'all time' mode */}
+                {selectedYear === 'all' && revenueByYear.length > 0 && (
+                    <ChartCard
+                        title="Évolution Annuelle"
+                        subtitle="Chiffre d'affaires et bénéfice agence par année"
+                        icon={TrendingUp}
+                        className="md:col-span-2"
+                    >
+                        <ResponsiveContainer width="100%" height={260}>
+                            <BarChart data={revenueByYear} margin={{ top: 4, right: 24, left: 0, bottom: 4 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                                <XAxis dataKey="annee" tick={{ fontSize: 11 }} />
+                                <YAxis tickFormatter={fmtCompact} tick={{ fontSize: 11 }} width={64} />
+                                <Tooltip
+                                    contentStyle={TOOLTIP_STYLE}
+                                    formatter={(v, name) => [fmtDZD(v), name]}
+                                />
+                                <Legend verticalAlign="top" height={36} />
+                                <Bar
+                                    dataKey="revenue"
+                                    name="Chiffre d'affaires"
+                                    fill="#0284c7"
+                                    radius={[4, 4, 0, 0]}
+                                    barSize={36}
+                                />
+                                <Bar
+                                    dataKey="benefit"
+                                    name="Bénéfice agence"
+                                    fill="#f59e0b"
+                                    radius={[4, 4, 0, 0]}
+                                    barSize={36}
+                                />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </ChartCard>
+                )}
+
+            </div>
         </div>
     );
 }
@@ -11265,6 +12173,111 @@ export default function EditUserModal({ user, onClose }) {
 
 ```
 
+File: src/pages/admin/SettingsPanel.jsx
+```jsx
+import React, { useState, useEffect } from 'react';
+import { Settings, Save, Percent, Info } from 'lucide-react';
+import useSettings from '../../custom-hooks/useSettings.js';
+import Loader from '../../ui/Loader.jsx';
+
+export default function SettingsPanel() {
+    const { settings, loading, actionLoading, error, isError, updateSettings } = useSettings();
+    const [benefitMarge, setBenefitMarge] = useState('');
+    const [isDirty, setIsDirty] = useState(false);
+
+    useEffect(() => {
+        if (settings?.benefit_marge !== undefined) {
+            setBenefitMarge(String(settings.benefit_marge));
+            setIsDirty(false);
+        }
+    }, [settings?.benefit_marge]);
+
+    const handleChange = (e) => {
+        setBenefitMarge(e.target.value);
+        setIsDirty(true);
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        const value = parseInt(benefitMarge, 10);
+        if (isNaN(value) || value < 0 || value > 100) return;
+        await updateSettings({ benefit_marge: value });
+        setIsDirty(false);
+    };
+
+    const parsedValue = parseInt(benefitMarge, 10);
+    const isInvalid = isNaN(parsedValue) || parsedValue < 0 || parsedValue > 100;
+
+    return (
+        <div className="bg-white rounded-xl shadow-sm border border-sky-100/50 overflow-hidden font-sans max-w-2xl">
+            <div className="px-6 py-5 border-b border-gray-100 bg-white">
+                <h3 className="text-lg font-semibold text-sky-900 flex items-center gap-2">
+                    <Settings className="w-5 h-5 text-sky-600" />
+                    Paramètres de l'application
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">Configurez les paramètres globaux de la plateforme</p>
+            </div>
+
+            <div className="p-6">
+                {loading ? (
+                    <Loader variant="minimal" message="Chargement des paramètres..." />
+                ) : isError ? (
+                    <div className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-4">
+                        {error?.message || "Erreur lors du chargement des paramètres."}
+                    </div>
+                ) : (
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        <div className="space-y-2">
+                            <label htmlFor="benefit_marge" className="block text-sm font-semibold text-gray-700">
+                                Marge bénéficiaire (%)
+                            </label>
+                            <div className="flex items-center gap-3 flex-wrap">
+                                <div className="relative w-40">
+                                    <input
+                                        id="benefit_marge"
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        step="1"
+                                        value={benefitMarge}
+                                        onChange={handleChange}
+                                        className={`w-full px-4 py-2.5 pr-10 border rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors ${
+                                            isInvalid && isDirty
+                                                ? 'border-rose-400 bg-rose-50'
+                                                : 'border-gray-300 bg-white'
+                                        }`}
+                                        placeholder="0 – 100"
+                                    />
+                                    <Percent className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={actionLoading || isInvalid || !isDirty}
+                                    className="flex items-center gap-2 px-5 py-2.5 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors shadow-sm"
+                                >
+                                    <Save size={16} />
+                                    {actionLoading ? 'Enregistrement...' : 'Enregistrer'}
+                                </button>
+                            </div>
+                            {isInvalid && isDirty && (
+                                <p className="text-xs text-rose-500">La valeur doit être un entier entre 0 et 100.</p>
+                            )}
+                            <p className="text-xs text-gray-500 flex items-center gap-1.5 mt-1">
+                                <Info size={12} className="shrink-0" />
+                                Appliquée sur tous les prix hôteliers.&nbsp;
+                                Valeur actuelle :&nbsp;
+                                <span className="font-bold text-sky-700">{settings?.benefit_marge ?? '—'}%</span>
+                            </p>
+                        </div>
+                    </form>
+                )}
+            </div>
+        </div>
+    );
+}
+
+```
+
 File: src/pages/BookingPage.jsx
 ```jsx
 import { useState, useMemo } from "react";
@@ -11978,6 +12991,10 @@ import HotelShowcase from "../components/HotelShowcase.jsx";
 
 const API_BASE = "https://api.allezgoo.com";
 
+const DEFAULT_IMAGES = [
+    { url: '/images/landing_carousel.jpeg', alt: 'AllezGo — Votre agence de voyage' },
+];
+
 function HomePage() {
     const { data: testimonials, loading: loadingTestimonials, error: errorTestimonials } = useTestimonials();
     const { data: carouselData, loading: loadingCarousel } = useCarousel();
@@ -11987,18 +13004,19 @@ function HomePage() {
         url: item.url.startsWith('http') ? item.url : `${API_BASE}${item.url}`,
     })) || [];
 
+    const displayImages =
+        !loadingCarousel && mappedCarouselImages.length > 0
+            ? mappedCarouselImages
+            : DEFAULT_IMAGES;
+
     return (
         <section
             id="nos-atouts"
             className="flex flex-col text-white items-center justify-center scroll-mt-[100vh]"
         >
-            {!loadingCarousel && mappedCarouselImages.length > 0 ? (
-                <Carousel images={mappedCarouselImages} />
-            ) : (
-                <div className="w-full h-[calc(63vh-80px)] md:h-[calc(73vh-80px)] bg-slate-900/50 animate-pulse flex items-center justify-center rounded-2xl">
-                    <span className="text-sky-300">Chargement...</span>
-                </div>
-            )}
+            <div className={`w-full transition-opacity duration-500 ${loadingCarousel ? 'opacity-90' : 'opacity-100'}`}>
+                <Carousel images={displayImages} />
+            </div>
             <BookingHotels />
             {/* ✅ Ce composant utilise listHotelEnhanced */}
             <HotelShowcase cityId={34} />
@@ -14432,6 +15450,7 @@ import {Outlet} from "react-router-dom";
 
 import Header from "../components/Header.jsx";
 import Footer from "../components/Footer.jsx";
+import SocialFloatingWidget from "../components/SocialFloatingWidget.jsx";
 
 function Layout() {
     return (
@@ -14441,6 +15460,7 @@ function Layout() {
                 <Outlet/>
             </main>
             <Footer/>
+            <SocialFloatingWidget />
         </div>
     );
 }
@@ -17968,6 +18988,7 @@ const ROUTES = {
   AUTH_LOGIN: "/api/auth/login",
   BOOKINGS: "/api/bookings",
   CAROUSEL: "/carousel",
+  SETTINGS: "/api/settings",
 };
 
 /** Same origin as API_GUIDE.md example; override with `VITE_API_BASE_URL`. */
@@ -18399,6 +19420,30 @@ const Bookings = {
   }
 };
 
+/**
+ * @typedef {Object} Settings
+ * @property {number} id
+ * @property {number} benefit_marge
+ */
+
+/**
+ * @typedef {Object} UpdateSettingsDto
+ * @property {number} benefit_marge - Integer between 0 and 100
+ */
+
+const Settings = {
+  /**
+   * @returns {Promise<Settings>}
+   */
+  get: () => axiosInstance.get(ROUTES.SETTINGS),
+
+  /**
+   * @param {UpdateSettingsDto} payload
+   * @returns {Promise<Settings>}
+   */
+  update: (payload) => axiosInstance.patch(ROUTES.SETTINGS, payload),
+};
+
 const Carousel = {
   /**
    * @returns {Promise<CarouselMedia[]>}
@@ -18445,6 +19490,7 @@ export const AllezGoApi = {
   Auth,
   Bookings,
   Carousel,
+  Settings,
   async getMine() {
       // Hits the secure B2C endpoint
       return this.client.get('/api/bookings/my');
@@ -18610,7 +19656,6 @@ File: src/services/ApiClient.js
 import axios from 'axios';
 
 // ==================== CONSTANTS ====================
-const MY_BENEFIT_CAUTION = 0.08;
 const TUNISIAN_CITY_IDS = [34, 35, 36, 37, 38]; // 34 is Sousse
 
 const CONFIG = {
@@ -18718,6 +19763,7 @@ class ApiClient {
         this.credentials = CREDENTIALS;
         this.cache = new CacheManager(CONFIG.CACHE.TTL);
         this.cancelTokens = new Map();
+        this.benefitRate = 0.08;
         this.setupInterceptors();
     }
 
@@ -18787,7 +19833,7 @@ class ApiClient {
                         const markup = (val) => {
                             const num = parseFloat(val);
                             if (isNaN(num)) return val;
-                            return Number((num * (1 + MY_BENEFIT_CAUTION)).toFixed(2));
+                            return Number((num * (1 + this.benefitRate)).toFixed(2));
                         };
                         r.Price = markup(r.Price);
                         r.BasePrice = markup(r.BasePrice);
@@ -19309,6 +20355,13 @@ class ApiClient {
         } catch (error) {
             if (error.name === 'ApiError' || error instanceof ApiError) throw error;
             throw new ApiError('Erreur d\'exécution de l\'annulation', error.response?.status, error);
+        }
+    }
+
+    setBenefitRate(rate) {
+        const parsed = Number(rate);
+        if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
+            this.benefitRate = parsed;
         }
     }
 

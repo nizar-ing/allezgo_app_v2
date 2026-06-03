@@ -803,11 +803,11 @@ export default function AdminDashboard() {
                                 {tab.id === 'bookings' && totalCount > 0 && (
                                     <span className="ml-auto flex items-center gap-1.5 shrink-0">
                                         {newCount > 0 && (
-                                            <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 text-[11px] font-bold rounded-full bg-orange-500 text-white shadow-sm animate-pulse">
+                                            <span className="inline-flex items-center justify-center min-w-8 h-8 px-2 text-sm font-bold rounded-full bg-amber-400 text-white shadow-md animate-pulse">
                                                 +{newCount}
                                             </span>
                                         )}
-                                        <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 text-[11px] font-bold rounded-full bg-sky-500 text-white shadow-sm">
+                                        <span className="inline-flex items-center justify-center min-w-6 h-6 px-2 text-sm font-bold rounded-full bg-white text-sky-700 shadow-md">
                                             {totalCount}
                                         </span>
                                     </span>

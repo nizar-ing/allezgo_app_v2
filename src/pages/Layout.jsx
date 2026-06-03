@@ -3,6 +3,7 @@ import {Outlet} from "react-router-dom";
 
 import Header from "../components/Header.jsx";
 import Footer from "../components/Footer.jsx";
+import SocialFloatingWidget from "../components/SocialFloatingWidget.jsx";
 
 function Layout() {
     return (
@@ -12,6 +13,7 @@ function Layout() {
                 <Outlet/>
             </main>
             <Footer/>
+            <SocialFloatingWidget />
         </div>
     );
 }

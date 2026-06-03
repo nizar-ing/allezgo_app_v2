@@ -10,6 +10,10 @@ import HotelShowcase from "../components/HotelShowcase.jsx";
 
 const API_BASE = "https://api.allezgoo.com";
 
+const DEFAULT_IMAGES = [
+    { url: '/images/landing_carousel.jpeg', alt: 'AllezGo — Votre agence de voyage' },
+];
+
 function HomePage() {
     const { data: testimonials, loading: loadingTestimonials, error: errorTestimonials } = useTestimonials();
     const { data: carouselData, loading: loadingCarousel } = useCarousel();
@@ -19,18 +23,19 @@ function HomePage() {
         url: item.url.startsWith('http') ? item.url : `${API_BASE}${item.url}`,
     })) || [];
 
+    const displayImages =
+        !loadingCarousel && mappedCarouselImages.length > 0
+            ? mappedCarouselImages
+            : DEFAULT_IMAGES;
+
     return (
         <section
             id="nos-atouts"
             className="flex flex-col text-white items-center justify-center scroll-mt-[100vh]"
         >
-            {!loadingCarousel && mappedCarouselImages.length > 0 ? (
-                <Carousel images={mappedCarouselImages} />
-            ) : (
-                <div className="w-full h-[calc(63vh-80px)] md:h-[calc(73vh-80px)] bg-slate-900/50 animate-pulse flex items-center justify-center rounded-2xl">
-                    <span className="text-sky-300">Chargement...</span>
-                </div>
-            )}
+            <div className={`w-full transition-opacity duration-500 ${loadingCarousel ? 'opacity-90' : 'opacity-100'}`}>
+                <Carousel images={displayImages} />
+            </div>
             <BookingHotels />
             {/* ✅ Ce composant utilise listHotelEnhanced */}
             <HotelShowcase cityId={34} />
