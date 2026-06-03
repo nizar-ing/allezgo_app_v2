@@ -91,14 +91,13 @@ export default function AdminDashboard() {
         () => new Set(JSON.parse(localStorage.getItem('allez-go-admin-seen-bookings') || '[]'))
     );
 
-    const pendingBookings = bookings?.filter(b => b.status === 'PENDING') ?? [];
-    const pendingCount = pendingBookings.length;
-    const unseenCount = pendingBookings.filter(b => !seenBookingIds.has(b.id)).length;
+    const totalCount = bookings?.length ?? 0;
+    const newCount = (bookings ?? []).filter(b => !seenBookingIds.has(b.id)).length;
 
     useEffect(() => {
         if (activeTab !== 'bookings' || !bookings?.length) return;
-        const pendingIds = bookings.filter(b => b.status === 'PENDING').map(b => b.id);
-        const updated = new Set([...seenBookingIds, ...pendingIds]);
+        const allIds = bookings.map(b => b.id);
+        const updated = new Set([...seenBookingIds, ...allIds]);
         localStorage.setItem('allez-go-admin-seen-bookings', JSON.stringify([...updated]));
         setSeenBookingIds(updated);
     }, [activeTab, bookings]);
@@ -801,16 +800,15 @@ export default function AdminDashboard() {
                             >
                                 <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-white font-bold' : 'text-sky-300'}`}/>
                                 <span className="flex-1 text-left truncate">{tab.label}</span>
-                                {tab.id === 'bookings' && pendingCount > 0 && (
+                                {tab.id === 'bookings' && totalCount > 0 && (
                                     <span className="ml-auto flex items-center gap-1.5 shrink-0">
-                                        {unseenCount > 0 && (
-                                            <span className="relative flex h-2 w-2">
-                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"/>
-                                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"/>
+                                        {newCount > 0 && (
+                                            <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 text-[11px] font-bold rounded-full bg-orange-500 text-white shadow-sm animate-pulse">
+                                                +{newCount}
                                             </span>
                                         )}
-                                        <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-bold rounded-full bg-amber-500 text-white shadow-sm">
-                                            {pendingCount}
+                                        <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 text-[11px] font-bold rounded-full bg-sky-500 text-white shadow-sm">
+                                            {totalCount}
                                         </span>
                                     </span>
                                 )}
