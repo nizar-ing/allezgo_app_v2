@@ -801,15 +801,16 @@ export default function AdminDashboard() {
                                 <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-white font-bold' : 'text-sky-300'}`}/>
                                 <span className="flex-1 text-left truncate">{tab.label}</span>
                                 {tab.id === 'bookings' && totalCount > 0 && (
-                                    <span className="ml-auto flex items-center gap-1.5 shrink-0">
-                                        {newCount > 0 && (
+                                    <span className="ml-auto shrink-0">
+                                        {newCount > 0 ? (
                                             <span className="inline-flex items-center justify-center min-w-8 h-8 px-2 text-sm font-bold rounded-full bg-amber-400 text-white shadow-md animate-pulse">
                                                 +{newCount}
                                             </span>
+                                        ) : (
+                                            <span className="inline-flex items-center justify-center min-w-6 h-6 px-2 text-sm font-bold rounded-full bg-white text-sky-700 shadow-md">
+                                                {totalCount}
+                                            </span>
                                         )}
-                                        <span className="inline-flex items-center justify-center min-w-6 h-6 px-2 text-sm font-bold rounded-full bg-white text-sky-700 shadow-md">
-                                            {totalCount}
-                                        </span>
                                     </span>
                                 )}
                             </button>
