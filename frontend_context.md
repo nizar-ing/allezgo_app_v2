@@ -1,7 +1,7 @@
 # AllezGo Frontend Context
 
 Automated context generation of the AllezGo React architecture.
-Generated on: 6/3/2026, 1:05:27 PM
+Generated on: 6/28/2026, 8:16:21 PM
 
 File: package.json
 ```json
@@ -9360,7 +9360,7 @@ createRoot(document.getElementById('root')).render(
 
 File: src/pages/admin/AdminDashboard.jsx
 ```jsx
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
     Plane,
     FileText,
@@ -9449,6 +9449,21 @@ export default function AdminDashboard() {
     const {data: users, loading: usersLoading, removeUser, actionLoading: userActionLoading} = useUsers();
 
     const {bookings, loading: bookingsLoading} = useAdminBookings();
+    const [seenBookingIds, setSeenBookingIds] = useState(
+        () => new Set(JSON.parse(localStorage.getItem('allez-go-admin-seen-bookings') || '[]'))
+    );
+
+    const totalCount = bookings?.length ?? 0;
+    const newCount = (bookings ?? []).filter(b => !seenBookingIds.has(b.id)).length;
+
+    useEffect(() => {
+        if (activeTab !== 'bookings' || !bookings?.length) return;
+        const allIds = bookings.map(b => b.id);
+        const updated = new Set([...seenBookingIds, ...allIds]);
+        localStorage.setItem('allez-go-admin-seen-bookings', JSON.stringify([...updated]));
+        setSeenBookingIds(updated);
+    }, [activeTab, bookings]);
+
     const [selectedBooking, setSelectedBooking] = useState(null);
     const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
     const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
@@ -10145,8 +10160,21 @@ export default function AdminDashboard() {
                                 }
                 `}
                             >
-                                <Icon className={`w-5 h-5 ${isActive ? 'text-white font-bold' : 'text-sky-300'}`}/>
-                                {tab.label}
+                                <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-white font-bold' : 'text-sky-300'}`}/>
+                                <span className="flex-1 text-left truncate">{tab.label}</span>
+                                {tab.id === 'bookings' && totalCount > 0 && (
+                                    <span className="ml-auto shrink-0">
+                                        {newCount > 0 ? (
+                                            <span className="inline-flex items-center justify-center min-w-8 h-8 px-2 text-sm font-bold rounded-full bg-amber-400 text-white shadow-md animate-pulse">
+                                                +{newCount}
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center justify-center min-w-6 h-6 px-2 text-sm font-bold rounded-full bg-white text-sky-700 shadow-md">
+                                                {totalCount}
+                                            </span>
+                                        )}
+                                    </span>
+                                )}
                             </button>
                         );
                     })}

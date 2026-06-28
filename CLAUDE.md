@@ -53,10 +53,11 @@ User → React Router (pages + suspense)
 - **Dual-mode search**: city geo-targeting (single API call) OR explicit hotel ID arrays (looped, max 300).
 - Special path for Tunisian cities (IDs 34–38): forces `DZ` nationality + `DZD` currency automatically.
 
-**`src/services/allezgo-api.js`** — AllezGo custom backend
-- JWT login/register, user CRUD, destinations, e-visas, testimonials.
+**`src/services/allezgo-api/allezGoApi.js`** — AllezGo custom backend
+- JWT login/register, user CRUD, destinations, e-visas, testimonials, settings.
 - Booking management with admin verification workflow.
 - Emits `allezgo:refresh-data` event to trigger `GlobalCacheListener` → invalidates all React Query.
+- Exports a named `isRequestCanceled(err)` helper used by hooks to silently swallow abort-controller cancellations.
 
 ### Routing Structure
 - Layout outlet pattern: `Layout` wraps all pages with Header + Footer.
@@ -134,11 +135,13 @@ onSuccess: () => {
 
 ### Admin Dashboard
 `AdminDashboard` is a single-page admin SPA with sidebar navigation. Tabs:
-- **Réservations** — booking list; PENDING → CONFIRMED (triggers iPro `HotelBooking` POST) or REJECTED or CANCELLED.
+- **Réservations** — booking list; PENDING → CONFIRMED (triggers iPro `HotelBooking` POST) or REJECTED or CANCELLED. `VerifyBookingModal` handles payment confirmation; `VoucherModal` generates the client PDF voucher; `CancelBookingModal` handles cancellation.
 - **Destinations** — organized trip CRUD (`useDestinations`).
 - **Témoignages** — testimonial CRUD (`useTestimonials`).
 - **Utilisateurs** — user CRUD (`useUsers`).
-- **Carousel** — homepage banner image management (`CarouselAdmin` component, `/carousel` endpoint).
+- **Carousel** — homepage banner image management (`CarouselAdmin`, `/carousel` endpoint).
+- **Statistiques** — `BusinessStats` page using `useBusinessAnalytics` + Recharts (composed charts, bar, pie). KPIs derived from admin bookings.
+- **Paramètres** — `SettingsPanel` tab for editing `benefit_marge` (the agency markup %) stored in the backend; changes take effect immediately via `useSettings` which syncs `apiClient.setBenefitRate()`.
 
 Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFIRMED triggers the iPro side; the AllezGo backend status is always updated first regardless.
 
@@ -179,8 +182,29 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 **`src/custom-hooks/useBooking.js`**  
 - FormData booking mutation; invalidates `["my-bookings"]` on success.
 
+**`src/custom-hooks/useMyBookings.js`**  
+- Client-side booking list; query key `["my-bookings", user.id]`; parses `iproPayload` JSON to extract `hotelName` and `clientPrice`. Never surfaces errors to the UI (returns empty array on any failure).
+
+**`src/custom-hooks/useAdminBookings.js`**  
+- Admin booking list + `updateBookingStatus` mutation (handles CONFIRMED iPro call inline) + `removeBooking` mutation; query key `["admin-bookings"]`.
+
 **`src/custom-hooks/useDestinations.js`, `useTestimonials.js`, `useUsers.js`**  
 - Full CRUD for admin with optimistic cache updates and toast feedback.
+
+**`src/custom-hooks/useEVisas.js`**  
+- Full CRUD for e-visa records; query key `["eVisas"]`; uses `isRequestCanceled` guard on all queries.
+
+**`src/custom-hooks/useCarousel.js`**  
+- Carousel image CRUD for the `CarouselAdmin` component.
+
+**`src/custom-hooks/useSettings.js`**  
+- Fetches/updates `AllezGoApi.Settings`; on success syncs `apiClient.setBenefitRate(benefit_marge / 100)` so the markup change is live immediately.
+
+**`src/custom-hooks/useBusinessAnalytics.js`** (`useBusinessAnalytics(bookings, selectedYear)`)  
+- Pure computation hook (no network calls); derives KPIs, monthly revenue, status breakdown, top destinations, and seasonal pattern from admin bookings. Reads `benefit_marge` from `useSettings`.
+
+**`src/custom-hooks/useBookingValidation.js`** (`useBookingValidation()`)  
+- Returns `validateSearch({ selectedCity, selectedHotel, range, rooms })` — shows toast and returns `false` on invalid input for the search form.
 
 ---
 
@@ -204,7 +228,7 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 - **Tunisian city IDs hardcoded** as `[34, 35, 36, 37, 38]` in `ApiClient.js` and booking hooks — update if market expands.
 - **Max 300 hotels per explicit-ID search** — configured in `ApiClient::CONFIG.LIMITS`.
 - **JWT decoded manually** (no library) — assumes standard HS256 payload claims.
-- **8% markup always applied** — never recalculate in the booking flow; prices are already marked up.
+- **Configurable markup** — `benefit_marge` is now stored in the backend (`/api/settings`) and editable by admin via the Paramètres tab. `useSettings` syncs it to `apiClient.setBenefitRate()` on load and on update. Default is 8% if the settings endpoint is unavailable. Never recalculate in the booking flow; prices served by ApiClient already include the markup.
 
 ---
 
