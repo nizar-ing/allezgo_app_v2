@@ -1,6 +1,26 @@
 // src/components/HotelsPopup.jsx
 import {useRef, useState} from "react";
 import {Link} from "react-router-dom";
+import { formatDateForAPI } from "../utils/dateHelpers";
+
+const buildCitySearchUrl = (city, country) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+    const dayAfter  = new Date(today); dayAfter.setDate(today.getDate() + 2);
+
+    const p = new URLSearchParams();
+    p.set('selectionType', 'city');
+    p.set('cityId',      String(city.Id));
+    p.set('cityName',    city.Name);
+    p.set('countryName', country.name);
+    p.set('countryCode', country.name.toLowerCase().includes('tunisie') ? 'TN' : 'DZ');
+    p.set('checkIn',     formatDateForAPI(tomorrow));
+    p.set('checkOut',    formatDateForAPI(dayAfter));
+    p.set('rooms',       JSON.stringify([{ adults: 2, children: [] }]));
+    p.set('nights',      '1');
+    return `/search?${p.toString()}`;
+};
 
 /**
  * HotelsPopup Component - Receives enriched data from parent
@@ -165,7 +185,7 @@ const HotelsPopup = ({
                                 {activeCountry.citiesData.map((city, cityIndex) => (
                                     <Link
                                         key={city.Id}
-                                        to={`/hotels/${city.Id}`}
+                                        to={buildCitySearchUrl(city, activeCountry)}
                                         onClick={onClose}
                                         className="group/btn relative px-3 sm:px-4 py-3 sm:py-3.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-orange-500 hover:text-white hover:border-orange-500 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 text-left overflow-hidden block"
                                         style={{

@@ -1,5 +1,25 @@
 // src/components/Header.jsx
 import { useState, useEffect, useMemo } from "react";
+import { formatDateForAPI } from "../utils/dateHelpers";
+
+const buildCitySearchUrl = (city, country) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+    const dayAfter  = new Date(today); dayAfter.setDate(today.getDate() + 2);
+
+    const p = new URLSearchParams();
+    p.set('selectionType', 'city');
+    p.set('cityId',      String(city.Id));
+    p.set('cityName',    city.Name);
+    p.set('countryName', country.name);
+    p.set('countryCode', country.name.toLowerCase().includes('tunisie') ? 'TN' : 'DZ');
+    p.set('checkIn',     formatDateForAPI(tomorrow));
+    p.set('checkOut',    formatDateForAPI(dayAfter));
+    p.set('rooms',       JSON.stringify([{ adults: 2, children: [] }]));
+    p.set('nights',      '1');
+    return `/search?${p.toString()}`;
+};
 import {
     FaHome,
     FaHotel,
@@ -510,10 +530,9 @@ function Header() {
                                                             <div className="grid grid-cols-2 gap-1">
                                                                 {country.citiesData.map((city) => (
                                                                     <Link
-                                                                        to={`/hotels/${city.Id}`}
+                                                                        to={buildCitySearchUrl(city, country)}
                                                                         key={city.Id}
                                                                         onClick={() => {
-                                                                            handleCitySelect(city);
                                                                             setMobileHotelsOpen(false);
                                                                             setIsMobileMenuOpen(false);
                                                                         }}
