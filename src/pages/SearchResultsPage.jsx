@@ -771,7 +771,7 @@ function SearchResultsPage() {
                 <div className="flex gap-6 items-start">
 
                     {/* Desktop sidebar */}
-                    <aside className="hidden lg:block w-72 flex-shrink-0">
+                    <aside className="hidden lg:block w-80 flex-shrink-0">
                         <HotelsFiltering
                             initialFilters={filters}
                             onFilterChange={handleFilterChange}
