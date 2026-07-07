@@ -29,7 +29,6 @@ import {
     FaWhatsapp,
     FaPassport,
     FaChevronDown,
-    FaPlane,
 } from "react-icons/fa";
 import HotelsPopup from "./HotelsPopup";
 import { LogIn, Plane, LogOut, User, Shield } from "lucide-react";
@@ -303,37 +302,28 @@ function Header() {
         >
             <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
 
-                <div className="flex items-center h-20">
+                <div className="flex items-center h-24">
 
                     {/* COLUMN 1 — Logo */}
                     <div className="flex-1 flex justify-start">
-                        <NavLink
-                            to="/"
-                            className="flex items-center space-x-4 cursor-pointer group"
-                        >
-                            <div
-                                className="relative transform transition-all duration-300 hover:scale-110"
+                        <NavLink to="/" className="group block">
+                            <img
+                                src="/images/logo_2.png"
+                                alt="Allez Go Travel Agency"
+                                className="h-36 w-36 object-contain transition-all duration-300 group-hover:scale-105"
                                 style={{
-                                    filter: "drop-shadow(0 4px 6px rgba(2, 132, 199, 0.3))",
+                                    filter: "drop-shadow(0 4px 12px rgba(249, 115, 22, 0.22)) drop-shadow(0 2px 4px rgba(2, 132, 199, 0.12))",
+                                    transition: "transform 0.3s ease, filter 0.3s ease",
                                 }}
-                            >
-                                <FaPlane className="text-3xl text-sky-600 transform transition-transform duration-300 group-hover:translate-x-2 group-hover:rotate-12" />
-                                <div
-                                    className="absolute -bottom-1 -right-1 w-3 h-3 bg-orange-500 rounded-full animate-pulse"
-                                    style={{ boxShadow: "0 0 10px rgba(249, 115, 22, 0.6)" }}
-                                />
-                            </div>
-                            <div>
-                                <h1
-                                    className="text-2xl font-bold bg-gradient-to-r from-sky-600 via-sky-700 to-sky-800 bg-clip-text text-transparent"
-                                    style={{ textShadow: "0 2px 4px rgba(2, 132, 199, 0.1)" }}
-                                >
-                                    Allez<span className="text-[#f97316]">GO</span>
-                                </h1>
-                                <p className="text-xs text-gray-500 -mt-1 font-medium">
-                                    Travel Agency
-                                </p>
-                            </div>
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.filter =
+                                        "drop-shadow(0 6px 20px rgba(249, 115, 22, 0.5)) drop-shadow(0 2px 8px rgba(2, 132, 199, 0.25))";
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.filter =
+                                        "drop-shadow(0 4px 12px rgba(249, 115, 22, 0.22)) drop-shadow(0 2px 4px rgba(2, 132, 199, 0.12))";
+                                }}
+                            />
                         </NavLink>
                     </div>
 
