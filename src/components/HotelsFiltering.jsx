@@ -64,7 +64,7 @@ const DEFAULT_FILTERS = {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-function HotelsFiltering({ onFilterChange, initialFilters }) {
+function HotelsFiltering({ onFilterChange, initialFilters, className }) {
     const [filters, setFilters] = useState(() => ({
         ...DEFAULT_FILTERS,
         ...initialFilters,
@@ -121,7 +121,7 @@ function HotelsFiltering({ onFilterChange, initialFilters }) {
     }, [onFilterChange]);
 
     return (
-        <div className="bg-white rounded-2xl shadow-xl p-6 sticky top-6 max-h-[calc(100vh-100px)] overflow-y-auto filter-scroll">
+        <div className={className ?? "bg-white rounded-2xl shadow-xl p-6 sticky top-6"}>
 
             {/* Header */}
             <div className="flex items-center justify-between mb-6 pb-4 border-b-2 border-sky-100">

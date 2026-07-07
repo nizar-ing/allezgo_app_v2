@@ -5,11 +5,13 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
     Search, Calendar, Users, Hotel, AlertCircle,
     ArrowLeft, ArrowUpDown, CheckCircle, ChevronDown, MapPin,
+    SlidersHorizontal, X,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import apiClient from "../services/ApiClient";
 import HotelLightCard from "../components/HotelLightCard.jsx";
 import DateRoomsPickerBanner from "../components/DateRoomsPickerBanner.jsx";
+import HotelsFiltering from "../components/HotelsFiltering.jsx";
 import Loader from "../ui/Loader.jsx";
 
 // ── Country banner constants ───────────────────────────────────────────────────
@@ -20,6 +22,15 @@ const COUNTRY_BANNERS = {
 const FALLBACK_BANNER = "/images/tunisie_hotels.jpeg";
 
 const HOTELS_PER_PAGE = 15;
+
+const ARRANGEMENT_KEYWORD_MAP = {
+    'petit-dejeuner':        ['petit déjeuner', 'petit-déjeuner', 'breakfast', 'bb', 'pd'],
+    'demi-pension':          ['demi pension', 'demi-pension', 'half board', 'hb', 'dp'],
+    'demi-pension-plus':     ['demi pension plus', 'dp+', 'hb+'],
+    'pension-complete':      ['pension complète', 'pension complete', 'full board', 'fb', 'pc'],
+    'pension-complete-plus': ['pension complète plus', 'pc+', 'fb+'],
+    'all-inclusive':         ['all inclusive', 'all-inclusive', 'tout inclus', 'ai', 'ti'],
+};
 
 function SearchResultsPage() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -54,7 +65,19 @@ function SearchResultsPage() {
     }, [checkIn, checkOut, nightsParam]);
 
     // ── State ───────────────────────────────────────────────────────────────────
-    const [filters, setFilters] = useState({});
+    const [filters, setFilters] = useState({
+        hotelRecommander:    false,
+        tarifEnPromotion:    false,
+        disponibleSeulement: false,
+        annulationGratuite:  false,
+        arrangements:        [],
+        categories:          [],
+        budgetMin:           0,
+        budgetMax:           1000,
+        roomTypes:           [],
+        services:            [],
+    });
+    const [showFilterSidebar, setShowFilterSidebar] = useState(false);
     const [sortBy, setSortBy] = useState("recommended");
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -68,6 +91,24 @@ function SearchResultsPage() {
         to: checkOut ? new Date(checkOut) : new Date(),
     });
     const loadMoreRef = useRef(null);
+
+    const handleFilterChange = useCallback((updated) => {
+        setFilters(updated);
+    }, []);
+
+    const activeFilterCount = useMemo(() => {
+        let count = 0;
+        if (filters.hotelRecommander)    count++;
+        if (filters.tarifEnPromotion)    count++;
+        if (filters.disponibleSeulement) count++;
+        if (filters.annulationGratuite)  count++;
+        count += filters.arrangements?.length ?? 0;
+        count += filters.categories?.length ?? 0;
+        count += filters.roomTypes?.length ?? 0;
+        count += filters.services?.length ?? 0;
+        if ((filters.budgetMin ?? 0) > 0 || (filters.budgetMax ?? 1000) < 1000) count++;
+        return count;
+    }, [filters]);
 
     // ── Guard redirect ──────────────────────────────────────────────────────────
     useEffect(() => {
@@ -290,17 +331,39 @@ function SearchResultsPage() {
 
         if (filters.categories?.length)
             result = result.filter((h) => filters.categories.includes(h.Category?.Star));
+
         if (filters.services?.length)
             result = result.filter((h) =>
                 h.Theme?.some((theme) =>
                     filters.services.some((s) => theme.toLowerCase().includes(s.toLowerCase()))
                 )
             );
-        if (filters.priceRange)
+
+        if ((filters.budgetMin ?? 0) > 0 || (filters.budgetMax ?? 1000) < 1000)
             result = result.filter((h) => {
                 const p = h.MinPrice ?? 0;
-                return p >= filters.priceRange.min && p <= filters.priceRange.max;
+                return p >= (filters.budgetMin ?? 0) && p <= (filters.budgetMax ?? 1000);
             });
+
+        if (filters.disponibleSeulement)
+            result = result.filter((h) => h.pricing?.availabilityStatus === 'available');
+
+        if (filters.tarifEnPromotion)
+            result = result.filter((h) => (h.pricing?.discountPercent ?? 0) > 0);
+
+        if (filters.hotelRecommander)
+            result = result.filter((h) => (h.Category?.Star ?? 0) >= 4);
+
+        if (filters.arrangements?.length)
+            result = result.filter((h) =>
+                filters.arrangements.some((arrangId) => {
+                    const keywords = ARRANGEMENT_KEYWORD_MAP[arrangId] ?? [];
+                    return h.preloadedRooms?.some((r) =>
+                        keywords.some((kw) => r.boardingName?.toLowerCase().includes(kw))
+                    );
+                })
+            );
+
         return result;
     }, [processedHotels, filters]);
 
@@ -668,6 +731,55 @@ function SearchResultsPage() {
 
             {/* ── Main Content ─────────────────────────────────────────────────────── */}
             <div className="w-full max-w-[1800px] mx-auto px-2 sm:px-4 lg:px-6 xl:px-8 py-4 sm:py-6 lg:py-8">
+
+                {/* Mobile filter toggle */}
+                <div className="lg:hidden mb-4">
+                    <button
+                        onClick={() => setShowFilterSidebar(true)}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-sky-200 hover:border-sky-400 text-sky-700 font-semibold rounded-xl shadow-sm transition-all"
+                    >
+                        <SlidersHorizontal size={18} />
+                        Filtrer
+                        {activeFilterCount > 0 && (
+                            <span className="px-2 py-0.5 bg-orange-500 text-white text-xs font-bold rounded-full">{activeFilterCount}</span>
+                        )}
+                    </button>
+                </div>
+
+                {/* Mobile filter drawer */}
+                {showFilterSidebar && (
+                    <div className="fixed inset-0 z-50 lg:hidden">
+                        <div className="absolute inset-0 bg-black/50" onClick={() => setShowFilterSidebar(false)} />
+                        <div className="absolute left-0 top-0 bottom-0 w-80 max-w-[85vw] shadow-2xl flex flex-col">
+                            <div className="bg-white px-4 py-3 flex items-center justify-between border-b border-gray-200 flex-shrink-0">
+                                <span className="font-bold text-gray-800 text-lg">Filtres</span>
+                                <button onClick={() => setShowFilterSidebar(false)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto">
+                                <HotelsFiltering
+                                    initialFilters={filters}
+                                    onFilterChange={handleFilterChange}
+                                    className="bg-white p-4"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <div className="flex gap-6 items-start">
+
+                    {/* Desktop sidebar */}
+                    <aside className="hidden lg:block w-72 flex-shrink-0">
+                        <HotelsFiltering
+                            initialFilters={filters}
+                            onFilterChange={handleFilterChange}
+                        />
+                    </aside>
+
+                    {/* Results column */}
+                    <div className="flex-1 min-w-0">
                 <DateRoomsPickerBanner
                     searchParams={{ checkIn, checkOut, rooms }}
                     nights={nights}
@@ -784,6 +896,8 @@ function SearchResultsPage() {
                         </div>
                     </div>
                 )}
+                    </div> {/* end results column */}
+                </div> {/* end flex row */}
             </div>
         </div>
     );
