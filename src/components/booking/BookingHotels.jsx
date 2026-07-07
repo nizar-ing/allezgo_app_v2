@@ -177,42 +177,75 @@ function BookingHotels() {
     }, [validateSearch, range, selectionType, selectedCity, selectedHotel, rooms, navigate]);
 
     return (
-        <div className="w-full max-w-7xl mx-auto -mt-16 z-10 px-4 py-8">
-            <div className="bg-white rounded-xl custom-shadow-heavy p-4 md:p-6 bg-linear-to-r from-slate-200 via-white to-slate-200">
-                <div className="flex flex-wrap gap-3 items-center">
+        <div className="relative w-full max-w-7xl mx-auto -mt-16 z-10 px-4 py-8">
 
-                    <div className="flex-1 min-w-[220px]">
-                        <LocationSearch
-                            selectedCity={selectedCity}
-                            selectedHotel={selectedHotel}
-                            onCitySelect={handleCitySelect}
-                            onHotelSelect={handleHotelSelect}
-                            onClear={handleClearLocation}
-                        />
+            {/* Decorative glow orbs */}
+            <div aria-hidden="true" className="pointer-events-none absolute -top-10 right-10 h-56 w-56 rounded-full bg-slate-400/20 blur-3xl" />
+            <div aria-hidden="true" className="pointer-events-none absolute -bottom-4 left-4 h-40 w-40 rounded-full bg-slate-500/10 blur-3xl" />
+
+            {/* Box volume wrapper — depth layers render first (behind) */}
+            <div className="relative">
+
+                {/* Box depth: far layer */}
+                <div aria-hidden="true" className="absolute inset-0 rounded-2xl bg-slate-700/45 translate-x-3 translate-y-4" />
+                {/* Box depth: near edge layer */}
+                <div aria-hidden="true" className="absolute inset-0 rounded-2xl bg-slate-500/55 translate-x-1.5 translate-y-2" />
+
+                {/* Gradient border wrapper — padding becomes the border */}
+                <div className="relative p-0.5 rounded-2xl bg-[linear-gradient(to_right,#f97316,#2dd4bf,#0ea5e9,#f97316)] shadow-xl shadow-sky-900/20 transition-all duration-300 hover:-translate-y-1">
+
+                    {/* Corner geometric accents */}
+                    <div aria-hidden="true" className="pointer-events-none absolute -right-5 -top-5 h-24 w-24 rounded-full bg-linear-to-br from-orange-400/70 to-amber-500/35" />
+                    <div aria-hidden="true" className="pointer-events-none absolute -bottom-5 -left-5 h-20 w-20 rounded-full bg-linear-to-tr from-amber-400/65 to-orange-400/30" />
+
+                    {/* White card face */}
+                    <div className="relative rounded-[14px] bg-white">
+                        {/* Inner content with sky gradient wash */}
+                        <div className="bg-linear-to-br from-sky-50/70 via-white to-slate-50/60 rounded-[14px] p-4 md:p-6">
+                            <div className="flex flex-wrap gap-3 items-center">
+
+                                <div className="flex-1 min-w-55">
+                                    <div className="rounded-xl border border-sky-100 bg-white shadow-sm transition-all duration-200 hover:border-sky-300 hover:shadow-md">
+                                        <LocationSearch
+                                            selectedCity={selectedCity}
+                                            selectedHotel={selectedHotel}
+                                            onCitySelect={handleCitySelect}
+                                            onHotelSelect={handleHotelSelect}
+                                            onClear={handleClearLocation}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 min-w-65">
+                                    <div className="rounded-xl border border-sky-100 bg-white shadow-sm transition-all duration-200 hover:border-sky-300 hover:shadow-md">
+                                        <DateRangePicker range={range} setRange={setRange} />
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 min-w-55">
+                                    <div className="rounded-xl border border-sky-100 bg-white shadow-sm transition-all duration-200 hover:border-sky-300 hover:shadow-md">
+                                        <GuestRoomSelector rooms={rooms} setRooms={setRooms} />
+                                    </div>
+                                </div>
+
+                                <Button
+                                    onClick={handleSearch}
+                                    disabled={isPending}
+                                    variant="primary"
+                                    className="w-full lg:w-auto rounded-xl font-bold hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                                >
+                                    <span className="flex justify-center items-center gap-2 px-4">
+                                        {isPending
+                                            ? <Loader2 size={20} className="animate-spin" />
+                                            : <Search size={20} />
+                                        }
+                                        {isPending ? 'Recherche...' : 'Rechercher'}
+                                    </span>
+                                </Button>
+
+                            </div>
+                        </div>
                     </div>
-
-                    <div className="flex-1 min-w-[260px]">
-                        <DateRangePicker range={range} setRange={setRange} />
-                    </div>
-
-                    <div className="flex-1 min-w-[220px]">
-                        <GuestRoomSelector rooms={rooms} setRooms={setRooms} />
-                    </div>
-
-                    <Button
-                        onClick={handleSearch}
-                        disabled={isPending}
-                        className="w-full lg:w-auto bg-sky-600 hover:bg-sky-700 text-white rounded-lg transition-colors font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                        <span className="flex justify-center items-center gap-2 px-4">
-                            {isPending
-                                ? <Loader2 size={20} className="animate-spin" />
-                                : <Search size={20} />
-                            }
-                            {isPending ? 'Recherche...' : 'Rechercher'}
-                        </span>
-                    </Button>
-
                 </div>
             </div>
         </div>
