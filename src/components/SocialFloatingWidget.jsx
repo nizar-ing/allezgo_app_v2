@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { FaFacebookF, FaInstagram, FaTiktok, FaYoutube } from 'react-icons/fa';
 
 const SOCIAL_LINKS = [
-    { icon: FaFacebookF, label: 'Facebook',  href: '#', brandColor: '#1877F2', glowColor: 'rgba(24,119,242,0.45)' },
-    { icon: FaInstagram, label: 'Instagram', href: '#', brandColor: '#E1306C', glowColor: 'rgba(225,48,108,0.45)' },
-    { icon: FaTiktok,    label: 'TikTok',    href: '#', brandColor: '#EE1D52', glowColor: 'rgba(238,29,82,0.45)' },
+    { icon: FaFacebookF, label: 'Facebook',  href: 'https://www.facebook.com/AllezGooo?mibextid=wwXIfr&rdid=mo24n3az6HNVjQ4d&share_url=https%3A%2F%2Fwww.facebook.com%2Fshare%2F1CYVGWDGfB%2F%3Fmibextid%3DwwXIfr#', brandColor: '#1877F2', glowColor: 'rgba(24,119,242,0.45)' },
+    { icon: FaInstagram, label: 'Instagram', href: 'https://www.instagram.com/allezgoobooking?igsh=a2NtNW1jNDJzaHhw', brandColor: '#E1306C', glowColor: 'rgba(225,48,108,0.45)' },
+    { icon: FaTiktok,    label: 'TikTok',    href: 'https://www.tiktok.com/@allezgoo_booking?_r=1&_t=ZS-97qN8yHyr0H', brandColor: '#EE1D52', glowColor: 'rgba(238,29,82,0.45)' },
     { icon: FaYoutube,   label: 'YouTube',   href: '#', brandColor: '#FF0000', glowColor: 'rgba(255,0,0,0.45)'   },
 ];
 
