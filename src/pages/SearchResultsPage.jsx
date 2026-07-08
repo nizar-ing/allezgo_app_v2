@@ -394,7 +394,12 @@ function SearchResultsPage() {
         hasNextPage,
         isFetchingNextPage,
     } = useInfiniteQuery({
-        queryKey: ["hotels-paginated", sortedHotels.length, sortedHotels[0]?.Id, sortBy],
+        // Include every input that can change `sortedHotels`. Without these,
+        // two searches whose (length, firstId, sortBy) triple happens to match
+        // hit the same React Query cache entry and re-serve the previous
+        // search's pageData (containing stale hotel objects with the previous
+        // paxGroups / pricing / Token).
+        queryKey: ["hotels-paginated", searchIdentity, sortBy, nameFilter, filters],
         queryFn: async ({ pageParam = 0 }) => {
             const start = pageParam * HOTELS_PER_PAGE;
             const pageData = sortedHotels.slice(start, start + HOTELS_PER_PAGE);
