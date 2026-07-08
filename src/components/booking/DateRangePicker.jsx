@@ -108,32 +108,51 @@ function DateRangePicker({range, setRange}) {
         <div className="relative" ref={datePickerRef}>
             <button
                 onClick={() => setShowDatePicker(prev => !prev)}
-                className="w-full flex items-center gap-2 p-3 border border-gray-300 rounded-lg hover:border-blue-500 transition-colors bg-white text-left"
+                className={`w-full flex items-center gap-2.5 px-3.5 py-3 border-2 rounded-xl transition-all text-left ${
+                    showDatePicker
+                        ? 'border-sky-400 bg-sky-50 shadow-sm shadow-sky-100'
+                        : 'border-sky-100 bg-sky-50/50 hover:border-sky-300 hover:bg-sky-50'
+                }`}
             >
-                <Calendar className="text-sky-600 flex-shrink-0" size={22}/>
-                <div className="flex-1 flex items-center justify-between">
+                <div className="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center shrink-0">
+                    <Calendar className="text-sky-600" size={16}/>
+                </div>
+                <div className="flex-1 flex items-center justify-between min-w-0">
                     {range.from && range.to ? (
                         <>
-                            <span className="text-gray-800 text-sm">
-                                {formatDate(range.from)} - {formatDate(range.to)}
+                            <span className="text-gray-800 text-sm font-medium truncate">
+                                {formatDate(range.from)} — {formatDate(range.to)}
                             </span>
-                            <span className="text-sky-600 text-xs font-semibold bg-sky-50 px-2 py-1 rounded">
+                            <span className="text-sky-600 text-xs font-bold bg-sky-100 border border-sky-200 px-2 py-1 rounded-full ml-2 shrink-0">
                                 {nights} {nights === 1 ? 'nuit' : 'nuits'}
                             </span>
                         </>
                     ) : range.from ? (
-                        <span className="text-gray-800 text-sm">
-                            {formatDate(range.from)} - ?
+                        <span className="text-gray-700 text-sm font-medium">
+                            {formatDate(range.from)} — <span className="text-gray-400">?</span>
                         </span>
                     ) : (
-                        <span className="text-gray-500 text-sm">Dates de séjour...</span>
+                        <span className="text-gray-400 text-sm">Sélectionnez vos dates...</span>
                     )}
                 </div>
             </button>
 
             {showDatePicker && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl z-50 border border-gray-100 p-5 min-w-[320px] w-full animate-slideDown">
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl z-50 border border-sky-100 min-w-[300px] w-full animate-slideDown overflow-hidden">
 
+                    {/* Popup header */}
+                    <div className="bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100 px-5 py-3 flex items-center justify-between">
+                        <span className="text-xs font-bold text-sky-700 uppercase tracking-widest flex items-center gap-1.5">
+                            <Calendar size={11} className="text-sky-500" /> Choisissez vos dates
+                        </span>
+                        {range.from && range.to && (
+                            <span className="text-xs font-bold text-sky-600 bg-sky-100 border border-sky-200 px-2.5 py-1 rounded-full">
+                                {nights} {nights === 1 ? 'nuit' : 'nuits'}
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="p-5">
                     {/* Month Navigation */}
                     <div className="flex items-center justify-between mb-4">
                         <button
@@ -251,6 +270,7 @@ function DateRangePicker({range, setRange}) {
                     </div>
 
                 </div>
+                    </div>
             )}
         </div>
     );

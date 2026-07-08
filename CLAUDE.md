@@ -69,7 +69,7 @@ User → React Router (pages + suspense)
 | `/` | `HomePage` | |
 | `/hotels/:cityId` | `HotelsPerCityPage` | |
 | `/hotel/:hotelId` | `HotelDetails` | |
-| `/search` | `SearchResultsPage` | Live city/hotel search — `useInfiniteQuery` + `HotelsFiltering` sidebar |
+| `/search` | `SearchResultsPage` | Two-step search (hotel details `useQuery` + pricing `useQuery`), client-side `useInfiniteQuery` pagination, `HotelsFiltering` sidebar |
 | `/hotels-search` | `HotelsSearchResultsPage` | Batch search by hotel ID array — reads results from `location.state` or `sessionStorage` |
 | `/booking/:hotelId` | `BookingPage` | |
 | `/voyages-organises` | `OrganizedTrips` | List page |
@@ -78,6 +78,7 @@ User → React Router (pages + suspense)
 | `/sign-in` | `SignInPage` | |
 | `/profile` | `ProfilePage` | Protected: client + admin |
 | `/admin` | `AdminDashboard` | Protected: admin only |
+| `*` | `NotFoundPage` | Catch-all 404 |
 
 ### Authentication Flow
 1. `SignInPage` → `useAuth().login()` → `AllezGoApi.Auth.login()` → JWT response.
@@ -111,6 +112,12 @@ User → React Router (pages + suspense)
 `available` = at least one boarding + room combo is immediately bookable (not stopped, not on-request).  
 `on_request` = all combos have at least one on-request room.  
 `full` = no viable combo for requested pax/dates.
+
+### SearchResultsPage Query Architecture
+Three-phase data assembly:
+1. **`useQuery("hotelDetails")`** — for city search returns `{hotels:[], hotelIds:[]}` immediately (iPro resolves hotels by geo-targeting, no pre-fetch needed); for hotel search fetches full detail via `getHotel()`.
+2. **`useQuery("hotelSearch")`** — calls `ApiClient.searchHotel()` with either `cityId` (geo-targeting) or `hotels` (explicit IDs). Raw results are merged with full hotel details and deduped (geo-targeting can return duplicate hotel IDs from multiple suppliers).
+3. **`useInfiniteQuery("hotels-paginated")`** — client-side pagination of the already-merged+filtered+sorted result set (15 hotels/page). Not a network call.
 
 ### Booking Payload Handling
 `createBooking()` contains unwrapper logic to prevent double-nesting: accepts raw or pre-wrapped payloads, deep-clones (to break React Query cache freeze), injects Maghreb contract rules for Tunisian cities, then wraps once before the API call.
@@ -171,9 +178,19 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 
 **`src/components/booking/`** — booking-flow UI subcomponents: `DateRangePicker` (wraps `react-day-picker`), `GuestRoomSelector`, `GuestInfoForm`, `LocationSearch`, `BookingSummaryCard`, `BookingHotels`.
 
-**`src/components/DateRoomsPickerBanner.jsx`** — search refinement banner used on `SearchResultsPage` (not in the `booking/` subfolder); accepts all picker state + handlers as props.
+**`src/components/DateRoomsPickerBanner.jsx`** — search refinement banner used on `HotelsPerCityPage` (not in the `booking/` subfolder); accepts all picker state + handlers as props. `SearchResultsPage` uses `BookingHotels` instead.
+
+**`src/components/booking/BookingHotels.jsx`** — dual-mode search widget. Without `embedded` prop: renders as a hero overlay on `HomePage` (negative top margin, full decoration). With `embedded={true}`: renders as an inline search-refinement bar inside `SearchResultsPage`. Defaults the city to Sousse (`cityId=34`) when no initial selection is provided.
+
+**`src/components/HotelLightCard.jsx`** — compact hotel card used in search results (`SearchResultsPage`, `HotelsPerCityPage`) and via `HotelsListView`; reads `Album[0]` for the hero image from the normalized shape produced by `normalizeHotelForCard()`.
+
+**`src/components/HotelShowcase.jsx`** — hotel grid widget for a given `cityId`; used on `HomePage` (currently Sousse, `cityId=34`).
+
+**`src/components/SocialFloatingWidget.jsx`** — floating social-media links widget; rendered in `Layout.jsx` so it appears on every page.
 
 **`src/data/`** — static data barrel; currently re-exports `carouselImages` from `carouselData.js`.
+
+**`favoriteHotels` localStorage key** — JSON array of hotel IDs (integers). Read/written by `SearchResultsPage`, `HotelsPerCityPage`, and `HotelsListView`. No hook wrapper — accessed inline in each component.
 
 ---
 
@@ -243,7 +260,6 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 - React 19.2, Vite 7.2, React Router 7.12, TanStack React Query 5.90
 - Tailwind CSS 4.1, React Hook Form 7.69, Axios 1.13.5
 - `react-day-picker` — date range picker used in `DateRangePicker` booking component.
-- `react-window` — virtualized list rendering for large hotel result sets.
 - `recharts` — charts used in `BusinessStats` admin analytics.
 - `react-hot-toast` — global toast notifications (configured once in `App.jsx`, centered at 30% viewport height).
 - `babel-plugin-react-compiler` (auto-memoization — may affect build times)

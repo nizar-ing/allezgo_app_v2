@@ -1,7 +1,7 @@
 # AllezGo Frontend Context
 
 Automated context generation of the AllezGo React architecture.
-Generated on: 6/28/2026, 8:16:21 PM
+Generated on: 7/7/2026, 9:29:06 PM
 
 File: package.json
 ```json

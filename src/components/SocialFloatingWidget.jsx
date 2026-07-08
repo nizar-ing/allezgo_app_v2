@@ -113,7 +113,7 @@ function SocialFloatingWidget() {
         <nav
             role="complementary"
             aria-label="Réseaux sociaux"
-            className="hidden sm:flex fixed right-0 top-1/2 -translate-y-1/2 z-40 flex-col gap-2 py-2"
+            className="hidden sm:flex fixed right-0 top-1/2 -translate-y-1/2 z-[15] flex-col gap-2 py-2"
         >
             {SOCIAL_LINKS.map((social) => (
                 <SocialLink key={social.label} {...social} />

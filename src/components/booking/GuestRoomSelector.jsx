@@ -103,24 +103,41 @@ function GuestRoomSelector({ rooms, setRooms }) {
         <div className="relative" ref={guestPickerRef}>
             <button
                 onClick={() => setShowGuestPicker(prev => !prev)}
-                className="w-full flex items-center gap-2 p-3 border border-gray-300 rounded-lg hover:border-blue-500 transition-colors bg-white text-left"
+                className={`w-full flex items-center gap-2.5 px-3.5 py-3 border-2 rounded-xl transition-all text-left ${
+                    showGuestPicker
+                        ? 'border-sky-400 bg-sky-50 shadow-sm shadow-sky-100'
+                        : 'border-sky-100 bg-sky-50/50 hover:border-sky-300 hover:bg-sky-50'
+                }`}
             >
-                <Users className="text-sky-600 flex-shrink-0" size={22} />
-                <div className="flex-1 flex items-center justify-between">
-                    <span className="text-gray-800 text-sm">
+                <div className="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center shrink-0">
+                    <Users className="text-sky-600" size={16} />
+                </div>
+                <div className="flex-1 flex items-center justify-between min-w-0">
+                    <span className="text-gray-800 text-sm font-medium truncate">
                         {adults} {adults === 1 ? 'adulte' : 'adultes'}
                         {children > 0 && `, ${children} ${children === 1 ? 'enfant' : 'enfants'}`}
                     </span>
-                    <span className="text-gray-500 text-xs">
+                    <span className="text-sky-600 text-xs font-bold bg-sky-100 border border-sky-200 px-2 py-1 rounded-full ml-2 shrink-0">
                         {rooms.length} ch.
                     </span>
                 </div>
             </button>
 
             {showGuestPicker && (
-                // ✅ max-h-[80vh] — fits viewport, scrolls only when truly needed
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl z-50 border border-gray-100 p-5 max-w-md max-h-[80vh] overflow-y-auto custom-scrollbar animate-slideDown">
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl z-50 border border-sky-100 animate-slideDown overflow-hidden">
 
+                    {/* Popup header — sticky inside the scroll container */}
+                    <div className="bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100 px-5 py-3 flex items-center justify-between">
+                        <span className="text-xs font-bold text-sky-700 uppercase tracking-widest flex items-center gap-1.5">
+                            <Users size={11} className="text-sky-500" /> Voyageurs & Chambres
+                        </span>
+                        <span className="text-xs font-bold text-sky-600 bg-sky-100 border border-sky-200 px-2.5 py-1 rounded-full">
+                            {rooms.length} chambre{rooms.length > 1 ? 's' : ''} · {adults} adulte{adults > 1 ? 's' : ''}
+                        </span>
+                    </div>
+
+                    <div className="max-h-[72vh] overflow-y-auto custom-scrollbar">
+                    <div className="p-5">
                     <div className="space-y-4">
                         {rooms.map((room, index) => (
                             <div
@@ -276,6 +293,8 @@ function GuestRoomSelector({ rooms, setRooms }) {
                         </button>
                     </div>
 
+                    </div>
+                    </div>
                 </div>
             )}
         </div>

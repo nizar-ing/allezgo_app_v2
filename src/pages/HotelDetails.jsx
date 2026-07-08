@@ -1211,14 +1211,20 @@ function HotelDetails() {
 
                     {/* ── Search Form Sidebar ── */}
                     <div className="lg:col-span-1" id="search-sidebar">
-                        <div className="sticky top-24">
-                            <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
-                                <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 text-white">
-                                    <h2 className="text-lg font-extrabold flex items-center gap-2 mb-1">
-                                        <Search size={20} className="text-sky-400" /> Modifier la recherche
-                                    </h2>
-                                    <p className="text-sm text-slate-300 opacity-90">Ajustez vos dates ou voyageurs</p>
+                        <div className="sticky top-24 z-200">
+                            <div className="bg-white rounded-3xl shadow-xl border border-gray-100">
+                                <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 text-white rounded-t-3xl">
+                                    <div className="flex items-center gap-3 mb-1">
+                                        <div className="w-9 h-9 rounded-xl bg-sky-400/20 border border-sky-400/30 flex items-center justify-center shrink-0">
+                                            <Search size={17} className="text-sky-300" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-base font-extrabold text-white leading-tight">Modifier la recherche</h2>
+                                            <p className="text-xs text-slate-400 mt-0.5">Dates · Voyageurs · Chambres</p>
+                                        </div>
+                                    </div>
                                 </div>
+                                <div className="h-px bg-gradient-to-r from-sky-100 via-slate-200 to-sky-100" />
                                 <div className="p-6">
                                     {/* Date picker */}
                                     <div className="mb-5">
