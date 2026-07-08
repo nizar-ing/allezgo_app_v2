@@ -79,6 +79,7 @@ function SearchResultsPage() {
     });
     const [showFilterSidebar, setShowFilterSidebar] = useState(false);
     const [sortBy, setSortBy] = useState("recommended");
+    const [nameFilter, setNameFilter] = useState("");
     const loadMoreRef = useRef(null);
 
     const handleFilterChange = useCallback((updated) => {
@@ -318,6 +319,11 @@ function SearchResultsPage() {
     const filteredHotels = useMemo(() => {
         let result = [...processedHotels];
 
+        if (nameFilter.trim()) {
+            const q = nameFilter.trim().toLowerCase();
+            result = result.filter((h) => (h.Name ?? "").toLowerCase().includes(q));
+        }
+
         if (filters.categories?.length)
             result = result.filter((h) => filters.categories.includes(h.Category?.Star));
 
@@ -354,7 +360,7 @@ function SearchResultsPage() {
             );
 
         return result;
-    }, [processedHotels, filters]);
+    }, [processedHotels, filters, nameFilter]);
 
     // ── Sort ───────────────────────────────────────────────────────────────────
     const sortedHotels = useMemo(() => {
@@ -583,10 +589,6 @@ function SearchResultsPage() {
             {/* ── Search Summary Banner ────────────────────────────────────────────── */}
             <div className="bg-white shadow-md border-b border-gray-200 mx-2 sm:mx-4 lg:mx-8 mt-2 sm:mt-4 rounded-xl sm:rounded-2xl overflow-hidden">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
-                    <Link to="/" className="inline-flex items-center gap-2 text-sky-600 hover:text-sky-700 font-semibold mb-4 transition-colors">
-                        <ArrowLeft size={20} />
-                        <span>Modifier la recherche</span>
-                    </Link>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className="flex items-start gap-3">
                             <div className="p-2 bg-sky-100 rounded-lg flex-shrink-0"><MapPin className="text-sky-600" size={20} /></div>
@@ -710,6 +712,26 @@ function SearchResultsPage() {
                                     {sortedHotels.length} résultat{sortedHotels.length > 1 ? "s" : ""}
                                     {displayedHotels.length < sortedHotels.length && <span className="text-xs sm:text-sm text-gray-500 font-normal ml-1 sm:ml-2">{displayedHotels.length} affichés</span>}
                                 </p>
+                            </div>
+                        </div>
+                        <div className="flex-1 flex justify-center items-center">
+                            <div className="relative w-full max-w-md min-w-[280px]">
+                                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                <input
+                                    type="text"
+                                    value={nameFilter}
+                                    onChange={(e) => setNameFilter(e.target.value)}
+                                    placeholder="Rechercher un hôtel..."
+                                    className="w-full pl-8 pr-7 py-2 sm:py-2.5 bg-white border-2 border-gray-200 rounded-lg sm:rounded-xl text-xs sm:text-sm text-gray-700 placeholder:text-gray-400 hover:border-sky-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 focus:outline-none transition-all"
+                                />
+                                {nameFilter && (
+                                    <button
+                                        onClick={() => setNameFilter("")}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                                    >
+                                        <X size={13} />
+                                    </button>
+                                )}
                             </div>
                         </div>
                         <div className="relative flex-1 sm:flex-initial min-w-[140px] sm:min-w-[160px]">
