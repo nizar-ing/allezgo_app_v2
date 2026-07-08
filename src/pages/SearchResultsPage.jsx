@@ -64,6 +64,15 @@ function SearchResultsPage() {
         );
     }, [checkIn, checkOut, nightsParam]);
 
+    // Composite identity of the current search — used as a `key` to force a
+    // clean remount of BookingHotels + HotelLightCard whenever the URL changes,
+    // so their internal state (selected boarding, fetched availability, refs,
+    // etc.) can never lag behind the URL params.
+    const searchIdentity = useMemo(
+        () => `${selectionType ?? ""}|${cityId ?? ""}|${hotelId ?? ""}|${checkIn ?? ""}|${checkOut ?? ""}|${roomsParam ?? ""}`,
+        [selectionType, cityId, hotelId, checkIn, checkOut, roomsParam]
+    );
+
     // ── State ───────────────────────────────────────────────────────────────────
     const [filters, setFilters] = useState({
         hotelRecommander:    false,
@@ -679,6 +688,7 @@ function SearchResultsPage() {
                     {/* Results column */}
                     <div className="flex-1 min-w-0">
                 <BookingHotels
+                    key={searchIdentity}
                     embedded
                     initialSelectionType={selectionType ?? 'city'}
                     initialCity={selectionType === 'city' && cityId
@@ -765,7 +775,7 @@ function SearchResultsPage() {
                     <div className="space-y-3 sm:space-y-4 lg:space-y-6">
                         {displayedHotels.map((hotel) => (
                             <HotelLightCard
-                                key={hotel.Id}
+                                key={`${hotel.Id}|${searchIdentity}`}
                                 hotel={hotel}
                                 pricing={hotel.pricing}
                                 paxGroups={hotel.paxGroups}

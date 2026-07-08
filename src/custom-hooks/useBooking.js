@@ -57,7 +57,7 @@ export function useBooking({ onSuccess: externalOnSuccess, onError: externalOnEr
             // FormData Construction
             const formData = new FormData();
             const hotelId = bookingState?.hotelId;
-            const hotelName = bookingState?.hotelName || bookingState?.hotel?.name || 'Hôtel inconnu';
+            const hotelName = bookingState?.hotelName || bookingState?.hotel?.Name || 'Hôtel inconnu';
             const checkIn = bookingState?.checkIn;
             const checkOut = bookingState?.checkOut;
 

@@ -66,7 +66,10 @@ export default function BookingPage() {
             ...locationState,
             totalPrice,
             currency:   locationState.currency   ?? "DZD",
-            hotelName: locationState.hotel?.name || 'Hôtel inconnu', // Injection du nom de l'hôtel
+            // Trust the top-level hotelName passed by upstream first; fall back
+            // to the iPro-shaped hotel.Name (capital N). The previous
+            // hotel?.name (lowercase) never resolved and clobbered the good value.
+            hotelName: locationState.hotelName || locationState.hotel?.Name || 'Hôtel inconnu',
         };
     }, [locationState]);
 
