@@ -49,7 +49,7 @@ User → React Router (pages + suspense)
 **`src/services/ApiClient.js`** — iPro Booking supplier integration
 - Handles hotel search, rates, and reservations against the iPro SOAP/REST API.
 - Built-in in-memory cache (5 min TTL), retry logic (3× exponential backoff), and axios cancel tokens.
-- Applies **8% agency markup** on all room prices via `_applyAgencyMarkup()`.
+- Applies a configurable agency markup on all room prices via `_applyAgencyMarkup()`; rate is set via `setBenefitRate()` and sourced from the backend `benefit_marge` setting (default 8% if unavailable).
 - **Dual-mode search**: city geo-targeting (single API call) OR explicit hotel ID arrays (looped, max 300).
 - Special path for Tunisian cities (IDs 34–38): forces `DZ` nationality + `DZD` currency automatically.
 
@@ -69,8 +69,8 @@ User → React Router (pages + suspense)
 | `/` | `HomePage` | |
 | `/hotels/:cityId` | `HotelsPerCityPage` | |
 | `/hotel/:hotelId` | `HotelDetails` | |
-| `/search` | `SearchResultsPage` | |
-| `/hotels-search` | `HotelsSearchResultsPage` | |
+| `/search` | `SearchResultsPage` | Live city/hotel search — `useInfiniteQuery` + `HotelsFiltering` sidebar |
+| `/hotels-search` | `HotelsSearchResultsPage` | Batch search by hotel ID array — reads results from `location.state` or `sessionStorage` |
 | `/booking/:hotelId` | `BookingPage` | |
 | `/voyages-organises` | `OrganizedTrips` | List page |
 | `/voyages-organises/:tripId` | `OrganizedTrip` | Detail — uses raw `useEffect` not React Query |
@@ -90,9 +90,10 @@ User → React Router (pages + suspense)
 1. **Search**: `useHotelSearch()` → `ApiClient.searchHotel()` with pax + dates.
    - Computes availability status per hotel: `available` / `on_request` / `full`.
 2. Navigate to `/booking/:hotelId` → fetch room availability via `searchRoomAvailability()`.
-3. Guest info collected via `GuestInfoForm` + `react-hook-form`.
-4. `useBooking()` mutation POSTs `FormData` to AllezGo backend (includes client price with markup, passenger data, optional receipt file).
-5. Admin dashboard: admin confirms payment → backend calls `apiClient.createBooking()` on iPro.
+3. Guest info collected via `GuestInfoForm` + `react-hook-form` (booking subcomponents live in `src/components/booking/`).
+4. `useBooking()` mutation POSTs `FormData` to AllezGo backend (includes client price with markup, passenger data, optional receipt file, `paymentMethod`: `AGENCE` | `VIREMENT`).
+   - **Guest bookings are allowed**: the backend reads the JWT optionally and skips the user relation if unauthenticated.
+5. Admin dashboard: admin confirms payment → backend calls `apiClient.createBooking()` on iPro. Admin can also download payment receipts via `GET /api/bookings/receipt/:filename`.
 
 ### Cache Management
 - **ApiClient internal cache**: in-memory `Map`, 5-min TTL, cleared on logout.
@@ -117,11 +118,22 @@ User → React Router (pages + suspense)
 ### Query Key Stability
 ```js
 QUERY_KEYS = {
-  countries: ["countries"],
-  hotelsByCity: (cityId) => ["hotels", "city", cityId],
-  hotelsBatch: (ids) => ["hotels", "batch", [...ids].sort().join(",")],
+  countries:   ["countries"],
+  cities:      ["cities"],
+  categories:  ["categories"],
+  tags:        ["tags"],
+  boardings:   ["boardings"],
+  currencies:  ["currencies"],
+  hotels:      ["hotels"],
+  hotelsByCity:  (cityId)   => ["hotels", "city", cityId],
+  hotelDetail:   (hotelId)  => ["hotel", hotelId],
+  hotelSearch:   (params)   => ["hotelSearch", params],
+  hotelsBatch:   (ids)      => ["hotels", "batch", [...ids].sort().join(",")],
 }
 ```
+
+### React Query Global Defaults
+`main.jsx` sets `retry: 0` globally — retries are handled by `ApiClient.js` (3× exponential backoff). `refetchOnWindowFocus` is also `false` globally. React Query Devtools are mounted in DEV mode only.
 
 ### Cache Invalidation Pattern After Mutations
 ```js
@@ -151,11 +163,15 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 
 **`src/utils/`** — pure functions, no side effects:
 - `pricingHelpers.js` — `getStartingPrice()`, `formatPrice()`, `getStartingPriceLabel()`. Pricing shapes: flat `{double, triple}` or tiered `{hotel3Star, hotel4Star, hotel5Star}`.
-- `normalizeHotel.js` — `normalizeHotel()` maps any raw iPro API hotel shape to the stable `HotelCard` contract used by all listing components.
+- `normalizeHotel.js` — `normalizeHotelForCard()` maps any raw iPro API hotel shape to the stable `HotelCard` contract used by all listing components.
 - `dateHelpers.js` — French-locale date formatting (`formatDate`), API date serialization (`formatDateForAPI` → `YYYY-MM-DD` local time), calendar math. Import `API_DATE_REGEX` as the single source of truth for date validation.
 - `validateVisaData.js` — e-visa form field validation.
 
 **`src/ui/`** — reusable presentational primitives: `Button`, `Loader`, `Stars`, `Gallery`, `HotelCarrousel`, `HotelsListView`, `Carrousel`, `PartnerCarrousel`.
+
+**`src/components/booking/`** — booking-flow UI subcomponents: `DateRangePicker` (wraps `react-day-picker`), `GuestRoomSelector`, `GuestInfoForm`, `LocationSearch`, `BookingSummaryCard`, `BookingHotels`.
+
+**`src/components/DateRoomsPickerBanner.jsx`** — search refinement banner used on `SearchResultsPage` (not in the `booking/` subfolder); accepts all picker state + handlers as props.
 
 **`src/data/`** — static data barrel; currently re-exports `carouselImages` from `carouselData.js`.
 
@@ -167,14 +183,19 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 - Two icon libraries are in use (intentional split by page origin):
   - `lucide-react` — admin dashboard, modals, newer components.
   - `react-icons` (`fa`, `md`) — public-facing pages (e.g. `OrganizedTrip`, `E_Visa`).
-- Backend images from AllezGo use relative paths; resolve them via the `BACKEND_BASE` constant (`https://api.allezgoo.com`) before rendering.
+- Backend images from AllezGo use relative paths; resolve them by defining `const BACKEND_BASE = 'https://api.allezgoo.com'` locally (this pattern is repeated in each file that needs it — `DestinationCard`, `OrganizedTrip`, `EditDestinationModal`).
 
 ---
 
 ## Custom Hooks Reference
 
 **`src/custom-hooks/useHotelQueries.js`** — primary hook library  
-- `useHotels(cityId)`, `useHotelDetail(hotelId)`, `useHotelSearch(params, {enabled})`, `useDebouncedHotelSearch(params, 500)`, `useFilterData()`, `useInvalidateHotels()`, `useCacheManager()`
+- Lookup: `useCountries()`, `useCities()`, `useCategories()`, `useTags()`, `useBoardings()`, `useCurrencies()`
+- Hotel data: `useHotels(cityId)`, `useHotelsBatch(hotelIds)`, `useHotelsEnhanced(cityId)` (rich detail, used on HomePage), `useHotelDetail(hotelId)`
+- Search: `useHotelSearch(params, {enabled})`, `useDebouncedHotelSearch(params, 500)`
+- Utilities: `useFilterData()`, `useInvalidateHotels()`, `useCacheManager()`, `useApiClientLanguage()`
+
+**Note on `HotelsFiltering`**: The filter counts (e.g. `count: 4`) shown in the sidebar are static hardcoded placeholders — they are not derived from actual search results.
 
 **`src/custom-hooks/useAuth.js`**  
 - Token + user state; dispatches `allezgo:auth-sync` for multi-tab sync.
@@ -206,6 +227,8 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 **`src/custom-hooks/useBookingValidation.js`** (`useBookingValidation()`)  
 - Returns `validateSearch({ selectedCity, selectedHotel, range, rooms })` — shows toast and returns `false` on invalid input for the search form.
 
+**`src/custom-hooks/useDebounce.js`** — generic debounce primitive used by `useDebouncedHotelSearch`.
+
 ---
 
 ## Configuration
@@ -219,6 +242,10 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 ### Key Dependencies
 - React 19.2, Vite 7.2, React Router 7.12, TanStack React Query 5.90
 - Tailwind CSS 4.1, React Hook Form 7.69, Axios 1.13.5
+- `react-day-picker` — date range picker used in `DateRangePicker` booking component.
+- `react-window` — virtualized list rendering for large hotel result sets.
+- `recharts` — charts used in `BusinessStats` admin analytics.
+- `react-hot-toast` — global toast notifications (configured once in `App.jsx`, centered at 30% viewport height).
 - `babel-plugin-react-compiler` (auto-memoization — may affect build times)
 
 ---
@@ -237,3 +264,4 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 - `src/services/API_GUIDE.md` — API integration guide
 - `backend_context.md` — NestJS backend structure overview
 - AllezGo backend lives in a separate repository; referenced only via `allezgo-api.js`
+- Swagger UI (live): `https://api.allezgoo.com/api/docs` | (local): `http://localhost:3000/api/docs`
