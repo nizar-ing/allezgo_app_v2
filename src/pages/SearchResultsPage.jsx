@@ -10,7 +10,7 @@ import {
 import toast from "react-hot-toast";
 import apiClient from "../services/ApiClient";
 import HotelLightCard from "../components/HotelLightCard.jsx";
-import DateRoomsPickerBanner from "../components/DateRoomsPickerBanner.jsx";
+import BookingHotels from "../components/booking/BookingHotels.jsx";
 import HotelsFiltering from "../components/HotelsFiltering.jsx";
 import Loader from "../ui/Loader.jsx";
 
@@ -33,7 +33,7 @@ const ARRANGEMENT_KEYWORD_MAP = {
 };
 
 function SearchResultsPage() {
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParams] = useSearchParams();
     const navigate = useNavigate();
 
     // ── URL params ──────────────────────────────────────────────────────────────
@@ -79,17 +79,6 @@ function SearchResultsPage() {
     });
     const [showFilterSidebar, setShowFilterSidebar] = useState(false);
     const [sortBy, setSortBy] = useState("recommended");
-    const [showDatePicker, setShowDatePicker] = useState(false);
-    const [currentMonth, setCurrentMonth] = useState(new Date());
-    const [tempSearchParams, setTempSearchParams] = useState({
-        checkIn,
-        checkOut,
-        rooms,
-    });
-    const [dateRange, setDateRange] = useState({
-        from: checkIn ? new Date(checkIn) : new Date(),
-        to: checkOut ? new Date(checkOut) : new Date(),
-    });
     const loadMoreRef = useRef(null);
 
     const handleFilterChange = useCallback((updated) => {
@@ -528,93 +517,6 @@ function SearchResultsPage() {
         });
     }, [navigate, buildHotelUrl, rooms, checkIn, checkOut, nights]);
 
-    const handleDateRangeSelect = (range) => {
-        setDateRange(range);
-        setTempSearchParams(prev => ({
-            ...prev,
-            checkIn: range?.from ? range.from.toISOString().split('T')[0] : '',
-            checkOut: range?.to ? range.to.toISOString().split('T')[0] : '',
-        }));
-    };
-
-    const handleSearchPricing = () => {
-        if (!tempSearchParams.checkIn || !tempSearchParams.checkOut)
-            return toast.error('Veuillez sélectionner les dates de séjour', { duration: 4000, position: 'top-center' });
-        if (new Date(tempSearchParams.checkIn) >= new Date(tempSearchParams.checkOut))
-            return toast.error("La date de départ doit être après la date d'arrivée", { duration: 4000, position: 'top-center' });
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        if (new Date(tempSearchParams.checkIn) < today)
-            return toast.error("La date d'arrivée ne peut pas être dans le passé", { duration: 4000, position: 'top-center' });
-
-        const newSearchParams = new URLSearchParams(searchParams);
-        newSearchParams.set('checkIn', tempSearchParams.checkIn);
-        newSearchParams.set('checkOut', tempSearchParams.checkOut);
-        newSearchParams.set('rooms', JSON.stringify(tempSearchParams.rooms));
-        setSearchParams(newSearchParams);
-        setShowDatePicker(false);
-    };
-
-    const handleAddRoom = () =>
-        setTempSearchParams(prev => ({
-            ...prev, rooms: [...prev.rooms, { adults: 1, children: [] }],
-        }));
-
-    const handleRemoveRoom = (index) => {
-        if (tempSearchParams.rooms.length <= 1)
-            return toast.error('Au moins une chambre requise');
-        setTempSearchParams(prev => ({
-            ...prev, rooms: prev.rooms.filter((_, i) => i !== index),
-        }));
-    };
-
-    const handleUpdateRoomAdults = (index, value) => {
-        const n = parseInt(value);
-        if (n < 1 || n > 6) return;
-        setTempSearchParams(prev => ({
-            ...prev,
-            rooms: prev.rooms.map((room, i) => i === index ? { ...room, adults: n } : room),
-        }));
-    };
-
-    const handleAddChild = (roomIndex) =>
-        setTempSearchParams(prev => ({
-            ...prev,
-            rooms: prev.rooms.map((room, i) => {
-                if (i !== roomIndex) return room;
-                if (room.children.length >= 4) {
-                    toast.error('Maximum 4 enfants par chambre');
-                    return room;
-                }
-                return { ...room, children: [...room.children, 1] };
-            }),
-        }));
-
-    const handleRemoveChild = (roomIndex, childIndex) =>
-        setTempSearchParams(prev => ({
-            ...prev,
-            rooms: prev.rooms.map((room, i) =>
-                i === roomIndex
-                    ? { ...room, children: room.children.filter((_, ci) => ci !== childIndex) }
-                    : room),
-        }));
-
-    const handleUpdateChildAge = (roomIndex, childIndex, age) => {
-        const ageNum = parseInt(age);
-        if (ageNum < 1 || ageNum > 11) return;
-        setTempSearchParams(prev => ({
-            ...prev,
-            rooms: prev.rooms.map((room, i) =>
-                i === roomIndex
-                    ? {
-                        ...room,
-                        children: room.children.map((a, ci) =>
-                            ci === childIndex ? ageNum : a),
-                    }
-                    : room),
-        }));
-    };
-
     // ── Helpers ─────────────────────────────────────────────────────────────────
     const totalGuests = useMemo(() => ({
         adults: rooms.reduce((s, r) => s + (r.adults ?? 0), 0),
@@ -626,12 +528,6 @@ function SearchResultsPage() {
         const days = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
         const months = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
         return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
-    };
-
-    const formatDate = (dateString) => {
-        if (!dateString) return 'Sélectionner';
-        return new Date(dateString).toLocaleDateString('fr-FR',
-            { weekday: 'short', day: 'numeric', month: 'short' });
     };
 
     const getBannerImage = () => {
@@ -730,7 +626,7 @@ function SearchResultsPage() {
             </div>
 
             {/* ── Main Content ─────────────────────────────────────────────────────── */}
-            <div className="w-full max-w-[1800px] mx-auto px-2 sm:px-4 lg:px-6 xl:px-8 py-4 sm:py-6 lg:py-8">
+            <div className="w-full max-w-450 mx-auto px-2 sm:px-4 lg:px-6 xl:px-8 py-4 sm:py-6 lg:py-8">
 
                 {/* Mobile filter toggle */}
                 <div className="lg:hidden mb-4">
@@ -780,39 +676,29 @@ function SearchResultsPage() {
 
                     {/* Results column */}
                     <div className="flex-1 min-w-0">
-                <DateRoomsPickerBanner
-                    searchParams={{ checkIn, checkOut, rooms }}
-                    nights={nights}
-                    pricingData={searchResults}
-                    showDatePicker={showDatePicker}
-                    tempSearchParams={tempSearchParams}
-                    dateRange={dateRange}
-                    currentMonth={currentMonth}
-                    isLoadingPricing={isLoadingSearch}
-                    onOpen={() => {
-                        if (!showDatePicker) {
-                            setTempSearchParams({ checkIn, checkOut, rooms });
-                            setDateRange({
-                                from: checkIn ? new Date(checkIn) : undefined,
-                                to: checkOut ? new Date(checkOut) : undefined,
-                            });
-                            if (checkIn) {
-                                setCurrentMonth(new Date(checkIn));
-                            }
+                <BookingHotels
+                    embedded
+                    initialSelectionType={selectionType ?? 'city'}
+                    initialCity={selectionType === 'city' && cityId
+                        ? { Id: Number(cityId), Name: cityName ?? '', Country: countryName ? { Name: countryName } : undefined }
+                        : null}
+                    initialHotel={selectionType === 'hotel' && hotelId
+                        ? {
+                            Id: Number(hotelId),
+                            Name: hotelName ?? '',
+                            City: cityId
+                                ? { Id: Number(cityId), Name: cityName ?? '', Country: countryName ? { Name: countryName } : undefined }
+                                : undefined,
                         }
-                        setShowDatePicker(!showDatePicker);
-                    }}
-                    onClose={() => setShowDatePicker(false)}
-                    onMonthChange={setCurrentMonth}
-                    onDateSelect={handleDateRangeSelect}
-                    onSearch={handleSearchPricing}
-                    onAddRoom={handleAddRoom}
-                    onRemoveRoom={handleRemoveRoom}
-                    onUpdateAdults={handleUpdateRoomAdults}
-                    onAddChild={handleAddChild}
-                    onRemoveChild={handleRemoveChild}
-                    onUpdateChildAge={handleUpdateChildAge}
-                    formatDate={formatDate}
+                        : null}
+                    initialRange={checkIn && checkOut
+                        ? { from: new Date(checkIn), to: new Date(checkOut) }
+                        : null}
+                    initialRooms={rooms.map((r, i) => ({
+                        id: i + 1,
+                        adults: r.adults ?? 2,
+                        children: (Array.isArray(r.children) ? r.children : []).map((age, j) => ({ id: j + 1, age })),
+                    }))}
                 />
                 <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-3 sm:p-4 mb-4 sm:mb-6">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">

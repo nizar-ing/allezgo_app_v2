@@ -27,16 +27,24 @@ const getDefaultRange = () => {
 
 };
 
-function BookingHotels() {
+function BookingHotels({
+    initialCity = null,
+    initialHotel = null,
+    initialRange = null,
+    initialRooms = null,
+    initialSelectionType = 'city',
+    embedded = false,
+}) {
     const navigate = useNavigate();
     const [isPending, startTransition] = useTransition();
-    const [selectedCity, setSelectedCity] = useState(null);
-    const [selectedHotel, setSelectedHotel] = useState(null);
-    const [selectionType, setSelectionType] = useState('city');
-    const [range, setRange] = useState(getDefaultRange);
-    const [rooms, setRooms] = useState([{ id: 1, adults: 2, children: [] }]);
+    const [selectedCity, setSelectedCity] = useState(initialCity);
+    const [selectedHotel, setSelectedHotel] = useState(initialHotel);
+    const [selectionType, setSelectionType] = useState(initialSelectionType);
+    const [range, setRange] = useState(initialRange ?? getDefaultRange);
+    const [rooms, setRooms] = useState(initialRooms ?? [{ id: 1, adults: 2, children: [] }]);
 
     const defaultCityAppliedRef = useRef(false);
+    const hasInitialSelectionRef = useRef(!!(initialCity || initialHotel));
 
     const { data: citiesData } = useQuery({
         queryKey: ['cities'],
@@ -52,6 +60,7 @@ function BookingHotels() {
     useEffect(() => {
         if (!defaultCity) return;
         if (defaultCityAppliedRef.current) return;
+        if (hasInitialSelectionRef.current) return;
         defaultCityAppliedRef.current = true;
         setTimeout(() => {
             setSelectedCity(defaultCity);
@@ -177,7 +186,10 @@ function BookingHotels() {
     }, [validateSearch, range, selectionType, selectedCity, selectedHotel, rooms, navigate]);
 
     return (
-        <div className="relative w-full max-w-7xl mx-auto -mt-16 z-10 px-4 py-8">
+        <div className={embedded
+            ? 'relative w-full z-10 py-4'
+            : 'relative w-full max-w-7xl mx-auto px-4 py-8 -mt-16 z-10'
+        }>
 
             {/* Decorative glow orbs */}
             <div aria-hidden="true" className="pointer-events-none absolute -top-10 right-10 h-56 w-56 rounded-full bg-slate-400/20 blur-3xl" />
@@ -201,7 +213,7 @@ function BookingHotels() {
                     {/* White card face */}
                     <div className="relative rounded-[14px] bg-white">
                         {/* Inner content with sky gradient wash */}
-                        <div className="bg-linear-to-br from-sky-50/70 via-white to-slate-50/60 rounded-[14px] p-4 md:p-6">
+                        <div className={`bg-linear-to-br from-sky-50/70 via-white to-slate-50/60 rounded-[14px] ${embedded ? 'p-6 md:p-8' : 'p-4 md:p-6'}`}>
                             <div className="flex flex-wrap gap-3 items-center">
 
                                 <div className="flex-1 min-w-55">

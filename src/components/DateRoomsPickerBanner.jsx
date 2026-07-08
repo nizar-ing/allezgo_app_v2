@@ -4,7 +4,7 @@ import { IoAddOutline, IoTrashOutline } from 'react-icons/io5';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/style.css';
 
-export default function DateRoomsPickerBanner({
+export default function     DateRoomsPickerBanner({
     // Display values
     searchParams,
     nights,
