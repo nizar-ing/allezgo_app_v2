@@ -12,6 +12,7 @@ import apiClient from "../services/ApiClient";
 import HotelLightCard from "../components/HotelLightCard.jsx";
 import BookingHotels from "../components/booking/BookingHotels.jsx";
 import HotelsFiltering from "../components/HotelsFiltering.jsx";
+import SearchResultsSkeleton from "../components/SearchResultsSkeleton.jsx";
 import Loader from "../ui/Loader.jsx";
 
 // ── Country banner constants ───────────────────────────────────────────────────
@@ -568,12 +569,6 @@ function SearchResultsPage() {
     const isError = isErrorHotels || isErrorSearch;
     const error = errorHotels || errorSearch;
 
-    if (isLoading) return (
-        <div className="min-h-screen w-full bg-gradient-to-br from-sky-50 via-blue-50 to-sky-100">
-            <Loader message="Recherche des hôtels disponibles..." fullHeight={true} />
-        </div>
-    );
-
     return (
         <div className="min-h-screen w-full bg-gradient-to-br from-sky-50 via-blue-50 to-sky-100">
             {/* ── Hero Banner ─────────────────────────────────────────────────────── */}
@@ -644,22 +639,24 @@ function SearchResultsPage() {
             {/* ── Main Content ─────────────────────────────────────────────────────── */}
             <div className="w-full max-w-450 mx-auto px-2 sm:px-4 lg:px-6 xl:px-8 py-4 sm:py-6 lg:py-8">
 
-                {/* Mobile filter toggle */}
-                <div className="lg:hidden mb-4">
-                    <button
-                        onClick={() => setShowFilterSidebar(true)}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-sky-200 hover:border-sky-400 text-sky-700 font-semibold rounded-xl shadow-sm transition-all"
-                    >
-                        <SlidersHorizontal size={18} />
-                        Filtrer
-                        {activeFilterCount > 0 && (
-                            <span className="px-2 py-0.5 bg-orange-500 text-white text-xs font-bold rounded-full">{activeFilterCount}</span>
-                        )}
-                    </button>
-                </div>
+                {/* Mobile filter toggle — hidden while loading */}
+                {!isLoading && (
+                    <div className="lg:hidden mb-4">
+                        <button
+                            onClick={() => setShowFilterSidebar(true)}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-sky-200 hover:border-sky-400 text-sky-700 font-semibold rounded-xl shadow-sm transition-all"
+                        >
+                            <SlidersHorizontal size={18} />
+                            Filtrer
+                            {activeFilterCount > 0 && (
+                                <span className="px-2 py-0.5 bg-orange-500 text-white text-xs font-bold rounded-full">{activeFilterCount}</span>
+                            )}
+                        </button>
+                    </div>
+                )}
 
-                {/* Mobile filter drawer */}
-                {showFilterSidebar && (
+                {/* Mobile filter drawer — hidden while loading */}
+                {!isLoading && showFilterSidebar && (
                     <div className="fixed inset-0 z-50 lg:hidden">
                         <div className="absolute inset-0 bg-black/50" onClick={() => setShowFilterSidebar(false)} />
                         <div className="absolute left-0 top-0 bottom-0 w-80 max-w-[85vw] shadow-2xl flex flex-col">
@@ -680,6 +677,9 @@ function SearchResultsPage() {
                     </div>
                 )}
 
+                {isLoading ? (
+                    <SearchResultsSkeleton />
+                ) : (
                 <div className="flex gap-6 items-start">
 
                     {/* Desktop sidebar */}
@@ -819,8 +819,9 @@ function SearchResultsPage() {
                         </div>
                     </div>
                 )}
-                    </div> {/* end results column */}
-                </div> {/* end flex row */}
+                    </div>
+                </div>
+                )}
             </div>
         </div>
     );
