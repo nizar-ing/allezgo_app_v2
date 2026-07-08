@@ -209,6 +209,10 @@ function BookingHotels({
                     {/* Corner geometric accents */}
                     <div aria-hidden="true" className="pointer-events-none absolute -right-5 -top-5 h-24 w-24 rounded-full bg-linear-to-br from-orange-400/70 to-amber-500/35" />
                     <div aria-hidden="true" className="pointer-events-none absolute -bottom-5 -left-5 h-20 w-20 rounded-full bg-linear-to-tr from-amber-400/65 to-orange-400/30" />
+                    <div aria-hidden="true" className="pointer-events-none absolute -left-6 -top-6 h-28 w-28 rounded-full bg-linear-to-br from-sky-500/85 to-cyan-600/50" />
+                    <div aria-hidden="true" className="pointer-events-none absolute -bottom-5 -right-5 h-20 w-20 rounded-full bg-linear-to-tl from-sky-500/80 to-blue-500/45" />
+                    <div aria-hidden="true" className="pointer-events-none absolute -bottom-7 left-1/2 -translate-x-1/2 h-36 w-36 rounded-full bg-linear-to-t from-orange-400/70 to-amber-500/40" />
+                    <div aria-hidden="true" className="pointer-events-none absolute -top-5 left-1/2 -translate-x-1/2 h-16 w-16 rounded-full bg-linear-to-b from-orange-400/60 to-amber-500/30" />
 
                     {/* White card face */}
                     <div className="relative rounded-[14px] bg-white">
