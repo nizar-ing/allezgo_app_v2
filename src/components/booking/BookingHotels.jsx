@@ -178,8 +178,6 @@ function BookingHotels({
             });
         }
 
-        toast.loading("Recherche en cours...", { id: 'search-loading', duration: 2000 });
-
         startTransition(() => {
             navigate(`/search?${searchParams.toString()}`);
         });
