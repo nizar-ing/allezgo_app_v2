@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { Crown, DollarSign, Users, Utensils, Hotel, Sparkles } from "lucide-react";
 import HotelCard from "./HotelCard.jsx";
 import HotelCarousel from "../ui/HotelCarrousel.jsx";
-import Loader from "../ui/Loader.jsx";
+import HotelShowcaseSkeleton from "./HotelShowcaseSkeleton.jsx";
 import { useHotelsEnhanced } from "../custom-hooks/useHotelQueries.js";
 
 // ── Module-level helpers ──────────────────────────────────────────────────────
@@ -104,14 +104,7 @@ function HotelShowcase({ cityId = null, className = "" }) {
 
     // ── Loading ───────────────────────────────────────────────────────────────
     if (isLoading) {
-        return (
-            <div className={`w-full py-16 ${className}`}>
-                <Loader
-                    message="Chargement des hôtels..."
-                    submessage="Récupération des collections en cours"
-                />
-            </div>
-        );
+        return <HotelShowcaseSkeleton className={className} />;
     }
 
     // ── Error ─────────────────────────────────────────────────────────────────
