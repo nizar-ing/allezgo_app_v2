@@ -1,11 +1,12 @@
 import {Outlet} from "react-router-dom";
 
-
 import Header from "../components/Header.jsx";
 import Footer from "../components/Footer.jsx";
 import SocialFloatingWidget from "../components/SocialFloatingWidget.jsx";
+import useSettings from "../custom-hooks/useSettings.js";
 
 function Layout() {
+    useSettings(); // syncs apiClient.benefitRate from DB for all users/pages
     return (
         <div className="flex flex-col min-h-screen">
             <Header/>

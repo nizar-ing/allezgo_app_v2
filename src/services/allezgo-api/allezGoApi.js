@@ -273,13 +273,12 @@ const Destinations = {
   getById: (id) => axiosInstance.get(`${ROUTES.DESTINATIONS}${withId(id)}`),
 
   /**
-   * API guide specifies PUT for destination updates.
    * @param {string|number} id
    * @param {UpdateDestinationDto} payload
    * @returns {Promise<Destination>}
    */
   update: (id, payload) =>
-    axiosInstance.put(`${ROUTES.DESTINATIONS}${withId(id)}`, payload),
+    axiosInstance.patch(`${ROUTES.DESTINATIONS}${withId(id)}`, payload),
 
   /**
    * @param {string|number} id
@@ -459,7 +458,7 @@ const Settings = {
   /**
    * @returns {Promise<Settings>}
    */
-  get: () => axiosInstance.get(ROUTES.SETTINGS),
+  get: (config) => axiosInstance.get(ROUTES.SETTINGS, config),
 
   /**
    * @param {UpdateSettingsDto} payload

@@ -55,6 +55,8 @@ export default function useSettings() {
       if (newSettings?.benefit_marge !== undefined) {
         apiClient.setBenefitRate(newSettings.benefit_marge / 100);
       }
+      apiClient.clearCache();
+      queryClient.invalidateQueries({ queryKey: ["hotelSearch"] });
       toast.success("Paramètres mis à jour avec succès !", { id: "settings-update-success" });
     },
     onError: () => toast.error("Erreur lors de la mise à jour des paramètres.", { id: "settings-update-error" }),
