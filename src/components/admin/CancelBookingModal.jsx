@@ -40,7 +40,7 @@ export default function CancelBookingModal({ isOpen, booking, onClose }) {
             await AllezGoApi.client.patch(`/api/bookings/${booking.id}`, { status: "CANCELLED" });
 
             toast.success("Réservation annulée avec succès.");
-            queryClient.invalidateQueries({ queryKey: ["adminBookings"] });
+            queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
             setStep(1);
             onClose();
         } catch (error) {

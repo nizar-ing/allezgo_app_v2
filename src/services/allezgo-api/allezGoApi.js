@@ -430,7 +430,7 @@ const Bookings = {
    * @param {string} status
    * @returns {Promise<any>}
    */
-  updateStatus: (id, status) => axiosInstance.patch(`${ROUTES.BOOKINGS}${withId(id)}/status`, { status }),
+  updateStatus: (id, status) => axiosInstance.patch(`${ROUTES.BOOKINGS}${withId(id)}`, { status }),
 
   /**
    * @param {string|number} id
@@ -458,7 +458,7 @@ const Settings = {
   /**
    * @returns {Promise<Settings>}
    */
-  get: (config) => axiosInstance.get(ROUTES.SETTINGS, config),
+  get: (config) => axiosInstance.get(ROUTES.SETTINGS, { ...config, params: { _t: Date.now(), ...config?.params } }),
 
   /**
    * @param {UpdateSettingsDto} payload

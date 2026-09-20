@@ -72,8 +72,8 @@ User → React Router (pages + suspense)
 | `/search` | `SearchResultsPage` | Two-step search (hotel details `useQuery` + pricing `useQuery`), client-side `useInfiniteQuery` pagination, `HotelsFiltering` sidebar |
 | `/hotels-search` | `HotelsSearchResultsPage` | Batch search by hotel ID array — reads results from `location.state` or `sessionStorage` |
 | `/booking/:hotelId` | `BookingPage` | |
-| `/voyages-organises` | `OrganizedTrips` | List page |
-| `/voyages-organises/:tripId` | `OrganizedTrip` | Detail — uses raw `useEffect` not React Query |
+| `/voyages-organises` | `OrganizedTrips` | List page — debounced name search + sort (price, duration, name) |
+| `/voyages-organises/:tripId` | `OrganizedTrip` | Detail — uses `useDestination(id)` from React Query |
 | `/e-visa` | `E_Visa` | |
 | `/sign-in` | `SignInPage` | |
 | `/profile` | `ProfilePage` | Protected: client + admin |
@@ -113,11 +113,50 @@ User → React Router (pages + suspense)
 `on_request` = all combos have at least one on-request room.  
 `full` = no viable combo for requested pax/dates.
 
+### SearchResultsPage URL Params
+`/search` reads these params (all strings):
+
+| Param | Values | Description |
+|---|---|---|
+| `selectionType` | `"city"` \| `"hotel"` | Drives dual-mode search |
+| `cityId` | integer string | Required when `selectionType=city` |
+| `cityName` | string | Display only |
+| `countryName` | string | Display only |
+| `countryCode` | `"DZ"` \| `"TN"` | Set by `HotelsPopup` |
+| `hotelId` | integer string | Required when `selectionType=hotel` |
+| `hotelName` | string | Display only |
+| `checkIn` | `YYYY-MM-DD` | |
+| `checkOut` | `YYYY-MM-DD` | |
+| `rooms` | JSON `[{adults,children:[]}]` | Defaults to `[{adults:2,children:[]}]` if missing/invalid |
+| `nights` | integer string | Falls back to computed diff if missing |
+
 ### SearchResultsPage Query Architecture
 Three-phase data assembly:
 1. **`useQuery("hotelDetails")`** — for city search returns `{hotels:[], hotelIds:[]}` immediately (iPro resolves hotels by geo-targeting, no pre-fetch needed); for hotel search fetches full detail via `getHotel()`.
-2. **`useQuery("hotelSearch")`** — calls `ApiClient.searchHotel()` with either `cityId` (geo-targeting) or `hotels` (explicit IDs). Raw results are merged with full hotel details and deduped (geo-targeting can return duplicate hotel IDs from multiple suppliers).
-3. **`useInfiniteQuery("hotels-paginated")`** — client-side pagination of the already-merged+filtered+sorted result set (15 hotels/page). Not a network call.
+2. **`useQuery("hotelSearch")`** — calls `ApiClient.searchHotel()` with either `cityId` (geo-targeting) or `hotels` (explicit IDs). Raw results are merged with full hotel details and deduped (geo-targeting can return duplicate hotel IDs from multiple suppliers). The merged shape adds `preloadedRooms`, `paxGroups`, `pricing` (incl. `minPrice`, `availabilityStatus`, `discountPercent`, `token`), and `dataSource` to each hotel.
+3. **`useInfiniteQuery("hotels-paginated")`** — client-side pagination of the already-merged+filtered+sorted result set (15 hotels/page). Not a network call. Query key: `["hotels-paginated", searchIdentity, sortBy, nameFilter, filters]`.
+
+**`searchIdentity`** — a `useMemo`-derived string composing all URL search params (`selectionType|cityId|hotelId|checkIn|checkOut|rooms`). Used as the `key` prop on `BookingHotels` and `HotelLightCard` to force a clean remount when any param changes, preventing stale internal state (selected boarding, fetched availability, refs). Also included in the `hotels-paginated` query key so stale page data can never be served across searches whose result-set length happens to match.
+
+**Filter state** (`filters` object + siblings):
+- Booleans: `hotelRecommander` (≥4 stars), `tarifEnPromotion` (has discount), `disponibleSeulement` (available only), `annulationGratuite`
+- Arrays: `arrangements` (boarding plan IDs), `categories` (star ratings), `roomTypes`, `services`
+- Range: `budgetMin` / `budgetMax` (0–1000 default)
+- `nameFilter` (string) — free-text hotel name search shown in the results bar
+- `sortBy` — `"recommended"` | `"price-asc"` | `"price-desc"` | `"rating"` | `"name-asc"`
+
+**`ARRANGEMENT_KEYWORD_MAP`** — maps boarding arrangement IDs (e.g. `"petit-dejeuner"`, `"all-inclusive"`) to French/English keyword arrays. Used to match `preloadedRooms[].boardingName` when filtering by meal plan.
+
+**`COUNTRY_BANNERS`** — maps lowercase `countryName` param (`"tunisie"`, `"algerie"`) to a banner image path for the results page header. Falls back to the Tunisian banner.
+
+### HotelDetails Page (`/hotel/:hotelId`)
+Fetches full hotel detail and room availability via `ApiClient`. UI is split into tabs:
+- **Chambres** — room list filtered by boarding plan (RO/BB/HB/FB/AI/SC tabs) and room type. Each room card shows occupancy limits, `FreeChild` age/count info, and an inline check-in/check-out date picker with `GuestRoomSelector` to refetch availability on demand.
+- **Équipements** — facility list with keyword-matched icons from `BOARDING_BADGE_STYLES` / `FACILITY_ICON_MAP`.
+- **Galerie** — photo grid.
+- **À propos** — HTML description stripped via `DOMParser` (`stripHtml` utility defined locally).
+
+Availability states per room: `available` (bookable now), `on_request`, `full` (pax limit exceeded).
 
 ### Booking Payload Handling
 `createBooking()` contains unwrapper logic to prevent double-nesting: accepts raw or pre-wrapped payloads, deep-clones (to break React Query cache freeze), injects Maghreb contract rules for Tunisian cities, then wraps once before the API call.
@@ -164,17 +203,29 @@ onSuccess: () => {
 
 Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFIRMED triggers the iPro side; the AllezGo backend status is always updated first regardless.
 
+**Receipt image display**: `VerifyBookingModal` fetches payment receipts as authenticated blobs — it calls `GET /api/bookings/receipt/:filename` with `responseType: "blob"` via `AllezGoApi.client`, creates an object URL via `URL.createObjectURL()`, and revokes it on cleanup. Never render receipt URLs directly in `<img src>` — the endpoint requires a Bearer token.
+
 ---
 
 ## Utilities & UI Primitives
 
 **`src/utils/`** — pure functions, no side effects:
-- `pricingHelpers.js` — `getStartingPrice()`, `formatPrice()`, `getStartingPriceLabel()`. Pricing shapes: flat `{double, triple}` or tiered `{hotel3Star, hotel4Star, hotel5Star}`.
+- `pricingHelpers.js` — `getStartingPrice()`, `formatPrice()`, `getStartingPriceLabel()`. Hotel pricing shapes: flat `{double, triple}` or tiered `{hotel3Star, hotel4Star, hotel5Star}`. **Destination pricing** is a separate shape: `{double, triple, single, child_under4, child_under12, second_child, infant, currency}` — all number fields optional, shown selectively by `DestinationCard` and `OrganizedTrip`.
 - `normalizeHotel.js` — `normalizeHotelForCard()` maps any raw iPro API hotel shape to the stable `HotelCard` contract used by all listing components.
+- `normalizeDestination.js` — `normalizeDestination(raw)` maps any API destination response to a stable view-model. Normalizes `pricing` (tiered→flat), `flightDetails` (legacy flat→structured), `departureDates` (string[]→`{outbound,return?}`[]), `visaInfo` (string|legacy obj→canonical shape), and all array fields (ensures `[]` fallback).
+- `resolveMediaUrl.js` — `resolveMediaUrl(url)` resolves relative backend media paths to absolute URLs using `VITE_API_BASE_URL` (falls back to `https://api.allezgoo.com`). Use this instead of defining `const BACKEND_BASE` locally in each component.
 - `dateHelpers.js` — French-locale date formatting (`formatDate`), API date serialization (`formatDateForAPI` → `YYYY-MM-DD` local time), calendar math. Import `API_DATE_REGEX` as the single source of truth for date validation.
 - `validateVisaData.js` — e-visa form field validation.
 
 **`src/ui/`** — reusable presentational primitives: `Button`, `Loader`, `Stars`, `Gallery`, `HotelCarrousel`, `HotelsListView`, `Carrousel`, `PartnerCarrousel`.
+
+### Loading Pattern Convention
+- **Skeletons** (layout-accurate, animate-pulse) for page-level initial loads. All live in `src/components/`:
+  - `SearchResultsSkeleton` — sidebar + search bar + 3 hotel card stubs; used on `SearchResultsPage`.
+  - `HotelShowcaseSkeleton` — section header + 3-column card grid × 2; used on `HotelShowcase`.
+  - `OrganizedTripsSkeleton` — card grid stubs; used on `OrganizedTrips` (list page).
+  - `OrganizedTripSkeleton` — hero + content stubs; used on `OrganizedTrip` (detail page).
+- **`<Loader>` spinner** only for in-button/inline/overlay scenarios (e.g., a button's own pending state). Do not use `<Loader>` as a page-level loading fallback.
 
 **`src/components/booking/`** — booking-flow UI subcomponents: `DateRangePicker` (wraps `react-day-picker`), `GuestRoomSelector`, `GuestInfoForm`, `LocationSearch`, `BookingSummaryCard`, `BookingHotels`.
 
@@ -182,13 +233,25 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 
 **`src/components/booking/BookingHotels.jsx`** — dual-mode search widget. Without `embedded` prop: renders as a hero overlay on `HomePage` (negative top margin, full decoration). With `embedded={true}`: renders as an inline search-refinement bar inside `SearchResultsPage`. Defaults the city to Sousse (`cityId=34`) when no initial selection is provided.
 
+**`src/components/HotelCard.jsx`** — full-featured hotel card used exclusively by `HotelShowcase.jsx` on the homepage. Renders facility icons from a keyword-matching map (`FACILITY_ICON_MAP`), star rating, and a favorites heart toggle. Uses `lucide-react` icons.
+
 **`src/components/HotelLightCard.jsx`** — compact hotel card used in search results (`SearchResultsPage`, `HotelsPerCityPage`) and via `HotelsListView`; reads `Album[0]` for the hero image from the normalized shape produced by `normalizeHotelForCard()`.
 
+**`src/components/HotelsPopup.jsx`** — flyout panel rendered inside `Header.jsx` when the user clicks "Hôtels". Receives `enrichedCountries` (countries + their cities) as props; city clicks navigate to `/search?selectionType=city&...` with today+1/today+2 as default dates; country-level clicks go to `/hotels/:cityId`.
+
 **`src/components/HotelShowcase.jsx`** — hotel grid widget for a given `cityId`; used on `HomePage` (currently Sousse, `cityId=34`).
+
+**`src/components/DestinationCard.jsx`** — 3D CSS flip card for organized trips. Front face: hero image, name, cities, duration, up to 2 highlights, next departure date, lowest price banner. Back face (red-to-orange gradient): accommodations list (hotel/stars/location/nights), child price rows, key attractions, itinerary day preview (first 4 days), CTA link to `/voyages-organises/:id`. Flip is triggered by hover, focus, and click. Used by `OrganizedTrips`.
+
+**`src/components/TestimonialCard.jsx`** — card for a single testimonial (avatar, name, quote). Active card is visually emphasized via an `isActive` prop.
+
+**`src/components/TestimonialsCarousel.jsx`** — auto-advancing carousel of `TestimonialCard`s; accepts `testimonials`, `loading`, `error` props; rendered on `HomePage` using data from the AllezGo backend.
 
 **`src/components/SocialFloatingWidget.jsx`** — floating social-media links widget; rendered in `Layout.jsx` so it appears on every page.
 
 **`src/data/`** — static data barrel; currently re-exports `carouselImages` from `carouselData.js`.
+
+**`src/components/VisaErrorBoundary.jsx`** — the only class component in the codebase; a React error boundary that wraps the E_Visa page to catch render-time failures.
 
 **`favoriteHotels` localStorage key** — JSON array of hotel IDs (integers). Read/written by `SearchResultsPage`, `HotelsPerCityPage`, and `HotelsListView`. No hook wrapper — accessed inline in each component.
 
@@ -197,10 +260,10 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 ## UI Language & Icons
 
 - All user-facing labels are in **French** (`fr-DZ` locale, DZD currency by default).
-- Two icon libraries are in use (intentional split by page origin):
-  - `lucide-react` — admin dashboard, modals, newer components.
-  - `react-icons` (`fa`, `md`) — public-facing pages (e.g. `OrganizedTrip`, `E_Visa`).
-- Backend images from AllezGo use relative paths; resolve them by defining `const BACKEND_BASE = 'https://api.allezgoo.com'` locally (this pattern is repeated in each file that needs it — `DestinationCard`, `OrganizedTrip`, `EditDestinationModal`).
+- Two icon libraries are in use (mixed by page origin):
+  - `lucide-react` — admin dashboard, modals, and most public components (e.g. `HotelLightCard`, `SearchResultsPage`, `OrganizedTrip`, `OrganizedTrips`, `DestinationCard`).
+  - `react-icons` (`fa`, `md`, `io5`) — a few older public-facing pages (e.g. `E_Visa`, `TestimonialsCarousel`).
+- Backend images from AllezGo use relative paths; resolve them with `resolveMediaUrl(url)` from `src/utils/resolveMediaUrl.js`. Do not define `const BACKEND_BASE` locally — the utility handles `VITE_API_BASE_URL` and the fallback host.
 
 ---
 
@@ -228,6 +291,8 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 
 **`src/custom-hooks/useDestinations.js`, `useTestimonials.js`, `useUsers.js`**  
 - Full CRUD for admin with optimistic cache updates and toast feedback.
+- `useDestinations` (default export) — list of all destinations, normalized via `normalizeDestination`.
+- `useDestination(id)` (named export) — single destination by ID; used by `OrganizedTrip` detail page.
 
 **`src/custom-hooks/useEVisas.js`**  
 - Full CRUD for e-visa records; query key `["eVisas"]`; uses `isRequestCanceled` guard on all queries.
@@ -236,7 +301,7 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 - Carousel image CRUD for the `CarouselAdmin` component.
 
 **`src/custom-hooks/useSettings.js`**  
-- Fetches/updates `AllezGoApi.Settings`; on success syncs `apiClient.setBenefitRate(benefit_marge / 100)` so the markup change is live immediately.
+- Fetches/updates `AllezGoApi.Settings`; syncs `apiClient.setBenefitRate(benefit_marge / 100)` both **synchronously during render** (so cached settings propagate before any search query fires) and in a `useEffect` (which also calls `apiClient.clearCache()` to evict stale results cached before the correct rate was known).
 
 **`src/custom-hooks/useBusinessAnalytics.js`** (`useBusinessAnalytics(bookings, selectedYear)`)  
 - Pure computation hook (no network calls); derives KPIs, monthly revenue, status breakdown, top destinations, and seasonal pattern from admin bookings. Reads `benefit_marge` from `useSettings`.
@@ -250,7 +315,7 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 
 ## Configuration
 
-**`vite.config.js`**: path alias `@` → `src/`; React Babel plugin with React Compiler; Tailwind via `@tailwindcss/vite`; dev proxy for `/api/*` and `/carousel` → `https://api.allezgoo.com`.
+**`vite.config.js`**: path alias `@` → `src/`; React Babel plugin with React Compiler; Tailwind via `@tailwindcss/vite`; dev proxy for `/api/*`, `/carousel`, and `/uploads` → `https://api.allezgoo.com`.
 
 **`tailwind.config.js`**: content paths `index.html` + `src/**/*.{js,jsx}`.
 
@@ -263,6 +328,7 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 - `recharts` — charts used in `BusinessStats` admin analytics.
 - `react-hot-toast` — global toast notifications (configured once in `App.jsx`, centered at 30% viewport height).
 - `babel-plugin-react-compiler` (auto-memoization — may affect build times)
+- `react-window` — listed in `package.json` but **not used** in `src/`; safe to ignore
 
 ---
 
@@ -279,5 +345,5 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 
 - `src/services/API_GUIDE.md` — API integration guide
 - `backend_context.md` — NestJS backend structure overview
-- AllezGo backend lives in a separate repository; referenced only via `allezgo-api.js`
+- AllezGo backend lives in `../allez-go_backend/` (same monorepo); read its `CLAUDE.md` before touching backend behavior
 - Swagger UI (live): `https://api.allezgoo.com/api/docs` | (local): `http://localhost:3000/api/docs`
