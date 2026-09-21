@@ -601,6 +601,9 @@ export default function AdminDashboard() {
                                             className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Référence
                                         </th>
                                         <th scope="col"
+                                            className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Date de réservation
+                                        </th>
+                                        <th scope="col"
                                             className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Client
                                         </th>
                                         <th scope="col"
@@ -622,7 +625,11 @@ export default function AdminDashboard() {
                                     </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-100">
-                                    {bookings?.length > 0 ? bookings.map((booking) => {
+                                    {(() => {
+                                        const sortedBookings = [...(bookings ?? [])].sort(
+                                            (a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0)
+                                        );
+                                        return sortedBookings.length > 0 ? sortedBookings.map((booking) => {
                                         // --- Data Sniper: Ultra-aggressive extraction ---
                                         let parsedIpro = {};
                                         let parsedBooking = {};
@@ -659,6 +666,15 @@ export default function AdminDashboard() {
                                         return (
                                             <tr key={booking.id} className="hover:bg-sky-50/50 transition-colors">
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-sky-700">{displayRef}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                                    {booking.createdAt
+                                                        ? new Date(booking.createdAt).toLocaleString('fr-DZ', {
+                                                            day: '2-digit', month: '2-digit', year: 'numeric',
+                                                            hour: '2-digit', minute: '2-digit', second: '2-digit',
+                                                            hour12: false,
+                                                        })
+                                                        : '—'}
+                                                </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="flex items-center gap-2">
                                                         <span
@@ -724,11 +740,11 @@ export default function AdminDashboard() {
                                         );
                                     }) : (
                                         <tr>
-                                            <td colSpan="7" className="px-6 py-12 text-center text-gray-500">Aucune
+                                            <td colSpan="8" className="px-6 py-12 text-center text-gray-500">Aucune
                                                 réservation trouvée.
                                             </td>
                                         </tr>
-                                    )}
+                                    ); })()}
                                     </tbody>
                                 </table>
                             </div>

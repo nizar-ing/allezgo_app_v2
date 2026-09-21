@@ -4,8 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import AllezGoApi from "../../services/allezgo-api/allezGoApi.js";
 import ArrayInput from '../../components/admin/ArrayInput.jsx';
-
-const BACKEND_BASE = 'https://api.allezgoo.com';
+import { resolveMediaUrl } from '../../utils/resolveMediaUrl.js';
 
 export default function EditDestinationModal({ destination, onClose }) {
     const queryClient = useQueryClient();
@@ -19,6 +18,9 @@ export default function EditDestinationModal({ destination, onClose }) {
     const [keyAttractions, setKeyAttractions] = useState([]);
     const [accommodations, setAccommodations] = useState([]);
     const [itineraries, setItineraries] = useState([]);
+    const [departureDates, setDepartureDates] = useState([]);
+    const [visaInfo, setVisaInfo] = useState({ required: false, price: '', duration: '', notes: '' });
+    const [flightType, setFlightType] = useState('Vol direct');
 
     useEffect(() => {
         if (destination) {
@@ -27,22 +29,12 @@ export default function EditDestinationModal({ destination, onClose }) {
             setIncluded(destination.included || []);
             setNotIncluded(destination.notIncluded || []);
             setKeyAttractions(destination.keyAttractions || []);
-            const dedupedAccommodations = Object.values(
-                (destination.accommodations || []).reduce((map, entry) => {
-                    const key = `${entry.hotel}||${entry.location}`;
-                    if (!map[key] || (entry.id ?? 0) > (map[key].id ?? 0)) map[key] = entry;
-                    return map;
-                }, {})
-            );
-            setAccommodations(dedupedAccommodations);
-            const dedupedItineraries = Object.values(
-                (destination.itineraries || []).reduce((map, entry) => {
-                    const key = entry.day;
-                    if (!map[key] || (entry.id ?? 0) > (map[key].id ?? 0)) map[key] = entry;
-                    return map;
-                }, {})
-            ).sort((a, b) => a.day - b.day);
-            setItineraries(dedupedItineraries);
+            setAccommodations(destination.accommodations || []);
+            setItineraries(destination.itineraries || []);
+            setDepartureDates(destination.departureDates || []);
+            const vi = destination.visaInfo;
+            setVisaInfo(vi ? { required: vi.required ?? false, price: vi.price ?? '', duration: vi.duration ?? '', notes: vi.notes ?? '' } : { required: false, price: '', duration: '', notes: '' });
+            setFlightType(destination.flightDetails?.type || 'Vol direct');
             setImagePreview(null);
             setActiveTab(1);
         }
@@ -85,6 +77,16 @@ export default function EditDestinationModal({ destination, onClose }) {
         setItineraries(newItin);
     };
 
+    const handleAddDepartureDate = () => {
+        setDepartureDates([...departureDates, { outbound: '', return: '' }]);
+    };
+
+    const updateDepartureDate = (index, field, value) => {
+        const updated = [...departureDates];
+        updated[index][field] = value;
+        setDepartureDates(updated);
+    };
+
     const submitDestination = async (prevState, formData) => {
         try {
             // 1. Validation
@@ -105,10 +107,7 @@ export default function EditDestinationModal({ destination, onClose }) {
                 if (!image_url) throw new Error("Le serveur n'a pas retourné l'URL de l'image.");
             }
 
-            // 3. Compile payload — strip `id` from nested arrays (backend rejects them on update)
-            const sanitizedAccommodations = accommodations.map(({ id, ...rest }) => rest);
-            const sanitizedItineraries = itineraries.map(({ id, ...rest }) => rest);
-
+            // 3. Compile payload
             const pricing = {
                 double: Number(formData.get('pricing.double') || 0),
                 single: Number(formData.get('pricing.single') || 0),
@@ -121,10 +120,22 @@ export default function EditDestinationModal({ destination, onClose }) {
             };
 
             const flightDetails = {
-                via: formData.get('flightDetails.via') || '',
-                arrival: formData.get('flightDetails.arrival') || '',
-                departure: formData.get('flightDetails.departure') || '',
+                type: formData.get('flightDetails.type') || 'Vol direct',
+                via: formData.get('flightDetails.via') || undefined,
+                outbound: {
+                    departure: formData.get('flightDetails.outbound.departure') || '',
+                    arrival: formData.get('flightDetails.outbound.arrival') || '',
+                },
+                return: {
+                    departure: formData.get('flightDetails.return.departure') || '',
+                    arrival: formData.get('flightDetails.return.arrival') || '',
+                },
             };
+            if (!flightDetails.via) delete flightDetails.via;
+
+            const visaInfoPayload = visaInfo.required
+                ? { required: true, price: visaInfo.price || undefined, duration: visaInfo.duration || undefined, notes: visaInfo.notes || undefined }
+                : { required: false };
 
             const payload = {
                 name,
@@ -138,13 +149,15 @@ export default function EditDestinationModal({ destination, onClose }) {
                 mealPlan: formData.get('mealPlan') || '',
                 pricing,
                 flightDetails,
+                departureDates,
+                visaInfo: visaInfoPayload,
                 mainCities,
                 highlights,
                 included,
                 notIncluded,
                 keyAttractions,
-                accommodations: sanitizedAccommodations,
-                itineraries: sanitizedItineraries,
+                accommodations,
+                itineraries,
             };
 
             await AllezGoApi.Destinations.update(destination.id, payload);
@@ -165,10 +178,7 @@ export default function EditDestinationModal({ destination, onClose }) {
 
     if (!destination) return null;
 
-    // Resolve the URL to display the current image (may be relative path)
-    const currentImageSrc = destination.image_url?.startsWith('http')
-        ? destination.image_url
-        : `${BACKEND_BASE}${destination.image_url}`;
+    const currentImageSrc = resolveMediaUrl(destination.image_url);
 
     const tabs = [
         { id: 1, label: 'Infos Générales', icon: Globe },
@@ -355,20 +365,67 @@ export default function EditDestinationModal({ destination, onClose }) {
                                 </div>
 
                                 <h4 className="text-lg font-bold text-slate-800 mb-6 border-b border-sky-50 pb-2">Vols (Flight Details)</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                                     <div className="col-span-2">
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">Escale (Via)</label>
-                                        <input type="text" name="flightDetails.via" defaultValue={destination.flightDetails?.via} placeholder="Ex: Vol direct, Via Dubai..." onKeyDown={preventEnterSubmit} className="block w-full px-3 py-2 border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-2 focus:ring-sky-500" />
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">Type de vol</label>
+                                        <select name="flightDetails.type" value={flightType} onChange={(e) => setFlightType(e.target.value)} className="block w-full md:w-1/2 px-3 py-2 border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-2 focus:ring-sky-500">
+                                            <option value="Vol direct">Vol direct</option>
+                                            <option value="Avec escale">Avec escale</option>
+                                        </select>
+                                    </div>
+                                    {flightType === 'Avec escale' && (
+                                        <div className="col-span-2">
+                                            <label className="block text-sm font-semibold text-slate-700 mb-1">Escale (Via)</label>
+                                            <input type="text" name="flightDetails.via" defaultValue={destination.flightDetails?.via} placeholder="Ex: Via Dubai" onKeyDown={preventEnterSubmit} className="block w-full px-3 py-2 border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-2 focus:ring-sky-500" />
+                                        </div>
+                                    )}
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">Vol Aller — Départ</label>
+                                        <input type="text" name="flightDetails.outbound.departure" defaultValue={destination.flightDetails?.outbound?.departure} placeholder="Ex: AH3015 · Alger 15:30" onKeyDown={preventEnterSubmit} className="block w-full px-3 py-2 border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-2 focus:ring-sky-500" />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">Départ (Aller)</label>
-                                        <input type="text" name="flightDetails.departure" defaultValue={destination.flightDetails?.departure} placeholder="Ex: AH3015 - 15:30" onKeyDown={preventEnterSubmit} className="block w-full px-3 py-2 border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-2 focus:ring-sky-500" />
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">Vol Aller — Arrivée</label>
+                                        <input type="text" name="flightDetails.outbound.arrival" defaultValue={destination.flightDetails?.outbound?.arrival} placeholder="Ex: Istanbul 20:00" onKeyDown={preventEnterSubmit} className="block w-full px-3 py-2 border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-2 focus:ring-sky-500" />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">Arrivée (Retour)</label>
-                                        <input type="text" name="flightDetails.arrival" defaultValue={destination.flightDetails?.arrival} placeholder="Ex: AH3016 - 21:00" onKeyDown={preventEnterSubmit} className="block w-full px-3 py-2 border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-2 focus:ring-sky-500" />
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">Vol Retour — Départ</label>
+                                        <input type="text" name="flightDetails.return.departure" defaultValue={destination.flightDetails?.return?.departure} placeholder="Ex: AH3016 · Istanbul 22:00" onKeyDown={preventEnterSubmit} className="block w-full px-3 py-2 border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-2 focus:ring-sky-500" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">Vol Retour — Arrivée</label>
+                                        <input type="text" name="flightDetails.return.arrival" defaultValue={destination.flightDetails?.return?.arrival} placeholder="Ex: Alger 02:00" onKeyDown={preventEnterSubmit} className="block w-full px-3 py-2 border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-2 focus:ring-sky-500" />
                                     </div>
                                 </div>
+
+                                <div className="flex justify-between items-center mb-4 border-b border-sky-50 pb-2">
+                                    <h4 className="text-lg font-bold text-slate-800">Dates de Départ</h4>
+                                    <button type="button" onClick={handleAddDepartureDate} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold bg-sky-100 text-sky-700 hover:bg-sky-200 rounded-lg transition-colors">
+                                        <Plus size={16} /> Ajouter une date
+                                    </button>
+                                </div>
+                                {departureDates.length === 0 ? (
+                                    <p className="text-sm text-slate-400 italic mb-2">Aucune date ajoutée.</p>
+                                ) : (
+                                    <div className="space-y-2 mb-2">
+                                        {departureDates.map((d, i) => (
+                                            <div key={i} className="flex items-center gap-3 bg-white border border-sky-100 rounded-xl p-3">
+                                                <div className="flex-1 grid grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label className="block text-xs font-semibold text-slate-500 mb-1">Départ (YYYY-MM-DD)</label>
+                                                        <input type="date" value={d.outbound} onChange={(e) => updateDepartureDate(i, 'outbound', e.target.value)} className="block w-full px-2 py-1.5 text-sm border border-sky-100 rounded-lg focus:ring-1 focus:ring-sky-500 outline-none" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-semibold text-slate-500 mb-1">Retour (YYYY-MM-DD)</label>
+                                                        <input type="date" value={d.return} onChange={(e) => updateDepartureDate(i, 'return', e.target.value)} className="block w-full px-2 py-1.5 text-sm border border-sky-100 rounded-lg focus:ring-1 focus:ring-sky-500 outline-none" />
+                                                    </div>
+                                                </div>
+                                                <button type="button" onClick={() => setDepartureDates(departureDates.filter((_, idx) => idx !== i))} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors">
+                                                    <Trash2 size={15} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Tab 3: Détails & Inclusions */}
@@ -386,6 +443,32 @@ export default function EditDestinationModal({ destination, onClose }) {
                                     <div className="col-span-1 lg:col-span-2"><hr className="border-sky-50 my-2" /></div>
 
                                     <ArrayInput label="Points Forts (Highlights)" items={highlights} setItems={setHighlights} placeholder="Ex: Meilleur rapport qualité/prix" />
+
+                                    <div className="col-span-1 lg:col-span-2"><hr className="border-sky-50 my-2" /></div>
+
+                                    <div className="col-span-1 lg:col-span-2">
+                                        <p className="text-sm font-bold text-slate-700 mb-3">Informations Visa</p>
+                                        <label className="flex items-center gap-2 mb-3 cursor-pointer">
+                                            <input type="checkbox" checked={visaInfo.required} onChange={(e) => setVisaInfo({ ...visaInfo, required: e.target.checked })} className="w-4 h-4 accent-sky-600 rounded" />
+                                            <span className="text-sm font-semibold text-slate-700">Visa requis</span>
+                                        </label>
+                                        {visaInfo.required && (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-6">
+                                                <div>
+                                                    <label className="block text-xs font-semibold text-slate-500 mb-1">Prix du visa</label>
+                                                    <input type="text" value={visaInfo.price} onChange={(e) => setVisaInfo({ ...visaInfo, price: e.target.value })} onKeyDown={preventEnterSubmit} placeholder="Ex: 15 000 DZD" className="block w-full px-3 py-2 text-sm border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-1 focus:ring-sky-500 outline-none" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-semibold text-slate-500 mb-1">Durée de validité</label>
+                                                    <input type="text" value={visaInfo.duration} onChange={(e) => setVisaInfo({ ...visaInfo, duration: e.target.value })} onKeyDown={preventEnterSubmit} placeholder="Ex: 30 jours" className="block w-full px-3 py-2 text-sm border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-1 focus:ring-sky-500 outline-none" />
+                                                </div>
+                                                <div className="md:col-span-2">
+                                                    <label className="block text-xs font-semibold text-slate-500 mb-1">Notes / Documents requis</label>
+                                                    <textarea value={visaInfo.notes} onChange={(e) => setVisaInfo({ ...visaInfo, notes: e.target.value })} rows={2} placeholder="Ex: Passeport valide 6 mois + photos..." className="block w-full px-3 py-2 text-sm border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-1 focus:ring-sky-500 outline-none resize-none" />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 

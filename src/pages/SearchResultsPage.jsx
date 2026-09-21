@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import apiClient from "../services/ApiClient";
+import useSettings from "../custom-hooks/useSettings.js";
 import HotelLightCard from "../components/HotelLightCard.jsx";
 import BookingHotels from "../components/booking/BookingHotels.jsx";
 import HotelsFiltering from "../components/HotelsFiltering.jsx";
@@ -161,6 +162,7 @@ function SearchResultsPage() {
     const hotelIds = useMemo(() => hotelsData?.hotelIds ?? [], [hotelsData]);
 
     // ── Step 2: Search hotels + pricing ────────────────────────────────────────
+    const { loading: settingsLoading } = useSettings();
     const isCitySearch = selectionType === "city" && !!cityId;
 
     const {
@@ -191,7 +193,7 @@ function SearchResultsPage() {
                 throw new Error(result.errorMessage.Description ?? "Erreur de recherche");
             return result;
         },
-        enabled: (!!hotelIds.length || isCitySearch) && !!checkIn && !!checkOut,
+        enabled: !settingsLoading && (!!hotelIds.length || isCitySearch) && !!checkIn && !!checkOut,
         staleTime: 2 * 60 * 1000,
         retry: 1,
     });
@@ -200,20 +202,46 @@ function SearchResultsPage() {
     const processedHotels = useMemo(() => {
         if (!searchResults?.transformedHotels) return [];
 
+        // Keep the cheapest provider's transformed entry per hotel so minPrice,
+        // paxGroups, and availability all come from the same winning provider.
         const transformedMap = {};
         searchResults.transformedHotels.forEach(th => {
-            transformedMap[th.id] = th;
+            const existing = transformedMap[th.id];
+            if (!existing || (th.minPrice !== null && (existing.minPrice === null || th.minPrice < existing.minPrice))) {
+                transformedMap[th.id] = th;
+            }
         });
 
-        // ✅ DEDUP: Geo-targeting with Source:"all" can return the same hotel from
-        // multiple suppliers (different Source values). Keep only the first occurrence
-        // per Hotel.Id (iPro returns them sorted by price, so first = cheapest).
-        const seenIds = new Set();
-        const dedupedHotelSearch = searchResults.hotelSearch.filter((sr) => {
+        // DEDUP: City search (Source:"all") returns the same hotel from multiple
+        // providers. Group by Hotel.Id, then pick the provider with the lowest
+        // minimum price among non-complet results (available or on-request).
+        // If every provider marks the hotel as complet, still pick lowest price.
+        const getMinRawPrice = (sr) => {
+            let min = Infinity;
+            sr.Price?.Boarding?.forEach(b => b.Pax?.forEach(pax => pax.Rooms?.forEach(r => {
+                const val = r.Price ? parseFloat(r.Price) : NaN;
+                if (!isNaN(val) && val < min) min = val;
+            })));
+            return min;
+        };
+        const isFullyComplet = (sr) => {
+            const rooms = [];
+            sr.Price?.Boarding?.forEach(b => b.Pax?.forEach(p => p.Rooms?.forEach(r => rooms.push(r))));
+            return rooms.length === 0 || rooms.every(r => r.StopReservation);
+        };
+
+        const hotelGroups = new Map();
+        searchResults.hotelSearch.forEach((sr) => {
             const id = sr.Hotel?.Id;
-            if (seenIds.has(id)) return false;
-            seenIds.add(id);
-            return true;
+            if (id == null) return;
+            if (!hotelGroups.has(id)) hotelGroups.set(id, []);
+            hotelGroups.get(id).push(sr);
+        });
+
+        const dedupedHotelSearch = Array.from(hotelGroups.values()).map(group => {
+            const nonComplet = group.filter(sr => !isFullyComplet(sr));
+            const candidates = nonComplet.length > 0 ? nonComplet : group;
+            return candidates.reduce((best, sr) => getMinRawPrice(sr) < getMinRawPrice(best) ? sr : best);
         });
 
         return dedupedHotelSearch.map((sr) => {
@@ -242,7 +270,8 @@ function SearchResultsPage() {
                                 boardingName: boarding.Name,
                                 price: price && !isNaN(price) ? price : null,
                                 basePrice: basePrice && !isNaN(basePrice) ? basePrice : null,
-                                stopReservation: room.StopReservation ?? false,
+                                stopReservation: room.StopReservation === true || !!(room.StopSales?.Title?.trim()),
+                                stopSalesTitle: room.StopSales?.Title?.trim() || null,
                                 onRequest: room.OnRequest ?? false,
                                 currency: sr.Currency,
                                 adults: adultCount,
@@ -263,9 +292,12 @@ function SearchResultsPage() {
 
             let fallbackStatus = 'full';
             const bookableRooms = preloadedRooms.filter(r => !r.stopReservation);
+            const hasStopRooms = preloadedRooms.some(r => r.stopReservation);
             if (bookableRooms.length > 0) {
                 if (bookableRooms.every(r => r.onRequest)) fallbackStatus = 'on_request';
-                else fallbackStatus = 'available';
+                else fallbackStatus = hasStopRooms ? 'last' : 'available';
+            } else if (preloadedRooms.length > 0) {
+                fallbackStatus = 'stop_sales';
             }
 
             const pricing = {
@@ -316,7 +348,7 @@ function SearchResultsPage() {
                 preloadedRooms,
                 paxGroups: transformed?.paxGroups ?? [],
             };
-        });
+        }).filter(h => h.pricing?.availabilityStatus !== 'full');
     }, [searchResults, hotelsDetailsMap]);
 
     // ── Favorites (read-once) ───────────────────────────────────────────────────

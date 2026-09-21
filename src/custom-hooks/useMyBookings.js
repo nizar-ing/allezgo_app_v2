@@ -8,7 +8,13 @@ export default function useMyBookings() {
     const query = useQuery({
         queryKey: ["my-bookings", user?.id],
         enabled: isAuthenticated && !!user?.id,
-        staleTime: 1000 * 60 * 5,
+        staleTime: 1000 * 30,
+        refetchOnWindowFocus: true,
+        refetchInterval: (query) => {
+            const raw = query.state.data;
+            if (!Array.isArray(raw)) return false;
+            return raw.some(b => b.status === "PENDING") ? 30_000 : false;
+        },
         queryFn: () => AllezGoApi.getMine(),
         select: (data) => {
             if (!Array.isArray(data)) return [];

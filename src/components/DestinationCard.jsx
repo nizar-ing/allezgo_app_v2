@@ -1,99 +1,73 @@
-// src/components/DestinationCard.jsx
 import { useState, useMemo } from 'react';
 import { Link } from "react-router-dom";
 import {
-    Calendar,
-    MapPin,
-    Moon,
-    Star,
-    Hotel,
-    Map as MapIcon,
-    Navigation,
-    Sparkles,
-    ArrowBigRight
+    Calendar, MapPin, Moon, Star, Hotel,
+    Map as MapIcon, Navigation, Sparkles, ArrowBigRight,
 } from 'lucide-react';
+import { resolveMediaUrl } from '../utils/resolveMediaUrl.js';
 
-const BACKEND_BASE = 'https://api.allezgoo.com';
-const resolveImageUrl = (url) =>
-    url?.startsWith('http') ? url : `${BACKEND_BASE}${url}`;
-
-const formatPrice = (price) =>
-    new Intl.NumberFormat('fr-DZ').format(price);
+const formatPrice = (price, currency = 'DZD') =>
+    `${new Intl.NumberFormat('fr-DZ').format(price)} ${currency}`;
 
 function DestinationCard({
-                             id,
-                             name = "Destination",
-                             image_url,
-                             mainCities = [],
-                             duration = {},
-                             highlights = [],
-                             departureDates = [],
-                             pricing = null,
-                             accommodations = [], // Changed from accommodation to match API
-                             keyAttractions = [],
-                             itineraries = []     // Changed from itinerary to match API
-                         }) {
+    id,
+    name = "Destination",
+    image_url,
+    mainCities = [],
+    duration = {},
+    highlights = [],
+    departureDates = [],
+    pricing = null,
+    accommodations = [],
+    keyAttractions = [],
+    itineraries = [],
+}) {
     const [isFlipped, setIsFlipped] = useState(false);
+    const currency = pricing?.currency || 'DZD';
 
     const lowestPrice = useMemo(() => {
         if (!pricing) return null;
-        if (pricing.double) {
-            return Math.min(
-                pricing.double ?? Infinity,
-                pricing.triple ?? Infinity
-            );
-        }
-        if (pricing.hotel3Star) return pricing.hotel3Star.double;
-        if (pricing.hotel4Star) return pricing.hotel4Star.double;
-        return null;
+        const candidates = [
+            pricing.double, pricing.triple, pricing.single,
+        ].filter((v) => typeof v === 'number' && v > 0);
+        return candidates.length ? Math.min(...candidates) : null;
     }, [pricing]);
 
-    const priceDisplay = useMemo(() => {
-        if (!pricing?.double) return null;
-        return (
-            <div className="space-y-1.5">
-                {[
-                    { label: 'Double', value: pricing.double },
-                    { label: 'Triple', value: pricing.triple },
-                    { label: 'Single', value: pricing.single },
-                ].map(({ label, value }) => (
-                    <div
-                        key={label}
-                        className="flex justify-between items-center text-xs sm:text-sm bg-gray-50 rounded-lg px-2 sm:px-3 py-1.5"
-                    >
-                        <span className="text-gray-600 font-medium">{label}:</span>
-                        <span className="font-bold text-gray-800">{formatPrice(value)} DA</span>
-                    </div>
-                ))}
-            </div>
-        );
+    const mainPriceRows = useMemo(() => {
+        if (!pricing) return [];
+        return [
+            { label: 'Double',  value: pricing.double  },
+            { label: 'Triple',  value: pricing.triple  },
+            { label: 'Single',  value: pricing.single  },
+        ].filter(({ value }) => typeof value === 'number' && value > 0);
     }, [pricing]);
 
-    const uniqueAccommodations = useMemo(() =>
-        Object.values(
-            accommodations.reduce((map, entry) => {
-                const key = `${entry.hotel}||${entry.location}`;
-                if (!map[key] || (entry.id ?? 0) > (map[key].id ?? 0)) map[key] = entry;
-                return map;
-            }, {})
-        ), [accommodations]);
+    const childPriceRows = useMemo(() => {
+        if (!pricing) return [];
+        return [
+            { label: 'Enfant (< 4 ans)',  value: pricing.child_under4  },
+            { label: 'Enfant (< 12 ans)', value: pricing.child_under12 },
+            { label: '2e enfant',          value: pricing.second_child  },
+            { label: 'Bébé',              value: pricing.infant        },
+        ].filter(({ value }) => typeof value === 'number' && value > 0);
+    }, [pricing]);
 
-    const uniqueItineraries = useMemo(() =>
-        Object.values(
-            itineraries.reduce((map, entry) => {
-                const key = entry.day;
-                if (!map[key] || (entry.id ?? 0) > (map[key].id ?? 0)) map[key] = entry;
-                return map;
-            }, {})
-        ).sort((a, b) => a.day - b.day), [itineraries]);
+    const handleFlip = () => setIsFlipped((prev) => !prev);
 
     return (
         <div
-            className="relative w-full min-w-[300px] sm:min-w-[340px] md:min-w-[420px] max-w-md h-[580px] md:h-[640px] cursor-pointer mx-auto"
+            role="button"
+            tabIndex={0}
+            aria-label={`Voir les détails de ${name}`}
+            aria-pressed={isFlipped}
+            className="relative w-full min-w-[300px] sm:min-w-[340px] md:min-w-[400px] h-[520px] md:h-[560px] cursor-pointer mx-auto outline-none focus-visible:ring-4 focus-visible:ring-sky-400 focus-visible:ring-offset-2 rounded-2xl"
             style={{ perspective: '1000px' }}
             onMouseEnter={() => setIsFlipped(true)}
             onMouseLeave={() => setIsFlipped(false)}
-            onClick={() => setIsFlipped(prev => !prev)}
+            onFocus={() => setIsFlipped(true)}
+            onBlur={() => setIsFlipped(false)}
+            onClick={handleFlip}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleFlip()}
         >
             <div
                 className="relative w-full h-full transition-transform duration-700"
@@ -102,20 +76,21 @@ function DestinationCard({
                     transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
                 }}
             >
-                {/* FRONT SIDE */}
+                {/* ── FRONT ─────────────────────────────────────────────────── */}
                 <div
                     className="absolute w-full h-full rounded-2xl overflow-hidden bg-white
                         shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3),0_10px_30px_-10px_rgba(0,0,0,0.2)]
-                        hover:shadow-[0_25px_70px_-15px_rgba(0,0,0,0.4),0_15px_40px_-10px_rgba(0,0,0,0.25)]
-                        transition-shadow duration-300"
+                        hover:shadow-[0_25px_70px_-15px_rgba(0,0,0,0.4)] transition-shadow duration-300"
                     style={{ backfaceVisibility: 'hidden' }}
                 >
-                    {/* Image */}
-                    <div className="relative h-44 sm:h-48 md:h-52 overflow-hidden">
+                    {/* Hero image */}
+                    <div className="relative h-52 sm:h-56 md:h-60 overflow-hidden">
                         <img
-                            src={resolveImageUrl(image_url) || '/placeholder-image.jpg'}
+                            src={resolveMediaUrl(image_url) || '/placeholder-image.jpg'}
                             alt={name}
                             loading="lazy"
+                            width="420"
+                            height="208"
                             className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-700"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
@@ -123,91 +98,77 @@ function DestinationCard({
                             <h3 className="text-2xl sm:text-3xl font-bold text-white mb-1 drop-shadow-lg">{name}</h3>
                             <div className="flex items-center gap-2 text-white/95">
                                 <MapPin className="w-3 h-3 sm:w-4 sm:h-4" />
-                                <span className="text-xs sm:text-sm font-medium">{mainCities?.join(', ')}</span>
+                                <span className="text-xs sm:text-sm font-medium">{mainCities.join(', ')}</span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Content */}
-                    <div className="p-4 sm:p-5 md:p-6 space-y-3 sm:space-y-3.5">
+                    {/* Body */}
+                    <div className="p-4 sm:p-5 space-y-3 overflow-y-auto max-h-[calc(100%-15rem)]">
                         {/* Duration */}
-                        <div className="flex items-center gap-2 sm:gap-3 text-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-2 sm:p-2.5 shadow-sm">
-                            <Moon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                        <div className="flex items-center gap-2 text-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-2.5 shadow-sm">
+                            <Moon className="w-4 h-4 text-blue-600 shrink-0" />
                             <span className="font-semibold text-xs sm:text-sm">
                                 {duration?.nights || 0} Nuits / {duration?.days || 0} Jours
                             </span>
                         </div>
 
                         {/* Highlights */}
-                        {highlights?.length > 0 && (
-                            <div className="space-y-1 sm:space-y-1.5">
+                        {highlights.length > 0 && (
+                            <div className="space-y-1.5">
                                 <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide">Points Forts</h4>
-                                <div className="flex flex-wrap gap-1 sm:gap-1.5">
-                                    {highlights?.slice(0, 3).map((highlight, index) => (
+                                <div className="flex flex-wrap gap-1.5">
+                                    {highlights.slice(0, 2).map((h, i) => (
                                         <span
-                                            key={index}
-                                            className="inline-flex items-center px-2 sm:px-2.5 py-1 rounded-full text-xs font-semibold
-                                                bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500
-                                                text-white shadow-md hover:shadow-lg transition-shadow"
+                                            key={i}
+                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold
+                                                bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-white shadow-md"
                                         >
-                                            <Star className="w-3 h-3 mr-1 fill-white" />
-                                            {highlight?.length > 24 ? highlight.substring(0, 24) + '...' : highlight}
+                                            <Star className="w-3 h-3 fill-white shrink-0" />
+                                            {h.length > 26 ? `${h.substring(0, 26)}…` : h}
                                         </span>
                                     ))}
                                 </div>
                             </div>
                         )}
 
-                        {/* Departure Dates */}
-                        {departureDates?.length > 0 && (
-                            <div className="space-y-1 sm:space-y-1.5">
-                                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide flex items-center gap-2">
-                                    <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
-                                    Prochains Départs
-                                </h4>
-                                <div className="text-sm text-gray-700 space-y-1">
-                                    {departureDates?.slice(0, 2).map((date, index) => (
-                                        <div
-                                            key={index}
-                                            className="flex items-center gap-2 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg px-2 sm:px-2.5 py-1.5 shadow-sm"
-                                        >
-                                            <span className="font-medium text-xs sm:text-sm">{date?.outbound}</span>
-                                        </div>
-                                    ))}
-                                </div>
+                        {/* Next departure — 1 date only */}
+                        {departureDates.length > 0 && departureDates[0]?.outbound && (
+                            <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm text-gray-700">
+                                <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                <span className="font-medium">{departureDates[0].outbound}</span>
+                                {departureDates[0].return && (
+                                    <span className="text-gray-400">→ {departureDates[0].return}</span>
+                                )}
                             </div>
                         )}
 
-                        {/* Pricing */}
-                        <div className="flex flex-col justify-between border-t-2 border-gray-100 pt-2 sm:pt-3">
-                            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Tarifs</h4>
-                            {priceDisplay}
-                            {lowestPrice && (
-                                <div className="mt-2 sm:mt-3 p-1 sm:p-2 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 rounded-xl shadow-xl">
+                        {/* Best price banner */}
+                        {lowestPrice && (
+                            <div className="mt-auto pt-1">
+                                <div className="p-2 rounded-xl shadow-lg"
+                                    style={{ background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)' }}>
                                     <div className="text-center">
-                                        <div className="flex items-center justify-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
-                                            <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-300 animate-pulse" />
-                                            <span className="text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider">
-                                                MEILLEUR PRIX
-                                            </span>
-                                            <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-300 animate-pulse" />
+                                        <div className="flex items-center justify-center gap-1.5 mb-0.5">
+                                            <Sparkles className="w-3 h-3 text-yellow-200 animate-pulse" />
+                                            <span className="text-[10px] font-bold text-white uppercase tracking-wider">À partir de</span>
+                                            <Sparkles className="w-3 h-3 text-yellow-200 animate-pulse" />
                                         </div>
-                                        <div className="text-xs sm:text-sm text-white/90 mb-0.5 font-medium">À partir de</div>
-                                        <div className="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-lg">
-                                            {formatPrice(lowestPrice)} <span className="text-lg sm:text-xl font-bold">DA</span>
+                                        <div className="text-xl font-black text-white tracking-tight">
+                                            {new Intl.NumberFormat('fr-DZ').format(lowestPrice)}
+                                            <span className="text-base font-bold ml-1">{currency}</span>
                                         </div>
                                     </div>
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {/* BACK SIDE */}
+                {/* ── BACK ──────────────────────────────────────────────────── */}
                 <div
                     className="absolute w-full h-full rounded-2xl overflow-hidden text-white
                         shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3),0_10px_30px_-10px_rgba(0,0,0,0.2)]
-                        hover:shadow-[0_25px_70px_-15px_rgba(0,0,0,0.4),0_15px_40px_-10px_rgba(0,0,0,0.25)]
                         transition-shadow duration-300"
                     style={{
                         backfaceVisibility: 'hidden',
@@ -215,75 +176,82 @@ function DestinationCard({
                         background: 'linear-gradient(to bottom right, #991b1b, #b91c1c 55%, #ea580c)',
                     }}
                 >
-                    <div className="p-4 sm:p-5 md:p-6 h-full overflow-y-auto space-y-3 sm:space-y-4">
-                        <h3 className="text-xl sm:text-2xl font-bold border-b-2 border-white/30 pb-2 sm:pb-3">
-                            {name}
-                        </h3>
+                    <div className="p-4 sm:p-5 h-full overflow-y-auto space-y-3">
+                        <h3 className="text-xl sm:text-2xl font-bold border-b-2 border-white/30 pb-2">{name}</h3>
 
-                        {/* Accommodation */}
-                        {uniqueAccommodations.length > 0 && (
-                            <div className="space-y-1.5 sm:space-y-2">
+                        {/* Accommodations */}
+                        {accommodations.length > 0 && (
+                            <div className="space-y-1.5">
                                 <h4 className="text-xs sm:text-sm font-bold uppercase tracking-wide flex items-center gap-2">
-                                    <Hotel className="w-3 h-3 sm:w-4 sm:h-4" />
+                                    <Hotel className="w-4 h-4" />
                                     Hébergement
                                 </h4>
-                                <div className="space-y-1.5 sm:space-y-2">
-                                    {uniqueAccommodations.map((hotel, index) => (
-                                        <div
-                                            key={index}
-                                            className="bg-white/15 rounded-xl p-2 sm:p-3 backdrop-blur-sm shadow-md hover:bg-white/20 transition-colors"
-                                        >
-                                            <div className="font-semibold text-sm sm:text-base">{hotel?.hotel}</div>
-                                            <div className="text-[10px] sm:text-xs text-white/90 flex items-center gap-1.5 sm:gap-2 mt-1">
-                                                <span className="flex items-center">
-                                                    {[...Array(hotel?.stars || 0)].map((_, i) => (
-                                                        <Star key={i} className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-yellow-400 text-yellow-400" />
-                                                    ))}
-                                                </span>
-                                                {hotel?.location && <span>• {hotel.location}</span>}
-                                                {hotel?.nights && <span>• {hotel.nights} nuits</span>}
-                                            </div>
+                                {accommodations.map((hotel, i) => (
+                                    <div
+                                        key={i}
+                                        className="bg-white/15 rounded-xl p-2.5 backdrop-blur-sm hover:bg-white/20 transition-colors"
+                                    >
+                                        <div className="font-semibold text-sm">{hotel?.hotel}</div>
+                                        <div className="text-[10px] text-white/90 flex items-center gap-2 mt-0.5">
+                                            <span className="flex items-center">
+                                                {[...Array(hotel?.stars || 0)].map((_, j) => (
+                                                    <Star key={j} className="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" />
+                                                ))}
+                                            </span>
+                                            {hotel?.location && <span>• {hotel.location}</span>}
+                                            {hotel?.nights && <span>• {hotel.nights} nuits</span>}
                                         </div>
-                                    ))}
-                                </div>
+                                    </div>
+                                ))}
                             </div>
                         )}
 
-                        {/* Key Attractions */}
-                        {keyAttractions?.length > 0 && (
-                            <div className="space-y-1.5 sm:space-y-2">
-                                <h4 className="text-xs sm:text-sm font-bold uppercase tracking-wide flex items-center gap-2">
-                                    <MapIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-                                    Attractions Principales
-                                </h4>
-                                <div className="grid grid-cols-1 gap-1 sm:gap-1.5">
-                                    {keyAttractions?.slice(0, 5).map((attraction, index) => (
-                                        <div key={index} className="flex items-start gap-1.5 sm:gap-2 text-xs sm:text-sm">
-                                            <span className="text-yellow-400 mt-0.5 font-bold">✦</span>
-                                            <span className="text-white/95 font-medium">{attraction}</span>
-                                        </div>
-                                    ))}
-                                </div>
+                        {/* Child rates */}
+                        {childPriceRows.length > 0 && (
+                            <div className="space-y-1">
+                                <h4 className="text-xs font-bold uppercase tracking-wide">Tarifs enfants</h4>
+                                {childPriceRows.map(({ label, value }) => (
+                                    <div key={label} className="flex justify-between text-xs bg-white/10 rounded-lg px-2.5 py-1">
+                                        <span className="text-white/80">{label}:</span>
+                                        <span className="font-semibold">{formatPrice(value, currency)}</span>
+                                    </div>
+                                ))}
                             </div>
                         )}
 
-                        {/* Itinerary Preview */}
-                        {uniqueItineraries.length > 0 && (
-                            <div className="space-y-1.5 sm:space-y-2">
+                        {/* Key attractions */}
+                        {keyAttractions.length > 0 && (
+                            <div className="space-y-1.5">
                                 <h4 className="text-xs sm:text-sm font-bold uppercase tracking-wide flex items-center gap-2">
-                                    <Navigation className="w-3 h-3 sm:w-4 sm:h-4" />
-                                    Programme ({uniqueItineraries.length} jours)
+                                    <MapIcon className="w-4 h-4" />
+                                    Attractions
                                 </h4>
-                                <div className="space-y-1 sm:space-y-1.5 max-h-28 sm:max-h-32 overflow-y-auto">
-                                    {uniqueItineraries.slice(0, 4).map((day, index) => (
-                                        <div key={index} className="text-[10px] sm:text-xs text-white/90 flex gap-1.5 sm:gap-2">
-                                            <span className="font-bold text-yellow-400">J{day?.day}</span>
-                                            <span className="font-medium">{day?.title}</span>
+                                {keyAttractions.slice(0, 5).map((a, i) => (
+                                    <div key={i} className="flex items-start gap-1.5 text-xs sm:text-sm">
+                                        <span className="text-yellow-400 font-bold mt-0.5">✦</span>
+                                        <span className="text-white/95">{a}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Itinerary preview */}
+                        {itineraries.length > 0 && (
+                            <div className="space-y-1.5">
+                                <h4 className="text-xs sm:text-sm font-bold uppercase tracking-wide flex items-center gap-2">
+                                    <Navigation className="w-4 h-4" />
+                                    Programme ({itineraries.length} jours)
+                                </h4>
+                                <div className="space-y-1 max-h-28 overflow-y-auto">
+                                    {itineraries.slice(0, 4).map((day, i) => (
+                                        <div key={i} className="text-[10px] sm:text-xs text-white/90 flex gap-1.5">
+                                            <span className="font-bold text-yellow-400 shrink-0">J{day?.day}</span>
+                                            <span>{day?.title}</span>
                                         </div>
                                     ))}
-                                    {uniqueItineraries.length > 4 && (
-                                        <div className="text-[10px] sm:text-xs text-white/70 italic">
-                                            + {uniqueItineraries.length - 4} autres jours...
+                                    {itineraries.length > 4 && (
+                                        <div className="text-[10px] text-white/70 italic">
+                                            + {itineraries.length - 4} autres jours…
                                         </div>
                                     )}
                                 </div>
@@ -291,13 +259,13 @@ function DestinationCard({
                         )}
 
                         {/* CTA */}
-                        <div className="pt-3 sm:pt-4">
+                        <div className="pt-2">
                             <Link
                                 to={`/voyages-organises/${id}`}
                                 onClick={(e) => e.stopPropagation()}
                                 className="w-full inline-flex justify-center items-center gap-3 text-white font-bold
-                                    py-2.5 sm:py-3.5 px-4 sm:px-6 text-sm sm:text-base rounded-lg
-                                    transition-all shadow-lg hover:shadow-xl hover:scale-[1.02] duration-200"
+                                    py-3 px-6 text-sm sm:text-base rounded-lg transition-all shadow-lg
+                                    hover:shadow-xl hover:scale-[1.02] duration-200 focus-visible:ring-2 focus-visible:ring-white"
                                 style={{
                                     background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
                                     boxShadow: '0 6px 20px rgba(249, 115, 22, 0.4), inset 0 -2px 4px rgba(0, 0, 0, 0.2)',

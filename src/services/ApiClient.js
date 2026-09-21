@@ -109,7 +109,7 @@ class ApiClient {
         this.credentials = CREDENTIALS;
         this.cache = new CacheManager(CONFIG.CACHE.TTL);
         this.cancelTokens = new Map();
-        this.benefitRate = 0.08;
+        this.benefitRate = 0;
         this.setupInterceptors();
     }
 
@@ -344,7 +344,8 @@ class ApiClient {
                                     Option: room?.Option ?? [],
                                     price: price,
                                     basePrice: Number(room.BasePrice) || price,
-                                    stopReservation: room.StopReservation === true || room.StopReservation === "true",
+                                    stopReservation: room.StopReservation === true || room.StopReservation === "true" || !!(room.StopSales?.Title?.trim()),
+                                    stopSalesTitle: room.StopSales?.Title?.trim() || null,
                                     onRequest: room.OnRequest === true || room.OnRequest === "true",
                                     _raw: room,
                                 });
@@ -404,11 +405,19 @@ class ApiClient {
                 }
             });
 
-            let finalStatus = 'full';
-            if (hasImmediateCombo) finalStatus = 'available';
-            else if (hasOnRequestCombo) finalStatus = 'on_request';
-
             const allRoomsFlat = Array.from(roomsByPaxKey.values()).flat();
+            const hasAnyRooms = allRoomsFlat.length > 0;
+            const hasAnyBookableRoom = allRoomsFlat.some(r => !r.stopReservation);
+            const hasStopReservationRooms = allRoomsFlat.some(r => r.stopReservation);
+
+            let finalStatus = 'full';
+            if (hasImmediateCombo) {
+                finalStatus = hasStopReservationRooms ? 'last' : 'available';
+            } else if (hasOnRequestCombo) {
+                finalStatus = 'on_request';
+            } else if (hasAnyRooms && !hasAnyBookableRoom) {
+                finalStatus = 'stop_sales';
+            }
             const discounts = allRoomsFlat
                 .filter(r => !r.stopReservation && r.basePrice && r.price && r.basePrice > r.price)
                 .map(r => Math.round(((r.basePrice - r.price) / r.basePrice) * 100));
@@ -516,14 +525,34 @@ class ApiClient {
             });
 
             this._applyAgencyMarkup(response.data);
-            const hotelResult = response.data.HotelSearch?.[0];
-            if (!hotelResult) return { rooms: [], roomsByPax: [] };
+            const allProviders = response.data.HotelSearch || [];
+            if (!allProviders.length) return { rooms: [], roomsByPax: [] };
+
+            const primary = allProviders[0];
+            // Collect rooms from ALL providers, each tagged with its provider's token/source
+            // so the caller can select the correct provider when refreshing a token.
+            const allRooms = allProviders.flatMap(h =>
+                this._processRoomResults(h, params.boardingType).map(r => ({
+                    ...r,
+                    _token: h.Token,
+                    _source: h.Source,
+                }))
+            );
+
+            // Build roomsByPax from allRooms so every pax slot shows rooms across ALL providers.
+            const roomsByPax = (params.rooms || []).map((req, idx) => ({
+                paxIndex: idx,
+                adults: req.adults || req.adult || 2,
+                children: req.children || req.child || [],
+                childAges: req.childAges || [],
+                availableRooms: allRooms,
+            }));
 
             return {
-                rooms: this._processRoomResults(hotelResult, params.boardingType),
-                roomsByPax: this._processRoomsByPax(hotelResult, params.rooms, params.boardingType),
-                token: hotelResult.Token,
-                source: hotelResult.Source
+                rooms: allRooms,
+                roomsByPax,
+                token: primary.Token,
+                source: primary.Source,
             };
         } finally {
             this.cancelTokens.delete('roomAvailability');
@@ -550,7 +579,8 @@ class ApiClient {
                         boardingId: normalizedBoardingId,
                         Boarding: normalizedBoarding,
                         Option: r?.Option ?? [],
-                        stopReservation: r.StopReservation === true || r.StopReservation === "true",
+                        stopReservation: r.StopReservation === true || r.StopReservation === "true" || !!(r.StopSales?.Title?.trim()),
+                        stopSalesTitle: r.StopSales?.Title?.trim() || null,
                         onRequest: r.OnRequest === true || r.OnRequest === "true",
                         _raw: r,
                     });

@@ -31,6 +31,11 @@ export default defineConfig({
                 target: 'https://api.allezgoo.com',
                 changeOrigin: true,
                 secure: false,
+            },
+            '/uploads': {
+                target: 'https://api.allezgoo.com',
+                changeOrigin: true,
+                secure: false,
             }
         }
     }

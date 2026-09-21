@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import {
     Heart, MapPin, Star, Wifi, Car, Utensils, Waves, Wind, Coffee,
     Dumbbell, Sparkles, ChevronRight, CheckCircle2, AlertCircle,
-    ChevronDown, ChevronUp, Loader2, Baby,
+    ChevronDown, ChevronUp, Loader2, Baby, Clock, Ban, XCircle, Tag,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../services/ApiClient';
@@ -43,6 +43,13 @@ const getFreeChildInfo = (freeChild) => {
     if (!Array.isArray(freeChild) || freeChild.length === 0) return null;
     const maxAge = Math.max(...freeChild.map((fc) => fc.Age));
     return { count: freeChild.length, maxAge };
+};
+
+const formatShortDate = (dateStr) => {
+    try {
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('fr-DZ', { day: 'numeric', month: 'short' });
+    } catch { return dateStr; }
 };
 
 const buildBoardingFromRooms = (rooms) => {
@@ -137,6 +144,7 @@ function HotelLightCard({
         Id, Name, Category, City,
         ShortDescription, Description,
         Image, Album = [], Facilities = [], FreeChild,
+        preloadedRooms: hotelPreloadedRooms = [],
     } = hotel;
 
     const allRooms = useMemo(() => (paxGroups ?? []).flatMap(pg => pg.availableRooms), [paxGroups]);
@@ -183,13 +191,12 @@ function HotelLightCard({
 
             for (let i = 0; i < effectiveRoomsByPax.length; i++) {
                 const paxSlot = effectiveRoomsByPax[i];
-                // Exclut les chambres stopReservation pour le prix d'appel
-                const bookableRooms = paxSlot.rooms.filter(r => r.boardingCode === bCode && !r.stopReservation);
-                if (bookableRooms.length === 0) {
+                const allBoardingRooms = paxSlot.rooms.filter(r => r.boardingCode === bCode);
+                if (allBoardingRooms.length === 0) {
                     isValid = false;
                     break;
                 }
-                comboPrice += Math.min(...bookableRooms.map(r => r.price));
+                comboPrice += Math.min(...allBoardingRooms.map(r => r.price));
             }
 
             if (isValid) {
@@ -202,21 +209,35 @@ function HotelLightCard({
 
     const totalPrice = derivedMinPrice;
 
-    // ✅ NOUVELLE LOGIQUE: Prise en charge explicite du "Sur demande"
     const cardAvailabilityStatus = useMemo(() => {
         if (pricing?.availabilityStatus) return pricing.availabilityStatus;
         if (noAvailability) return 'full';
         if (!hasFetched || !allRooms.length) return null;
 
         const bookableRooms = allRooms.filter(r => !r.stopReservation);
-        if (bookableRooms.length === 0) return 'full';
-
-        // Si toutes les chambres réservables nécessitent une confirmation
+        if (bookableRooms.length === 0) return 'stop_sales'; // rooms exist but all stopped
         if (bookableRooms.every(r => r.onRequest)) return 'on_request';
-
-        if (allRooms.some(r => r.stopReservation)) return 'last';
+        if (allRooms.some(r => r.stopReservation)) return 'last'; // mixed: some stopped, some bookable
         return 'available';
     }, [hasFetched, allRooms, noAvailability, pricing?.availabilityStatus]);
+
+    // Parse date range from iPro StopSales.Title (e.g. "Stop sales de 01/10/2026 au 11/10/2026 sur hôtel")
+    const stopSalesPeriod = useMemo(() => {
+        if (cardAvailabilityStatus !== 'stop_sales') return null;
+        const rooms = allRooms.length > 0 ? allRooms : hotelPreloadedRooms;
+        for (const r of rooms) {
+            const title = r.stopSalesTitle || '';
+            const match = title.match(/(\d{2}\/\d{2}\/\d{4})\s+au\s+(\d{2}\/\d{2}\/\d{4})/i);
+            if (match) {
+                const fmt = (s) => {
+                    const [d, m, y] = s.split('/');
+                    return new Date(`${y}-${m}-${d}`).toLocaleDateString('fr-DZ', { day: 'numeric', month: 'short' });
+                };
+                return `${fmt(match[1])} → ${fmt(match[2])}`;
+            }
+        }
+        return null;
+    }, [cardAvailabilityStatus, allRooms, hotelPreloadedRooms]);
 
     const computedTotalPrice = useMemo(() => {
         if (!effectiveRoomsByPax?.length || !selectedBoarding) return 0;
@@ -246,15 +267,13 @@ function HotelLightCard({
         for (let i = 0; i < effectiveRoomsByPax.length; i++) {
             const paxSlot = effectiveRoomsByPax[i];
 
-            // Get bookable rooms for this specific pax slot that match the active tab
-            const bookableRooms = paxSlot.rooms.filter(r => r.boardingCode === selectedBoarding && !r.stopReservation);
+            const allBoardingRooms = paxSlot.rooms.filter(r => r.boardingCode === selectedBoarding);
 
-            if (bookableRooms.length === 0) {
+            if (allBoardingRooms.length === 0) {
                 isValid = false;
                 break;
             }
-            // Add the absolute cheapest room for this specific slot to the total
-            comboPrice += Math.min(...bookableRooms.map(r => r.price));
+            comboPrice += Math.min(...allBoardingRooms.map(r => r.price));
         }
 
         // Return the exact combo price for this tab, or fallback if invalid
@@ -286,7 +305,7 @@ function HotelLightCard({
                 })) ?? [{ adults: 2, children: 0, childAges: [] }],
             });
 
-            if (!response.roomsByPax?.length || response.roomsByPax.every(p => p.rooms.length === 0)) {
+            if (!response.roomsByPax?.length || response.roomsByPax.every(p => (p.availableRooms || p.rooms || []).length === 0)) {
                 setNoAvailability(true);
                 setPaxGroups([]);
                 return;
@@ -294,7 +313,7 @@ function HotelLightCard({
 
             const newPaxGroups = response.roomsByPax.map(pax => ({
                 ...pax,
-                availableRooms: pax.rooms,
+                availableRooms: pax.availableRooms || pax.rooms || [],
             }));
 
             hasRealFetchRef.current = true;
@@ -440,6 +459,8 @@ function HotelLightCard({
                     price: room.price,
                     total: room.price,
                     Option: room.Option ?? hotel?.Option ?? [],
+                    _token:  room._token,
+                    _source: room._source,
                 };
             })
             .filter(Boolean);
@@ -454,6 +475,8 @@ function HotelLightCard({
             return;
         }
 
+        const providerToken  = selectedRoomsList[0]?._token  || hotel?.Token || currentToken;
+        const providerSource = selectedRoomsList[0]?._source || hotel?.Source;
         const bookingData = {
             hotelId: Number(Id),
             hotelName: Name,
@@ -464,11 +487,13 @@ function HotelLightCard({
             rooms: selectedRoomsList,
             totalPrice: computedTotalPrice,
             currency: hotel.currency || pricing?.currency || "DZD",
-            Token: hotel?.Token || currentToken,
-            token: currentToken,
+            Token:  providerToken,
+            token:  providerToken,
+            Source: providerSource,
+            source: providerSource,
             selectedRooms: selectedRoomsList,
             Option: hotel?.Option ?? [],
-            hotel: { ...hotel, paxGroups, token: currentToken, Token: hotel?.Token || currentToken }
+            hotel: { ...hotel, paxGroups, token: providerToken, Token: hotel?.Token || providerToken }
         };
         navigate(`/booking/${Id}`, { state: bookingData });
     }, [effectiveRoomsByPax, selectedRooms, selectedBoarding, onBook, hotel, navigate, Id, Name, searchParams, nights, computedTotalPrice, currentToken, paxGroups, pricing?.currency]);
@@ -531,40 +556,33 @@ function HotelLightCard({
                     {pricing?.discountPercent != null && (
                         <div
                             className="absolute top-3 left-3 bg-rose-500 text-white text-[11px] font-extrabold px-2.5 py-1 rounded-full shadow-md border border-rose-400/30 flex items-center gap-1">
-                            🏷 -{pricing.discountPercent}%
+                            <Tag size={10} className="shrink-0" /> -{pricing.discountPercent}%
                         </div>
                     )}
 
-                    {/* Price overlay ou Complet */}
-                    {cardAvailabilityStatus !== 'full' && derivedMinPrice ? (
-                        <div
-                            className="absolute bottom-3 right-3 bg-gradient-to-br from-orange-400 to-orange-600 text-white text-xs font-bold px-3 py-2 rounded-2xl shadow-lg border border-orange-300/30">
-                            <div className="text-[10px] font-normal opacity-80 tracking-wide uppercase">À partir de</div>
-                            <div className="text-sm font-extrabold">
-                                {formatPrice(computedTotalPrice > 0 ? computedTotalPrice : dynamicMinPrice)}{' '}
-                                <span className="font-normal opacity-80 text-[11px]">DZD</span>
-                            </div>
-                            {nights > 1 && (
-                                <div
-                                    className="text-[10px] font-normal opacity-75">{formatPrice(Math.round((computedTotalPrice > 0 ? computedTotalPrice : dynamicMinPrice) / nights))} /
-                                    nuit</div>
-                            )}
-                        </div>
-                    ) : cardAvailabilityStatus === 'full' ? (
-                        <div
-                            className="absolute bottom-3 right-3 bg-gradient-to-br from-red-500 to-red-600 text-white text-xs font-bold px-4 py-2 rounded-2xl shadow-lg border border-red-400/30">
-                            <div className="text-sm font-extrabold uppercase tracking-wide flex items-center gap-1">
-                                Complet
+                    {/* Mobile-only floating price badge */}
+                    {derivedMinPrice && (
+                        <div className="absolute bottom-3 right-3 block sm:hidden">
+                            <div
+                                className="bg-gradient-to-br from-sky-500 via-sky-500 to-indigo-600 text-white px-3 py-2 rounded-2xl border border-white/25 shadow-xl shadow-sky-600/40"
+                                style={{ backdropFilter: 'blur(8px)' }}
+                            >
+                                <p className="text-[8px] text-sky-100 uppercase tracking-widest font-semibold leading-none">À partir de</p>
+                                <p className="text-[17px] font-black leading-tight tabular-nums mt-0.5">
+                                    {formatPrice(computedTotalPrice > 0 ? computedTotalPrice : dynamicMinPrice)}
+                                    <span className="text-[9px] font-semibold text-sky-100 ml-0.5">DZD</span>
+                                </p>
                             </div>
                         </div>
-                    ) : null}
+                    )}
+
                 </div>
 
                 {/* ── Content ── */}
                 <div className="flex-1 p-5 sm:p-6 flex flex-col gap-2.5 min-w-0">
 
                     <div className="flex items-start gap-2 lg:gap-4 flex-wrap">
-                        <h3 className="text-base lg:text-xl font-extrabold text-gray-600 leading-tight tracking-tight">{Name}</h3>
+                        <h3 className="text-base lg:text-xl font-bold text-gray-900 leading-tight tracking-tight">{Name}</h3>
                         {freeChildInfo && (
                             <span
                                 className="inline-flex items-center gap-1.5 bg-emerald-500 text-xs text-white border border-emerald-400 font-bold px-3 py-1.5 rounded-full shrink-0 shadow-sm">
@@ -579,33 +597,36 @@ function HotelLightCard({
                         {City?.Name}{City?.Country?.Name ? `, ${City.Country.Name}` : ''}
                     </p>
 
-                    {cardAvailabilityStatus && (
+                    {cardAvailabilityStatus && cardAvailabilityStatus !== 'full' && (
                         <div className="flex items-center">
                             {cardAvailabilityStatus === 'available' && (
-                                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" /> Disponible
-                                </span>
-                            )}
-                            {cardAvailabilityStatus === 'on_request' && (
-                                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-600">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" /> Sur demande
+                                <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white text-[11px] font-extrabold px-3 py-1.5 rounded-full shadow-sm shadow-emerald-300/40 ring-1 ring-white/20">
+                                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse shrink-0" /> Disponible
                                 </span>
                             )}
                             {cardAvailabilityStatus === 'last' && (
-                                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-orange-500">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" /> Dernières chambres
+                                <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-orange-400 to-amber-500 text-white text-[11px] font-extrabold px-3 py-1.5 rounded-full shadow-sm shadow-orange-300/40 ring-1 ring-white/20">
+                                    <span className="w-1.5 h-1.5 bg-white rounded-full shrink-0" /> Dernières Chambres
                                 </span>
                             )}
-                            {cardAvailabilityStatus === 'full' && (
-                                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-red-600">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" /> Complet
+                            {cardAvailabilityStatus === 'on_request' && (
+                                <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-amber-400 to-yellow-500 text-white text-[11px] font-extrabold px-3 py-1.5 rounded-full shadow-sm shadow-amber-300/40 ring-1 ring-white/20">
+                                    <Clock size={10} className="shrink-0" /> Sur Demande
+                                </span>
+                            )}
+                            {cardAvailabilityStatus === 'stop_sales' && (
+                                <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-rose-500 to-red-600 text-white text-[11px] font-extrabold px-3 py-1.5 rounded-full shadow-sm shadow-rose-300/40 ring-1 ring-white/20">
+                                    <Ban size={10} className="shrink-0" /> Stop Sales
+                                    {stopSalesPeriod && (
+                                        <span className="font-normal opacity-90 ml-0.5">· {stopSalesPeriod}</span>
+                                    )}
                                 </span>
                             )}
                         </div>
                     )}
 
                     {shortDesc && (
-                        <p className="text-xs lg:text-sm text-gray-500 line-clamp-2 leading-relaxed">{shortDesc}</p>
+                        <p className="text-xs lg:text-sm text-gray-600 line-clamp-2 leading-relaxed text-pretty">{shortDesc}</p>
                     )}
 
                     {topFacilities.length > 0 && (
@@ -614,7 +635,7 @@ function HotelLightCard({
                                 const Icon = getFacilityIcon(f.Title || '');
                                 return (
                                     <span key={f.Title ?? i}
-                                        className="inline-flex items-center gap-1 bg-sky-50 border border-sky-100 text-sky-700 text-[11px] font-medium px-2.5 py-1 rounded-full">
+                                        className="inline-flex items-center gap-1 bg-sky-100/70 border border-sky-200 text-sky-700 text-[11px] font-medium px-2.5 py-1 rounded-full">
                                         <Icon size={10} className="text-sky-500 shrink-0" />{f.Title}
                                     </span>
                                 );
@@ -646,30 +667,28 @@ function HotelLightCard({
                     <div className="flex-1" />
 
                     {/* Price row + action buttons */}
-                    <div className="flex items-end justify-between gap-3 mt-1 flex-wrap pt-2 border-t border-gray-100">
+                    <div className="flex items-center justify-between gap-3 mt-1 flex-wrap pt-2 border-t border-gray-200">
                         {isLoading && !derivedMinPrice ? (
-                            <div>
-                                <p className="text-[10px] text-gray-400 uppercase tracking-wide">Tarif</p>
-                                <p className="text-sm font-semibold text-gray-400 italic flex items-center gap-1.5">
-                                    <Loader2 size={12} className="animate-spin" /> Chargement...
-                                </p>
-                            </div>
-                        ) : cardAvailabilityStatus === 'full' ? (
-                            <div>
-                                <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Tarif</p>
-                                <p className="text-lg font-extrabold text-red-500 leading-none">Complet</p>
+                            <div className="flex items-center gap-1.5 text-sm text-gray-400 italic">
+                                <Loader2 size={12} className="animate-spin" /> Chargement...
                             </div>
                         ) : derivedMinPrice ? (
-                            <div>
-                                <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-0.5">À partir
-                                    de</p>
-                                <p className="text-xl font-extrabold text-sky-700 leading-none">
-                                    {formatPrice(computedTotalPrice > 0 ? computedTotalPrice : dynamicMinPrice)}
-                                    <span className="text-sm font-semibold text-sky-400 ml-1">DZD</span>
-                                </p>
-                                {nights > 1 && (
-                                    <p className="text-[11px] text-gray-400 mt-0.5">{formatPrice(Math.round((computedTotalPrice > 0 ? computedTotalPrice : dynamicMinPrice) / nights))} / nuit</p>
-                                )}
+                            <div className="relative shrink-0 hidden sm:block" style={{ filter: 'drop-shadow(2px 4px 10px rgba(14,165,233,0.45))' }}>
+                                <div
+                                    className="bg-gradient-to-br from-sky-400 via-sky-500 to-indigo-600 pl-4 pr-8 py-2.5 text-white"
+                                    style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%)', borderRadius: '10px 0 0 10px' }}
+                                >
+                                    <p className="text-[9px] text-sky-100 uppercase tracking-widest font-semibold leading-none">À partir de</p>
+                                    <p className="text-[22px] font-black text-white leading-tight mt-0.5 tabular-nums">
+                                        {formatPrice(computedTotalPrice > 0 ? computedTotalPrice : dynamicMinPrice)}
+                                        <span className="text-[11px] font-semibold text-sky-100 ml-1">DZD</span>
+                                    </p>
+                                    {nights > 1 && (
+                                        <p className="text-[9px] text-sky-200 mt-0.5 leading-none">
+                                            {formatPrice(Math.round((computedTotalPrice > 0 ? computedTotalPrice : dynamicMinPrice) / nights))} / nuit
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                         ) : (
                             <div>
@@ -682,7 +701,7 @@ function HotelLightCard({
                             {showBookButton && cardAvailabilityStatus !== 'full' && (
                                 <button
                                     onClick={handleToggleTarifs}
-                                    className="flex items-center gap-1.5 bg-sky-600 hover:bg-sky-700 active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all duration-150 shadow-sm"
+                                    className="flex items-center gap-1.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-400 hover:from-amber-600 hover:via-yellow-500 hover:to-amber-500 active:scale-95 text-amber-950 text-xs font-bold px-4 py-2.5 rounded-xl transition-all duration-150 shadow-md shadow-amber-500/40"
                                 >
                                     {showTarifs ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                                     Tarifs & Chambres
@@ -690,7 +709,7 @@ function HotelLightCard({
                             )}
                             <button
                                 onClick={handleViewDetail}
-                                className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-700 text-xs font-bold px-4 py-2.5 rounded-xl transition-all duration-150"
+                                className="flex items-center gap-1.5 bg-gradient-to-r from-rose-600 via-rose-600 to-pink-700 hover:from-rose-700 hover:via-rose-700 hover:to-pink-800 active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all duration-150 shadow-md shadow-rose-600/35"
                             >
                                 Voir Détails <ChevronRight size={14} />
                             </button>
@@ -700,8 +719,9 @@ function HotelLightCard({
             </div>
 
             {/* ── Tarifs & Chambres panel ── */}
-            {showTarifs && cardAvailabilityStatus !== 'full' && (
-                <div className="border-t border-gray-100 bg-gradient-to-b from-slate-50 to-white px-5 sm:px-6 py-5">
+            <div className={`grid transition-all duration-300 ease-in-out ${showTarifs && cardAvailabilityStatus !== 'full' ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+                <div className="overflow-hidden">
+                <div className="border-t border-gray-100 bg-gradient-to-b from-blue-50/40 via-slate-50/60 to-white px-5 sm:px-6 py-5">
 
                     {/* Panel header */}
                     <div className="flex items-center justify-between mb-4">
@@ -890,7 +910,8 @@ function HotelLightCard({
                         </div>
                     )}
                 </div>
-            )}
+                </div>
+            </div>
         </div>
     );
 }

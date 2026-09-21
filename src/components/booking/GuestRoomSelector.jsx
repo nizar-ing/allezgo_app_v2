@@ -165,7 +165,7 @@ function GuestRoomSelector({ rooms, setRooms }) {
                                 <div className="flex items-center justify-between bg-white rounded-lg p-3 shadow-sm">
                                     <div>
                                         <p className="font-semibold text-gray-800">Adultes</p>
-                                        <p className="text-xs text-gray-500">18 ans et plus</p>
+                                        <p className="text-xs text-gray-500">12 ans et plus</p>
                                     </div>
                                     <div className="flex items-center gap-3">
                                         <button

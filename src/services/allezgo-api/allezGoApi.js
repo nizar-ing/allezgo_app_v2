@@ -418,7 +418,9 @@ const Bookings = {
    * Fetch all bookings belonging to the currently authenticated client.
    * @returns {Promise<any[]>}
    */
-  getMine: () => axiosInstance.get(`${ROUTES.BOOKINGS}/my`),
+  getMine: () => axiosInstance.get(`${ROUTES.BOOKINGS}/my`, {
+    headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
+  }),
 
   /**
    * @returns {Promise<any[]>}
@@ -515,8 +517,9 @@ export const AllezGoApi = {
   Carousel,
   Settings,
   async getMine() {
-      // Hits the secure B2C endpoint
-      return this.client.get('/api/bookings/my');
+      return this.client.get('/api/bookings/my', {
+          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
+      });
   }
 };
 

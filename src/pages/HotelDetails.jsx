@@ -6,7 +6,7 @@ import {
     MapPin, Star, ChevronLeft, ChevronRight, ChevronDown, X, Users, Eye, Sparkles,
     Navigation, Mountain, Home, CheckCircle2, Calendar, AlertCircle,
     LayoutGrid, Images, Building2, BedDouble, Clock, Search,
-    Wifi, Car, Utensils, Waves, Wind, Coffee, Dumbbell, ExternalLink,
+    Wifi, Car, Utensils, Waves, Wind, Coffee, Dumbbell, ExternalLink, Ban,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import apiClient from "../services/ApiClient";
@@ -194,17 +194,14 @@ function HotelDetails() {
         totalChildren: rooms.reduce((acc, r) => acc + r.children.length, 0),
     }), [rooms]);
 
-    // ✅ ENRICHISSEMENT UI : Calcul du statut global de disponibilité
     const cardAvailabilityStatus = useMemo(() => {
         if (!hasSearched) return null;
         if (!availableRooms || availableRooms.length === 0) return 'full';
 
         const bookableRooms = availableRooms.filter(r => !r.stopReservation);
-        if (bookableRooms.length === 0) return 'full';
-
+        if (bookableRooms.length === 0) return 'stop_sales'; // rooms exist but all stopped
         if (bookableRooms.every(r => r.onRequest)) return 'on_request';
-
-        if (availableRooms.some(r => r.stopReservation)) return 'last';
+        if (availableRooms.some(r => r.stopReservation)) return 'last'; // mixed: some stopped, some bookable
         return 'available';
     }, [hasSearched, availableRooms]);
 
@@ -414,8 +411,15 @@ function HotelDetails() {
                 price:     sel?.price,
                 total:     sel?.price ?? 0,
                 Option: sel?.Option ?? hotelData?.Option ?? [],
+                _token:  sel?._token,
+                _source: sel?._source,
             };
         });
+
+        // Use the selected room's provider token/source so the stored iproPayload
+        // points to the correct supplier (prevents Code 421 on admin confirmation).
+        const providerToken  = selectedRoomsList[0]?._token  || currentToken  || hotelData?.Token;
+        const providerSource = selectedRoomsList[0]?._source || currentSource;
 
         const bookingData = {
             hotelId:      Number(hotelId),
@@ -424,16 +428,16 @@ function HotelDetails() {
             checkOut:     checkOutDate,
             nights,
             boardingType: activeBoardingTab,
-            Source:       currentSource,
-            source:       currentSource,
+            Source:       providerSource,
+            source:       providerSource,
             rooms:        selectedRoomsList,
             totalPrice:   computedTotalPrice,
             currency:     "DZD",
-            Token:        currentToken || hotelData?.Token,
-            token:        currentToken,
+            Token:        providerToken,
+            token:        providerToken,
             selectedRooms: selectedRoomsList,
             Option: hotelData?.Option ?? [],
-            hotel:        { ...hotelData, paxGroups: roomsByPax, token: currentToken, Token: hotelData?.Token || currentToken }
+            hotel:        { ...hotelData, paxGroups: roomsByPax, token: providerToken, Token: hotelData?.Token || providerToken }
         };
         navigate(`/booking/${hotelId}`, { state: bookingData });
         toast.success("Redirection vers la réservation...");
@@ -985,23 +989,28 @@ function HotelDetails() {
                                     {cardAvailabilityStatus && (
                                         <div className="flex items-center">
                                             {cardAvailabilityStatus === 'available' && (
-                                                <span className="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-full bg-green-400/25 text-green-100 border border-green-300/40">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-green-300 animate-pulse" /> Disponible
-                                                </span>
-                                            )}
-                                            {cardAvailabilityStatus === 'on_request' && (
-                                                <span className="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-full bg-amber-400/25 text-amber-100 border border-amber-300/40">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-300" /> Sur demande
+                                                <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs font-extrabold px-4 py-2 rounded-full shadow-sm shadow-emerald-300/30 ring-1 ring-white/20">
+                                                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse shrink-0" /> Disponible
                                                 </span>
                                             )}
                                             {cardAvailabilityStatus === 'last' && (
-                                                <span className="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-full bg-orange-400/25 text-orange-100 border border-orange-300/40">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-orange-300" /> Dernières chambres
+                                                <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-orange-400 to-amber-500 text-white text-xs font-extrabold px-4 py-2 rounded-full shadow-sm shadow-orange-300/30 ring-1 ring-white/20">
+                                                    <span className="w-1.5 h-1.5 bg-white rounded-full shrink-0" /> Dernières Chambres
+                                                </span>
+                                            )}
+                                            {cardAvailabilityStatus === 'on_request' && (
+                                                <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-amber-400 to-yellow-500 text-white text-xs font-extrabold px-4 py-2 rounded-full shadow-sm shadow-amber-300/30 ring-1 ring-white/20">
+                                                    <Clock size={11} className="shrink-0" /> Sur Demande
+                                                </span>
+                                            )}
+                                            {cardAvailabilityStatus === 'stop_sales' && (
+                                                <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-rose-500 to-red-600 text-white text-xs font-extrabold px-4 py-2 rounded-full shadow-sm shadow-rose-300/30 ring-1 ring-white/20">
+                                                    <Ban size={11} className="shrink-0" /> Stop Sales
                                                 </span>
                                             )}
                                             {cardAvailabilityStatus === 'full' && (
-                                                <span className="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-full bg-red-400/25 text-red-100 border border-red-300/40">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-red-300" /> Complet
+                                                <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-slate-500 to-gray-600 text-white text-xs font-extrabold px-4 py-2 rounded-full shadow-sm ring-1 ring-white/20">
+                                                    <span className="w-1.5 h-1.5 bg-white/70 rounded-full shrink-0" /> Complet
                                                 </span>
                                             )}
                                         </div>
