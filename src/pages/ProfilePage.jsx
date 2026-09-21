@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import useAuth from "../custom-hooks/useAuth.js";
 import useMyBookings from "../custom-hooks/useMyBookings.js";
+import VoucherModal from "../components/admin/VoucherModal";
 
 // ─── Status Config ─────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -81,7 +82,7 @@ function ResolvedHotelName({ hotelId, fallbackName }) {
 }
 
 // ─── Travel Card ──────────────────────────────────────────────────────────────
-function TravelCard({ booking, onViewReceipt }) {
+function TravelCard({ booking, onViewReceipt, onViewVoucher }) {
     const statusKey = booking.status ?? "PENDING";
     const cfg = STATUS_CONFIG[statusKey] ?? STATUS_CONFIG.PENDING;
     const StatusIcon = cfg.icon;
@@ -170,6 +171,16 @@ function TravelCard({ booking, onViewReceipt }) {
                         <FileText size={13} /> Voir le reçu
                     </button>
                 )}
+                {booking.status === "CONFIRMED" && (
+                    <button
+                        onClick={() => onViewVoucher(booking)}
+                        className="mt-2 w-full relative overflow-hidden flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white text-xs font-bold rounded-xl transition-all duration-300 shadow-sm hover:shadow-emerald-200 hover:shadow-md active:scale-[0.98] group"
+                    >
+                        <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                        <FileText size={13} />
+                        Voir le Voucher
+                    </button>
+                )}
             </div>
         </div>
     );
@@ -211,6 +222,7 @@ export default function ProfilePage() {
     const { user } = useAuth();
     const { bookings, isLoading, isError, refetch, isFetching } = useMyBookings();
     const [selectedReceipt, setSelectedReceipt] = useState(null);
+    const [selectedVoucher, setSelectedVoucher] = useState(null);
 
     const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "—";
     const initials = [user?.firstName?.[0], user?.lastName?.[0]].filter(Boolean).join("").toUpperCase() || "?";
@@ -400,7 +412,7 @@ export default function ProfilePage() {
                     {!isLoading && !isError && bookings.length > 0 && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {bookings.map((booking) => (
-                                <TravelCard key={booking.id} booking={booking} onViewReceipt={setSelectedReceipt} />
+                                <TravelCard key={booking.id} booking={booking} onViewReceipt={setSelectedReceipt} onViewVoucher={setSelectedVoucher} />
                             ))}
                         </div>
                     )}
@@ -439,6 +451,12 @@ export default function ProfilePage() {
                     </div>
                 </div>
             )}
+
+            <VoucherModal
+                isOpen={!!selectedVoucher}
+                onClose={() => setSelectedVoucher(null)}
+                booking={selectedVoucher}
+            />
         </div>
     );
 }
