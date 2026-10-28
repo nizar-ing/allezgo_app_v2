@@ -21,10 +21,10 @@ npm run lint       # Run ESLint on all JS/JSX files
 
 Create a `.env` file with:
 ```
-VITE_API_LOGIN=<ipro_login>
-VITE_API_PASSWORD=<ipro_password>
 VITE_API_BASE_URL=https://api.allezgoo.com  # optional, this is the default
 ```
+
+Note: `VITE_API_LOGIN`/`VITE_API_PASSWORD` were removed — iPro credentials are now server-side only.
 
 ---
 
@@ -35,7 +35,7 @@ VITE_API_BASE_URL=https://api.allezgoo.com  # optional, this is the default
 ```
 User → React Router (pages + suspense)
   → TanStack React Query (caching + mutations)
-    → ApiClient.js       (iPro Booking API — hotel search & reservations)
+    → ApiClient.js       (NestJS /api/hotels/* — hotel search & rates, markup server-side)
     → allezgo-api.js     (AllezGo NestJS backend — auth, bookings, admin)
 ```
 
@@ -46,12 +46,11 @@ User → React Router (pages + suspense)
 
 ### API Architecture
 
-**`src/services/ApiClient.js`** — iPro Booking supplier integration
-- Handles hotel search, rates, and reservations against the iPro SOAP/REST API.
+**`src/services/ApiClient.js`** — AllezGo backend hotel integration
+- All calls go to NestJS `/api/hotels/*` which proxies iPro server-side. Markup is applied by the backend — prices returned already include `benefit_marge`. `VITE_API_LOGIN`/`VITE_API_PASSWORD` are gone; the only frontend env var needed is the optional `VITE_API_BASE_URL`.
 - Built-in in-memory cache (5 min TTL), retry logic (3× exponential backoff), and axios cancel tokens.
-- Applies a configurable agency markup on all room prices via `_applyAgencyMarkup()`; rate is set via `setBenefitRate()` and sourced from the backend `benefit_marge` setting (default 8% if unavailable).
-- **Dual-mode search**: city geo-targeting (single API call) OR explicit hotel ID arrays (looped, max 300).
-- Special path for Tunisian cities (IDs 34–38): forces `DZ` nationality + `DZD` currency automatically.
+- **Dual-mode search**: city geo-targeting (single backend call) OR explicit hotel ID arrays (looped, max 300).
+- Tunisian city handling (IDs 34–38) and `DZ`/`DZD` market params are injected server-side by `IproAdapter` (inside `SuppliersModule`).
 
 **`src/services/allezgo-api/allezGoApi.js`** — AllezGo custom backend
 - JWT login/register, user CRUD, destinations, e-visas, testimonials, settings.
@@ -337,13 +336,12 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 - **Tunisian city IDs hardcoded** as `[34, 35, 36, 37, 38]` in `ApiClient.js` and booking hooks — update if market expands.
 - **Max 300 hotels per explicit-ID search** — configured in `ApiClient::CONFIG.LIMITS`.
 - **JWT decoded manually** (no library) — assumes standard HS256 payload claims.
-- **Configurable markup** — `benefit_marge` is now stored in the backend (`/api/settings`) and editable by admin via the Paramètres tab. `useSettings` syncs it to `apiClient.setBenefitRate()` on load and on update. Default is 8% if the settings endpoint is unavailable. Never recalculate in the booking flow; prices served by ApiClient already include the markup.
+- **Markup** — `benefit_marge` is stored in the backend's `Settings` table and applied server-side in `HotelsService`. Prices returned by `ApiClient.js` already include the markup. Never recalculate in the booking flow.
 
 ---
 
 ## References
 
 - `src/services/API_GUIDE.md` — API integration guide
-- `backend_context.md` — NestJS backend structure overview
 - AllezGo backend lives in `../allez-go_backend/` (same monorepo); read its `CLAUDE.md` before touching backend behavior
 - Swagger UI (live): `https://api.allezgoo.com/api/docs` | (local): `http://localhost:3000/api/docs`
