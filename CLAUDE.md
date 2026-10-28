@@ -336,7 +336,7 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 - **Tunisian city IDs hardcoded** as `[34, 35, 36, 37, 38]` in `ApiClient.js` and booking hooks — update if market expands.
 - **Max 300 hotels per explicit-ID search** — configured in `ApiClient::CONFIG.LIMITS`.
 - **JWT decoded manually** (no library) — assumes standard HS256 payload claims.
-- **Markup** — `benefit_marge` is stored in the backend's `Settings` table and applied server-side in `HotelsService`. Prices returned by `ApiClient.js` already include the markup. Never recalculate in the booking flow.
+- **Markup** — `benefit_marge` is stored in the backend's `Settings` table and applied server-side. Prices returned by `ApiClient.js` already include the markup. Never recalculate in the booking flow.
 
 ---
 
