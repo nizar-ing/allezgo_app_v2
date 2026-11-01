@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, Navigate } from "react-router-dom";
+import { useParams, Navigate, Link } from "react-router-dom";
 import {
     Plane, Hotel, Calendar, Users, MapPin, CheckCircle2,
     XCircle, Star, Utensils, Baby, Info, Phone,
@@ -434,10 +434,8 @@ function OrganizedTrip() {
                                 </div>
 
                                 {/* CTA */}
-                                <a
-                                    href={`https://wa.me/${waNumber}?text=${encodeURIComponent(`Bonjour, je souhaite réserver le voyage "${destination.name}"${futureDates[0]?.outbound ? ` (départ : ${fmtDepartureDate(futureDates[0].outbound)})` : ''}.`)}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                <Link
+                                    to={`/voyages-organises/${destination.id}/reserver`}
                                     className="block w-full"
                                 >
                                     <Button
@@ -446,7 +444,7 @@ function OrganizedTrip() {
                                     >
                                         Réserver maintenant
                                     </Button>
-                                </a>
+                                </Link>
 
                                 <p className="text-[10px] sm:text-xs text-center text-gray-500 flex items-center justify-center gap-1.5 sm:gap-2">
                                     <Info className="w-3 h-3" />

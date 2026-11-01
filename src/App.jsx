@@ -2,10 +2,11 @@
 import { useEffect, lazy, Suspense } from "react";
 import { Route, Routes, useLocation } from "react-router-dom";
 import { Toaster } from 'react-hot-toast';
-import Loader from "./ui/Loader.jsx";
+import PageLoader from "./ui/PageLoader.jsx";
 
 // Eager — Layout is the app shell (Header + Footer)
 import Layout from "./pages/Layout.jsx";
+import { AllezGoApi } from "./services/allezgo-api/allezGoApi.js";
 
 // Lazy — page bundles
 const HomePage = lazy(() => import("./pages/HomePage.jsx"));
@@ -16,6 +17,7 @@ const HotelsSearchResultsPage = lazy(() => import("./pages/HotelsSearchResultsPa
 const BookingPage = lazy(() => import("./pages/BookingPage.jsx"));
 const OrganizedTrips = lazy(() => import("./pages/OrganizedTrips.jsx"));
 const OrganizedTrip = lazy(() => import("./pages/OrganizedTrip.jsx"));
+const VoyageOrganiseBooking = lazy(() => import("./pages/VoyageOrganiseBooking.jsx"));
 const EVisa = lazy(() => import("./pages/E_Visa.jsx")); // ✅ Back to Lazy Loading
 const SignInPage = lazy(() => import("./pages/SignInPage.jsx"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage.jsx"));
@@ -25,13 +27,26 @@ const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard.jsx"));
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 
 function SuspenseRoute({ children }) {
-  return <Suspense fallback={<Loader />}>{children}</Suspense>;
+  return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
+}
+
+function getOrCreateSessionId() {
+  const existing = sessionStorage.getItem('ag_sid');
+  if (existing) return existing;
+  const id = crypto.randomUUID();
+  sessionStorage.setItem('ag_sid', id);
+  return id;
 }
 
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    // Fire-and-forget pageview — never blocks navigation on failure
+    AllezGoApi.Analytics.recordPageview({
+      sessionId: getOrCreateSessionId(),
+      page: pathname,
+    }).catch(() => {});
   }, [pathname]);
   return null;
 }
@@ -76,7 +91,7 @@ function App() {
         }}
       />
       <ScrollToTop />
-      <Suspense fallback={<Loader />}>
+      <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route element={<Layout />}>
             {/* Home */}
@@ -94,6 +109,7 @@ function App() {
             {/* Organized trips */}
             <Route path="voyages-organises" element={<OrganizedTrips />} />
             <Route path="voyages-organises/:tripId" element={<OrganizedTrip />} />
+            <Route path="voyages-organises/:tripId/reserver" element={<SuspenseRoute><VoyageOrganiseBooking /></SuspenseRoute>} />
 
             {/* Other pages */}
             <Route path="e-visa" element={<EVisa />} /> {/* ✅ Renders the lazy component */}
