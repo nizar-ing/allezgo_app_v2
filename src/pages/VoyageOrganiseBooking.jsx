@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useParams, Navigate, Link } from "react-router-dom";
-import { ChevronLeft, Calendar, Users, CreditCard, MessageSquare, CheckCircle2 } from "lucide-react";
+import { useParams, useSearchParams, Navigate, Link } from "react-router-dom";
+import { ChevronLeft, Calendar, Users, CreditCard, MessageSquare, CheckCircle2, Info } from "lucide-react";
 import { useDestination } from "../custom-hooks/useDestinations.js";
 import useSettings from "../custom-hooks/useSettings.js";
+import { AllezGoApi } from "../services/allezgo-api/allezGoApi.js";
 import { formatDateForAPI } from "../utils/dateHelpers.js";
 import { resolveMediaUrl } from "../utils/resolveMediaUrl.js";
 import PageLoader from "../ui/PageLoader.jsx";
@@ -16,41 +17,30 @@ const fmtDate  = (iso) =>
 
 const PHONE_RE = /^(?:\+213|0)(5|6|7)\d{8}$/;
 
-// shortcut: submit sends a WhatsApp message; replace with real API POST in BST-06b
-function buildWhatsAppMessage(destination, selectedDate, roomLines, client, commentaire, paiement) {
-    const roomSummary = roomLines
-        .filter((r) => r.qty > 0)
-        .map((r) => `${r.qty}× ${r.label} (${fmtPrice(r.price)} DZD/pers.)`)
-        .join(", ");
-    const total = roomLines.reduce((s, r) => s + r.qty * r.price, 0);
-    return [
-        `Réservation Voyage : ${destination.name}`,
-        selectedDate ? `Départ : ${fmtDate(selectedDate)}` : "",
-        roomSummary ? `Chambres : ${roomSummary}` : "",
-        total > 0 ? `Total estimé : ${fmtPrice(total)} DZD` : "",
-        `Client : ${client.nom}`,
-        `GSM : ${client.gsm}`,
-        client.email ? `Email : ${client.email}` : "",
-        client.adresse ? `Adresse : ${client.adresse}` : "",
-        commentaire ? `Commentaire : ${commentaire}` : "",
-        `Paiement : ${paiement === "AGENCE" ? "À l'agence" : "Virement bancaire"}`,
-    ]
-        .filter(Boolean)
-        .join("\n");
-}
+const ROOM_LABELS = {
+    double:    "Adulte en chambre double",
+    single:    "Adulte en chambre single",
+    triple:    "Adulte en chambre triple",
+    quadruple: "Adulte en chambre quadruple",
+};
 
 export default function VoyageOrganiseBooking() {
     const { tripId } = useParams();
+    const [searchParams] = useSearchParams();
+    const hotelParam = searchParams.get("hotel");
+
     const { data: destination, isLoading, error } = useDestination(tripId);
     const { settings } = useSettings();
 
     const [selectedDate, setSelectedDate] = useState("");
-    const [rooms, setRooms] = useState({ double: 0, single: 0, triple: 0 });
+    const [rooms, setRooms] = useState({});
     const [client, setClient] = useState({ nom: "", gsm: "", email: "", adresse: "" });
     const [commentaire, setCommentaire] = useState("");
     const [paiement, setPaiement] = useState("AGENCE");
+    const [cgv, setCgv] = useState(false);
     const [errors, setErrors] = useState({});
-    const [submitted, setSubmitted] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [booking, setBooking] = useState(null);
 
     if (isLoading) return <PageLoader section />;
     if (error || !destination) return <Navigate to="/not-found" replace />;
@@ -61,15 +51,27 @@ export default function VoyageOrganiseBooking() {
         .filter((d) => d.outbound >= today)
         .sort((a, b) => (a.outbound < b.outbound ? -1 : 1));
 
-    const roomLines = [
-        { key: "double", label: "Adulte en chambre double", price: pricing.double, qty: rooms.double },
-        { key: "single", label: "Adulte en chambre single", price: pricing.single, qty: rooms.single },
-        { key: "triple", label: "Adulte en chambre triple", price: pricing.triple, qty: rooms.triple },
-    ].filter((r) => r.price > 0);
+    const selectedAcc = hotelParam
+        ? (destination.accommodations || []).find((a) => a.id === Number(hotelParam))
+        : null;
 
+    // Prefer per-hotel prices (BST-03); fall back to flat destination pricing
+    const roomLineConfigs =
+        selectedAcc?.prices?.length > 0
+            ? selectedAcc.prices.map((p) => ({
+                  key: p.roomType,
+                  label: ROOM_LABELS[p.roomType] ?? `Chambre ${p.roomType}`,
+                  price: Number(p.pricePerAdult),
+              }))
+            : [
+                  { key: "double", label: ROOM_LABELS.double, price: Number(pricing.double || 0) },
+                  { key: "single", label: ROOM_LABELS.single, price: Number(pricing.single || 0) },
+                  { key: "triple", label: ROOM_LABELS.triple, price: Number(pricing.triple || 0) },
+              ].filter((r) => r.price > 0);
+
+    const roomLines = roomLineConfigs.map((r) => ({ ...r, qty: rooms[r.key] ?? 0 }));
     const total = roomLines.reduce((s, r) => s + r.qty * r.price, 0);
     const currency = pricing.currency || "DZD";
-    const waNumber = settings?.contact_whatsapp || "213770932563";
 
     const validate = () => {
         const e = {};
@@ -80,28 +82,75 @@ export default function VoyageOrganiseBooking() {
         const gsm = client.gsm.replace(/[\s-]/g, "");
         if (!PHONE_RE.test(gsm)) e.gsm = "Numéro de téléphone algérien invalide (ex: 0661234567).";
         if (client.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(client.email)) e.email = "Adresse email invalide.";
+        if (!cgv) e.cgv = "Veuillez accepter les conditions générales de vente.";
         return e;
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         const errs = validate();
         if (Object.keys(errs).length) { setErrors(errs); return; }
-        const msg = buildWhatsAppMessage(destination, selectedDate, roomLines, client, commentaire, paiement);
-        window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
-        setSubmitted(true);
+        setSubmitting(true);
+        try {
+            const result = await AllezGoApi.VoBookings.create({
+                destinationId: destination.id,
+                accommodationId: selectedAcc?.id ?? null,
+                departureDate: selectedDate || null,
+                roomLines: roomLines
+                    .filter((r) => r.qty > 0)
+                    .map((r) => ({ key: r.key, label: r.label, qty: r.qty, price: r.price.toFixed(2) })),
+                clientNom: client.nom.trim(),
+                clientGsm: client.gsm.replace(/[\s-]/g, ""),
+                clientEmail: client.email || null,
+                clientAdresse: client.adresse || null,
+                commentaire: commentaire || null,
+                paymentMethod: paiement,
+                totalDzd: total.toFixed(2),
+            });
+            setBooking(result);
+        } catch {
+            setErrors((p) => ({ ...p, submit: "Une erreur est survenue. Veuillez réessayer." }));
+        } finally {
+            setSubmitting(false);
+        }
     };
 
-    if (submitted) {
+    if (booking) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
                 <div className="bg-white rounded-3xl shadow-xl p-8 max-w-md w-full text-center">
                     <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">Demande envoyée !</h2>
-                    <p className="text-gray-600 mb-6 text-sm">
-                        Votre demande de réservation pour <span className="font-semibold">{destination.name}</span> a
-                        été transmise à notre équipe via WhatsApp. Nous vous contacterons dans les plus brefs délais.
+                    <h2 className="text-xl font-bold text-gray-900 mb-1">Réservation enregistrée !</h2>
+                    <p className="text-sm font-mono bg-sky-50 border border-sky-200 rounded-xl px-4 py-2 mb-4 text-sky-800 font-bold inline-block tracking-wider">
+                        {booking.reference}
                     </p>
+                    <p className="text-gray-600 mb-4 text-sm">
+                        Votre demande pour <span className="font-semibold">{destination.name}</span> a été enregistrée.
+                        Notre équipe vous contactera dans les plus brefs délais.
+                    </p>
+                    {booking.paymentMethod === "VIREMENT" && (settings?.baridimob_number || settings?.bank_rib) && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 text-left">
+                            <p className="text-xs font-semibold text-blue-700 uppercase mb-2">Effectuez votre paiement</p>
+                            {settings.baridimob_number && (
+                                <div className="mb-2">
+                                    <p className="text-xs text-gray-500">BaridiMob / CCP</p>
+                                    <p className="text-sm font-mono font-semibold text-gray-800">{settings.baridimob_number}</p>
+                                    {settings.baridimob_holder && (
+                                        <p className="text-xs text-gray-500">Au nom de : {settings.baridimob_holder}</p>
+                                    )}
+                                </div>
+                            )}
+                            {settings.bank_rib && (
+                                <div>
+                                    {settings.bank_name && <p className="text-xs text-gray-600">{settings.bank_name}</p>}
+                                    <p className="text-sm font-mono font-semibold text-gray-800">{settings.bank_rib}</p>
+                                    {settings.bank_holder && (
+                                        <p className="text-xs text-gray-500">Au nom de : {settings.bank_holder}</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
                     <Link
                         to={`/voyages-organises/${tripId}`}
                         className="inline-block px-6 py-2.5 bg-sky-600 text-white rounded-xl font-semibold text-sm hover:bg-sky-700 transition-colors"
@@ -140,6 +189,11 @@ export default function VoyageOrganiseBooking() {
                         <p className="text-sm text-gray-500 mt-0.5">
                             {destination.duration?.days} jours · Départ de {destination.departureFrom}
                         </p>
+                        {selectedAcc && (
+                            <p className="text-xs text-sky-600 mt-1 font-medium">
+                                Hébergement sélectionné : {selectedAcc.hotel}
+                            </p>
+                        )}
                     </div>
                 </div>
 
@@ -179,18 +233,20 @@ export default function VoyageOrganiseBooking() {
                                 <div key={r.key} className="flex items-center justify-between gap-4">
                                     <div>
                                         <p className="text-sm font-medium text-gray-800">{r.label}</p>
-                                        <p className="text-xs text-gray-500">à partir de {fmtPrice(r.price)} {currency} / pers.</p>
+                                        <p className="text-xs text-gray-500">
+                                            à partir de {fmtPrice(r.price)} {currency} / pers.
+                                        </p>
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0">
                                         <button
                                             type="button"
-                                            onClick={() => setRooms((p) => ({ ...p, [r.key]: Math.max(0, p[r.key] - 1) }))}
+                                            onClick={() => setRooms((p) => ({ ...p, [r.key]: Math.max(0, (p[r.key] ?? 0) - 1) }))}
                                             className="w-8 h-8 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100 font-bold text-lg flex items-center justify-center"
                                         >−</button>
                                         <span className="w-6 text-center text-sm font-semibold">{r.qty}</span>
                                         <button
                                             type="button"
-                                            onClick={() => setRooms((p) => ({ ...p, [r.key]: p[r.key] + 1 }))}
+                                            onClick={() => setRooms((p) => ({ ...p, [r.key]: (p[r.key] ?? 0) + 1 }))}
                                             className="w-8 h-8 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100 font-bold text-lg flex items-center justify-center"
                                         >+</button>
                                     </div>
@@ -280,9 +336,9 @@ export default function VoyageOrganiseBooking() {
                             <CreditCard className="w-4 h-4 text-sky-500" />
                             Mode de paiement
                         </h2>
-                        <div className="flex rounded-xl border border-gray-200 overflow-hidden text-sm font-semibold">
+                        <div className="flex rounded-xl border border-gray-200 overflow-hidden text-sm font-semibold mb-4">
                             {[
-                                { value: "AGENCE",  label: "Paiement à l'agence" },
+                                { value: "AGENCE",   label: "Paiement à l'agence" },
                                 { value: "VIREMENT", label: "Versement bancaire" },
                             ].map((opt) => (
                                 <button
@@ -295,14 +351,64 @@ export default function VoyageOrganiseBooking() {
                                 </button>
                             ))}
                         </div>
+                        {paiement === "VIREMENT" && (settings?.baridimob_number || settings?.bank_rib) && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                                <p className="text-xs font-semibold text-blue-700 uppercase flex items-center gap-1.5 mb-3">
+                                    <Info size={12} />
+                                    Coordonnées de paiement
+                                </p>
+                                {settings.baridimob_number && (
+                                    <div className="mb-3">
+                                        <p className="text-xs text-gray-500 mb-0.5">BaridiMob / CCP</p>
+                                        <p className="text-sm font-mono font-semibold text-gray-800">{settings.baridimob_number}</p>
+                                        {settings.baridimob_holder && (
+                                            <p className="text-xs text-gray-500 mt-0.5">Au nom de : {settings.baridimob_holder}</p>
+                                        )}
+                                    </div>
+                                )}
+                                {settings.bank_rib && (
+                                    <div>
+                                        {settings.bank_name && (
+                                            <p className="text-xs text-gray-500 mb-0.5">{settings.bank_name}</p>
+                                        )}
+                                        <p className="text-sm font-mono font-semibold text-gray-800">{settings.bank_rib}</p>
+                                        {settings.bank_holder && (
+                                            <p className="text-xs text-gray-500 mt-0.5">Au nom de : {settings.bank_holder}</p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </section>
 
-                    {/* Submit */}
+                    {/* CGV */}
+                    <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
+                        <label className="flex items-start gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={cgv}
+                                onChange={(e) => { setCgv(e.target.checked); setErrors((p) => ({ ...p, cgv: undefined })); }}
+                                className="mt-0.5 w-4 h-4 accent-sky-600 shrink-0"
+                            />
+                            <span className="text-sm text-gray-700">
+                                J'accepte les{" "}
+                                <span className="text-sky-600 font-semibold">conditions générales de vente</span>
+                                {" "}et confirme avoir pris connaissance des informations relatives au voyage.
+                            </span>
+                        </label>
+                        {errors.cgv && <p className="text-red-500 text-xs mt-2 ml-7">{errors.cgv}</p>}
+                    </section>
+
+                    {errors.submit && (
+                        <p className="text-center text-red-500 text-sm">{errors.submit}</p>
+                    )}
+
                     <button
                         type="submit"
-                        className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-2xl shadow-lg shadow-green-500/30 transition-all hover:scale-[1.02] text-base"
+                        disabled={submitting}
+                        className="w-full py-4 bg-sky-600 hover:bg-sky-700 disabled:opacity-60 text-white font-bold rounded-2xl shadow-lg shadow-sky-500/30 transition-all hover:scale-[1.02] text-base"
                     >
-                        Finalisez ma réservation
+                        {submitting ? "Envoi en cours…" : "Confirmer ma réservation"}
                     </button>
 
                 </form>

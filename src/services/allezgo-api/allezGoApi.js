@@ -13,6 +13,12 @@ const ROUTES = {
   BOOKINGS: "/api/bookings",
   CAROUSEL: "/carousel",
   SETTINGS: "/api/settings",
+  VO_BOOKINGS: "/api/vo-bookings",
+  ANALYTICS_PAGEVIEW: "/api/analytics/pageview",
+  ANALYTICS_STATS: "/api/analytics/stats",
+  ADMIN_SUPPLIERS: "/api/admin/suppliers",
+  ADMIN_FX_RATES: "/api/admin/fx-rates",
+  ADMIN_CATALOG: "/api/admin/catalog",
 };
 
 /** Same origin as API_GUIDE.md example; override with `VITE_API_BASE_URL`. */
@@ -418,9 +424,7 @@ const Bookings = {
    * Fetch all bookings belonging to the currently authenticated client.
    * @returns {Promise<any[]>}
    */
-  getMine: () => axiosInstance.get(`${ROUTES.BOOKINGS}/my`, {
-    headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
-  }),
+  getMine: () => axiosInstance.get(`${ROUTES.BOOKINGS}/my`),
 
   /**
    * @returns {Promise<any[]>}
@@ -442,7 +446,58 @@ const Bookings = {
       const response = await axiosInstance.delete(`${ROUTES.BOOKINGS}/${id}`);
       // L'intercepteur Axios renvoie déjà response.data
       return response?.data || response;
-  }
+  },
+
+  /** @param {string|number} id @returns {Promise<any>} */
+  getById: (id) => axiosInstance.get(`${ROUTES.BOOKINGS}${withId(id)}`),
+
+  /**
+   * Confirm a booking — backend calls iPro BookingCreation atomically.
+   * @param {string|number} id
+   * @returns {Promise<any>}
+   */
+  confirm: (id) => axiosInstance.post(`${ROUTES.BOOKINGS}${withId(id)}/confirm`),
+
+  /**
+   * Cancel a booking via iPro.
+   * @param {string|number} id
+   * @param {boolean} onlyFees - true = check fees only, false = confirm cancellation
+   * @returns {Promise<{ fees: string }|any>}
+   */
+  cancel: (id, onlyFees) => axiosInstance.post(`${ROUTES.BOOKINGS}${withId(id)}/cancel`, { onlyFees }),
+
+  /**
+   * Confirm using an alternative supplier's quote (admin only).
+   * @param {string|number} id
+   * @param {string} supplier
+   * @returns {Promise<any>}
+   */
+  confirmWithAlternative: (id, supplier) =>
+    axiosInstance.post(`${ROUTES.BOOKINGS}${withId(id)}/confirm-with-alternative`, { supplier }),
+};
+
+const VoBookings = {
+  /**
+   * @param {object} payload - CreateVoBookingDto
+   * @returns {Promise<{ id: number, reference: string, status: string }>}
+   */
+  create: (payload) => axiosInstance.post(ROUTES.VO_BOOKINGS, payload),
+};
+
+const Hotels = {
+  /**
+   * Search hotels via server-side proxy (credentials + markup applied server-side).
+   * @param {object} payload - SearchDetails object
+   * @returns {Promise<any>}
+   */
+  search: (payload) => axiosInstance.post('/api/hotels/search', payload),
+
+  /**
+   * Get room availability for a specific hotel.
+   * @param {object} payload - SearchDetails object
+   * @returns {Promise<any>}
+   */
+  availability: (payload) => axiosInstance.post('/api/hotels/availability', payload),
 };
 
 /**
@@ -467,6 +522,30 @@ const Settings = {
    * @returns {Promise<Settings>}
    */
   update: (payload) => axiosInstance.patch(ROUTES.SETTINGS, payload),
+};
+
+/**
+ * @typedef {Object} VisitorStats
+ * @property {number} currentActive
+ * @property {number} todayVisitors
+ * @property {number} weekVisitors
+ * @property {number} monthVisitors
+ * @property {number} totalPageviewsToday
+ * @property {{ page: string, count: number }[]} topPages
+ * @property {{ deviceType: string, count: number }[]} deviceBreakdown
+ */
+
+const Analytics = {
+  /**
+   * @param {{ sessionId: string, page: string }} payload
+   * @returns {Promise<{ ok: boolean }>}
+   */
+  recordPageview: (payload) => axiosInstance.post(ROUTES.ANALYTICS_PAGEVIEW, payload),
+
+  /**
+   * @returns {Promise<VisitorStats>}
+   */
+  getStats: () => axiosInstance.get(ROUTES.ANALYTICS_STATS),
 };
 
 const Carousel = {
@@ -494,6 +573,66 @@ const Carousel = {
   remove: (id) => axiosInstance.delete(`${ROUTES.CAROUSEL}${withId(id)}`),
 };
 
+const Suppliers = {
+  /** @returns {Promise<any[]>} */
+  list: () => axiosInstance.get(ROUTES.ADMIN_SUPPLIERS),
+
+  /**
+   * @param {string} code
+   * @param {{ mode?: string, priority?: number, markupOverridePct?: number|null, timeoutMs?: number }} payload
+   * @returns {Promise<any>}
+   */
+  update: (code, payload) => axiosInstance.patch(`${ROUTES.ADMIN_SUPPLIERS}/${code}`, payload),
+
+  /** @param {string} code @returns {Promise<any>} */
+  health: (code) => axiosInstance.get(`${ROUTES.ADMIN_SUPPLIERS}/${code}/health`),
+
+  /**
+   * @param {{ from?: string, to?: string }} params
+   * @returns {Promise<any[]>}
+   */
+  stats: (params) => axiosInstance.get(`${ROUTES.ADMIN_SUPPLIERS}/stats`, { params }),
+};
+
+const Fx = {
+  /** @returns {Promise<any[]>} */
+  list: () => axiosInstance.get(ROUTES.ADMIN_FX_RATES),
+
+  /**
+   * @param {string} currency - e.g. 'EUR'
+   * @param {{ rateToDzd: number }} payload
+   * @returns {Promise<any>}
+   */
+  update: (currency, payload) => axiosInstance.patch(`${ROUTES.ADMIN_FX_RATES}/${currency}`, payload),
+};
+
+const Catalog = {
+  /**
+   * @param {{ status?: string, supplier?: string }} params
+   * @returns {Promise<any[]>}
+   */
+  listMatches: (params) => axiosInstance.get(`${ROUTES.ADMIN_CATALOG}/hotel-matches`, { params }),
+
+  /**
+   * @param {string|number} id
+   * @param {{ action: 'confirm'|'reject'|'reassign', canonicalHotelId?: number }} payload
+   * @returns {Promise<any>}
+   */
+  reviewMatch: (id, payload) => axiosInstance.patch(`${ROUTES.ADMIN_CATALOG}/hotel-matches/${id}`, payload),
+
+  /** @param {{ supplier?: string }} params @returns {Promise<any[]>} */
+  listBoardings: (params) => axiosInstance.get(`${ROUTES.ADMIN_CATALOG}/boardings`, { params }),
+
+  /** @param {string|number} id @param {object} payload @returns {Promise<any>} */
+  updateBoarding: (id, payload) => axiosInstance.patch(`${ROUTES.ADMIN_CATALOG}/boardings/${id}`, payload),
+
+  /** @returns {Promise<{ runId: string, status: string }>} */
+  triggerSync: () => axiosInstance.post(`${ROUTES.ADMIN_CATALOG}/sync`),
+
+  /** @param {string} runId @returns {Promise<any>} */
+  getSyncStatus: (runId) => axiosInstance.get(`${ROUTES.ADMIN_CATALOG}/sync/${runId}`),
+};
+
 /**
  * Fetches bookings specific to the authenticated client.
  * @param {number|string} userId - The ID of the current user
@@ -509,17 +648,21 @@ export const getMyBookings = async (userId) => {
 export const AllezGoApi = {
   client: axiosInstance,
   Destinations,
+  VoBookings,
   EVisas,
   Testimonials,
   Users,
   Auth,
   Bookings,
+  Hotels,
   Carousel,
   Settings,
+  Analytics,
+  Suppliers,
+  Fx,
+  Catalog,
   async getMine() {
-      return this.client.get('/api/bookings/my', {
-          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
-      });
+      return this.client.get('/api/bookings/my');
   }
 };
 
