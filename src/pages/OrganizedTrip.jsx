@@ -6,8 +6,10 @@ import {
     ChevronDown, ChevronUp, Globe, Bed, ShieldCheck, Compass,
 } from "lucide-react";
 import { useDestination } from "../custom-hooks/useDestinations.js";
+import useSettings from "../custom-hooks/useSettings.js";
 import { resolveMediaUrl } from "../utils/resolveMediaUrl.js";
-import OrganizedTripSkeleton from "../components/OrganizedTripSkeleton.jsx";
+import { formatDateForAPI } from "../utils/dateHelpers.js";
+import PageLoader from "../ui/PageLoader.jsx";
 import Button from "../ui/Button.jsx";
 
 const formatPrice = (value, currency = 'DZD') =>
@@ -16,9 +18,11 @@ const formatPrice = (value, currency = 'DZD') =>
 function OrganizedTrip() {
     const { tripId: id } = useParams();
     const { data: destination, isLoading, error } = useDestination(id);
+    const { settings } = useSettings();
+    const waNumber = settings?.contact_whatsapp || '213770932563';
     const [expandedDay, setExpandedDay] = useState(null);
 
-    if (isLoading) return <OrganizedTripSkeleton />;
+    if (isLoading) return <PageLoader section />;
     if (error || !destination) return <Navigate to="/not-found" replace />;
 
     const pricing = destination.pricing || {};
@@ -39,6 +43,14 @@ function OrganizedTrip() {
 
     const itineraries = destination.itineraries ?? [];
     const accommodations = destination.accommodations ?? [];
+
+    const today = formatDateForAPI(new Date());
+    const futureDates = (destination.departureDates ?? [])
+        .filter(d => d.outbound >= today)
+        .sort((a, b) => (a.outbound < b.outbound ? -1 : 1));
+    const fmtDepartureDate = (iso) =>
+        new Intl.DateTimeFormat('fr-DZ', { day: 'numeric', month: 'short', year: 'numeric' })
+            .format(new Date(iso + 'T00:00:00'));
 
     return (
         <section className="min-h-screen w-full bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-50">
@@ -358,21 +370,21 @@ function OrganizedTrip() {
                                 )}
 
                                 {/* Departure dates */}
-                                {destination.departureDates?.length > 0 && (
+                                {futureDates.length > 0 && (
                                     <div className="mb-4 sm:mb-6">
                                         <h4 className="font-semibold text-gray-900 mb-2 sm:mb-3 flex items-center gap-2 text-sm sm:text-base">
                                             <Calendar className="w-4 h-4 text-blue-600" />
                                             Dates disponibles
                                         </h4>
                                         <div className="space-y-2">
-                                            {destination.departureDates.slice(0, 3).map((date, index) => (
+                                            {futureDates.map((date, index) => (
                                                 <div
                                                     key={index}
                                                     className="p-2.5 sm:p-3 rounded-xl bg-gradient-to-r from-gray-50 to-white border border-gray-200 hover:border-blue-300 transition-all duration-200"
                                                 >
                                                     <div className="flex items-center justify-between text-xs sm:text-sm">
                                                         <span className="text-gray-700">
-                                                            {date.outbound}{date.return && ` → ${date.return}`}
+                                                            {fmtDepartureDate(date.outbound)}{date.return && ` → ${fmtDepartureDate(date.return)}`}
                                                         </span>
                                                         <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
                                                     </div>
@@ -422,12 +434,19 @@ function OrganizedTrip() {
                                 </div>
 
                                 {/* CTA */}
-                                <Button
-                                    variant="primary"
-                                    className="w-full py-3.5 sm:py-4 text-sm sm:text-lg font-bold shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-105 transition-all duration-300 mb-2.5 sm:mb-3"
+                                <a
+                                    href={`https://wa.me/${waNumber}?text=${encodeURIComponent(`Bonjour, je souhaite réserver le voyage "${destination.name}"${futureDates[0]?.outbound ? ` (départ : ${fmtDepartureDate(futureDates[0].outbound)})` : ''}.`)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="block w-full"
                                 >
-                                    Réserver maintenant
-                                </Button>
+                                    <Button
+                                        variant="primary"
+                                        className="w-full py-3.5 sm:py-4 text-sm sm:text-lg font-bold shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-105 transition-all duration-300 mb-2.5 sm:mb-3"
+                                    >
+                                        Réserver maintenant
+                                    </Button>
+                                </a>
 
                                 <p className="text-[10px] sm:text-xs text-center text-gray-500 flex items-center justify-center gap-1.5 sm:gap-2">
                                     <Info className="w-3 h-3" />
@@ -451,12 +470,19 @@ function OrganizedTrip() {
                                     </p>
                                 </div>
                             </div>
-                            <Button
-                                variant="outline"
-                                className="w-full border-2 border-orange-300 text-orange-700 hover:bg-orange-100 font-semibold text-xs sm:text-sm transition-all duration-200"
+                            <a
+                                href={`https://wa.me/${waNumber}?text=${encodeURIComponent(`Bonjour, j'ai besoin d'aide concernant le voyage "${destination.name}".`)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block w-full"
                             >
-                                Contacter le support
-                            </Button>
+                                <Button
+                                    variant="outline"
+                                    className="w-full border-2 border-orange-300 text-orange-700 hover:bg-orange-100 font-semibold text-xs sm:text-sm transition-all duration-200"
+                                >
+                                    Contacter le support
+                                </Button>
+                            </a>
                         </div>
                     </div>
                 </div>
