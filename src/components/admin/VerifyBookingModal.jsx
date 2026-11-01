@@ -5,11 +5,11 @@ import {
     ImageOff, Loader2, Phone, Mail,
     Calendar, Hotel, User, CreditCard,
     Clock, BadgeDollarSign, FileText, ZoomIn,
-    Users, Baby, CalendarCheck, UserCheck
+    Users, Baby, CalendarCheck, UserCheck,
+    AlertTriangle, ArrowLeftRight, Building2, RefreshCw,
 } from "lucide-react";
 import {useQuery, useQueryClient} from "@tanstack/react-query";
 import toast from "react-hot-toast";
-import useAdminBookings from "../../custom-hooks/useAdminBookings.js";
 import AllezGoApi from "../../services/allezgo-api/allezGoApi.js";
 import apiClient from "../../services/ApiClient.js";
 
@@ -254,189 +254,183 @@ function PassengerCard({adults, children: childPax}) {
     );
 }
 
+// ─── Supplier Comparison Block ────────────────────────────────────────────────
+const OUTCOME_CONFIG = {
+    PRICE_MATCH:   { bg: 'bg-emerald-50',  text: 'text-emerald-700', border: 'border-emerald-200', label: 'Prix conforme' },
+    PRICE_CHANGED: { bg: 'bg-amber-50',    text: 'text-amber-700',   border: 'border-amber-200',   label: 'Prix modifié' },
+    UNAVAILABLE:   { bg: 'bg-rose-50',     text: 'text-rose-700',    border: 'border-rose-200',    label: 'Indisponible' },
+    PENDING:       { bg: 'bg-slate-50',    text: 'text-slate-600',   border: 'border-slate-200',   label: 'En attente' },
+};
+
+const SUPPLIER_LABELS = { ipro: 'iPro Booking', tunisiabeds: 'TunisiaBeds' };
+
+function SupplierComparison({ booking, comparisons, isLoading }) {
+    const fmt = (v) => v != null ? new Intl.NumberFormat('fr-DZ').format(Number(v)) : '—';
+
+    if (!booking.supplier) {
+        return (
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                <h4 className="text-xs font-extrabold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <ArrowLeftRight size={14} className="text-slate-400"/>
+                    Comparatif fournisseurs
+                </h4>
+                <p className="text-sm text-slate-400 italic">Réservation ancienne — fournisseur non enregistré</p>
+            </div>
+        );
+    }
+
+    const supplierLabel = SUPPLIER_LABELS[booking.supplier] || booking.supplier;
+
+    return (
+        <div className="bg-gradient-to-br from-indigo-50/60 to-sky-50/40 border border-indigo-100 rounded-xl p-4">
+            <h4 className="text-xs font-extrabold text-sky-900 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <ArrowLeftRight size={14} className="text-indigo-500"/>
+                Comparatif fournisseurs
+            </h4>
+
+            {/* Offre retenue */}
+            <div className="flex flex-col gap-2 mb-3">
+                <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <Building2 size={11}/> Offre retenue
+                </p>
+                <div className="flex items-center justify-between gap-3 px-3 py-2 bg-white rounded-lg border border-indigo-100 shadow-sm">
+                    <span className="text-sm font-bold text-slate-800">{supplierLabel}</span>
+                    <span className="text-sm font-extrabold text-sky-700">
+                        {fmt(booking.clientPrice)} DZD
+                    </span>
+                </div>
+                {booking.marginDzd != null && Number(booking.marginDzd) > 0 && (
+                    <div className="flex items-center justify-between px-3 py-1.5 bg-emerald-50 rounded-lg border border-emerald-100">
+                        <span className="text-xs text-emerald-700 font-semibold">Marge agence</span>
+                        <span className="text-xs font-extrabold text-emerald-700">
+                            {fmt(booking.marginDzd)} DZD
+                        </span>
+                    </div>
+                )}
+            </div>
+
+            {/* Comparison rows */}
+            {isLoading ? (
+                <div className="flex items-center gap-2 text-slate-400 text-sm py-1">
+                    <Loader2 size={13} className="animate-spin"/>
+                    <span>Chargement des détails...</span>
+                </div>
+            ) : comparisons && comparisons.length > 0 ? (
+                <div className="flex flex-col gap-2">
+                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Détail de confirmation</p>
+                    {comparisons.map((c) => {
+                        const oc = OUTCOME_CONFIG[c.outcome] || OUTCOME_CONFIG.PENDING;
+                        const delta = c.priceDelta ? Number(c.priceDelta) : 0;
+                        return (
+                            <div key={c.id} className={`px-3 py-2 rounded-lg border ${oc.bg} ${oc.border}`}>
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className={`text-xs font-extrabold ${oc.text}`}>{oc.label}</span>
+                                    <span className="text-xs text-slate-500">
+                                        Devisé: <strong>{fmt(c.quotedClientPriceDzd)} DZD</strong>
+                                        {c.confirmedClientPriceDzd && (
+                                            <> → Confirmé: <strong>{fmt(c.confirmedClientPriceDzd)} DZD</strong></>
+                                        )}
+                                    </span>
+                                </div>
+                                {Math.abs(delta) > 1 && (
+                                    <p className={`text-xs mt-1 font-semibold ${delta > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                                        Écart : {delta > 0 ? '+' : ''}{fmt(delta)} DZD
+                                    </p>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            ) : (
+                <p className="text-xs text-slate-400 italic">Aucune alternative enregistrée</p>
+            )}
+        </div>
+    );
+}
+
 // ─── Main Modal ───────────────────────────────────────────────────────────────
+const CONFLICT_MESSAGES = {
+    ALREADY_CONFIRMING: "Une confirmation est déjà en cours pour cette réservation.",
+    PRICE_CHANGED:      "Le prix a changé depuis le devis. Vérifiez le nouveau montant avant de confirmer.",
+    OFFER_UNAVAILABLE:  "L'offre n'est plus disponible. Utilisez un fournisseur alternatif.",
+};
+
+const KNOWN_SUPPLIERS = ['ipro', 'tunisiabeds'];
+
 export default function VerifyBookingModal({isOpen, booking, onClose}) {
     const [isPending, setIsPending] = useState(false);
+    const [conflictCode, setConflictCode] = useState(null);
+    const [showAltForm, setShowAltForm] = useState(false);
+    const [altSupplier, setAltSupplier] = useState('');
     const queryClient = useQueryClient();
-    const {updateBookingStatus} = useAdminBookings();
 
-    const toStr = (val) => (val == null ? "" : String(val));
-    const toInt = (val) => parseInt(val, 10);
+    // Fetch full booking detail (includes comparisons)
+    const {data: fullBooking, isLoading: isLoadingDetail} = useQuery({
+        queryKey: ['booking-detail', booking?.id],
+        queryFn: () => AllezGoApi.Bookings.getById(booking.id),
+        enabled: isOpen && !!booking?.id,
+        staleTime: 0,
+    });
 
-    const resolveBoardingId = (rawBoarding) => {
-        if (typeof rawBoarding === 'object' && rawBoarding?.Id) return rawBoarding.Id.toString();
-        const b = (rawBoarding || "").toString().toUpperCase();
-        if (b.includes("LPD") || b === "BB") return "2";
-        if (b.includes("DP")  || b === "HB") return "3";
-        if (b.includes("PC")  || b === "FB") return "4";
-        if (b.includes("ALL") || b === "AI") return "5";
-        return b || "1";
-    };
-
-    const buildIProPayload = (bookingEntity) => {
-        const bData    = typeof bookingEntity.bookingData  === 'string' ? JSON.parse(bookingEntity.bookingData)  : (bookingEntity.bookingData  || {});
-        const iPayload = typeof bookingEntity.iproPayload  === 'string' ? JSON.parse(bookingEntity.iproPayload)  : (bookingEntity.iproPayload  || {});
-        const token    = iPayload.Token || iPayload.token || bData.Token || bData.token;
-
-        const mappedAdults = (iPayload.Adult || []).map((a, index) => ({
-            Civility: a.Civility === 2 || a.Civility === "2" || a.Civility === "Ms" ? "Ms" : "Mr",
-            Name:    a.Name    || "Client",
-            Surname: a.Surname || "Client",
-            Holder:  index === 0
-        }));
-
-        const mappedChildren = (iPayload.Child || []).map(c => ({
-            Name:    c.Name    || "Child",
-            Surname: c.Surname || "Child",
-            Age:     c.Age?.toString() || "5"
-        }));
-
-        const rawRooms    = bData.selectedRooms || bData.rooms || iPayload.rawRooms || [];
-        const mappedRooms = rawRooms.map((room, index) => {
-            const extractedBoarding = room.Boarding || bData.boardingType || iPayload.boardingType || "1";
-            return {
-                Id:          (index + 1).toString(),
-                Boarding:    resolveBoardingId(extractedBoarding),
-                View:        room.View        || [],
-                Supplement:  room.Supplement  || [],
-                Pax: {
-                    Adult: mappedAdults,
-                    ...(mappedChildren.length > 0 ? {Child: mappedChildren} : {})
-                }
-            };
-        });
-
-        return {
-            Token:     token,
-            PreBooking: true,
-            City:      (bData.City || bData.hotel?.City?.Id || iPayload.City || 10),
-            Hotel:     parseInt(bData.Hotel || bookingEntity.hotelId || bData.hotelId || bData.hotel?.Id, 10),
-            CheckIn:   (bookingEntity.checkIn  || bData.CheckIn  || bData.checkIn).substring(0, 10),
-            CheckOut:  (bookingEntity.checkOut || bData.CheckOut || bData.checkOut).substring(0, 10),
-            Source:    iPayload.Source || bData.Source || bData.source,
-            Rooms:     mappedRooms
-        };
-    };
+    const comparisons = fullBooking?.comparisons ?? [];
 
     const handleAction = async (newStatus) => {
         if (!booking) return;
+        setConflictCode(null);
         try {
             setIsPending(true);
-            let iProResponseId = null;
 
             if (newStatus === "CONFIRMED") {
-                const bData    = typeof booking.bookingData  === 'string' ? JSON.parse(booking.bookingData)  : (booking.bookingData  || {});
-                const iPayload = typeof booking.iproPayload  === 'string' ? JSON.parse(booking.iproPayload)  : (booking.iproPayload  || {});
-
-                const payloadToIpro = {
-                    Credential: {
-                        Login:    import.meta.env.VITE_API_LOGIN,
-                        Password: import.meta.env.VITE_API_PASSWORD
-                    },
-                    HotelBooking: {
-                        Token:    iPayload.Token || bData.Token || bData.token,
-                        PreBooking: false,
-                        City:     toStr(iPayload.City  || bData.City),
-                        Hotel:    toInt(iPayload.Hotel || bData.Hotel || booking.hotelId),
-                        CheckIn:  toStr(iPayload.CheckIn  || bData.CheckIn  || booking.checkIn).substring(0, 10),
-                        CheckOut: toStr(iPayload.CheckOut || bData.CheckOut || booking.checkOut).substring(0, 10),
-                        Source:   toStr(iPayload.Source || bData.Source || bData.source),
-                        Rooms: (iPayload.rawRooms || iPayload.Rooms || bData.rooms || []).map((room, index) => ({
-                            Id:         toStr(room.Id || room.roomId || (index + 1)),
-                            Boarding:   resolveBoardingId(room.Boarding || iPayload.boardingType || "1"),
-                            View:       Array.isArray(room.View)        ? room.View.map(v => toInt(v))       : [],
-                            Supplement: Array.isArray(room.Supplement)  ? room.Supplement.map(s => toInt(s)) : [],
-                            Pax: {
-                                Adult: (room.Adult || iPayload.Adult || []).map((pax, i) => ({
-                                    Civility: toStr(pax.Civility || "Mr"),
-                                    Name:     pax.Name    || "Client",
-                                    Surname:  pax.Surname || "Traveler",
-                                    Holder:   i === 0
-                                })),
-                                ...((room.Child || iPayload.Child || []).length > 0 && {
-                                    Child: (room.Child || iPayload.Child || []).map(pax => ({
-                                        Name:    pax.Name    || "Child",
-                                        Surname: pax.Surname || "Traveler",
-                                        Age:     String(pax.Age || "5")
-                                    }))
-                                })
-                            }
-                        }))
-                    }
-                };
-
-                const refreshToastId = "token-refresh";
-                toast.loading("Actualisation de la disponibilité…", {id: refreshToastId});
-                try {
-                    const cityIdNum  = Number(payloadToIpro.HotelBooking.City);
-                    const hotelIdNum = payloadToIpro.HotelBooking.Hotel;
-                    const roomsForRefresh = payloadToIpro.HotelBooking.Rooms.map(room => ({
-                        adults:    (room.Pax?.Adult || []).length || 1,
-                        childAges: (room.Pax?.Child || []).map(c => Number(c.Age) || 5),
-                    }));
-
-                    const freshSearch = await apiClient.searchRoomAvailability({
-                        checkIn:  payloadToIpro.HotelBooking.CheckIn,
-                        checkOut: payloadToIpro.HotelBooking.CheckOut,
-                        hotelId:  hotelIdNum,
-                        cityId:   cityIdNum,
-                        rooms:    roomsForRefresh,
-                    });
-
-                    if (freshSearch.rooms?.length) {
-                        const storedRoomId     = String(payloadToIpro.HotelBooking.Rooms[0]?.Id ?? "");
-                        const storedBoardingId = String(payloadToIpro.HotelBooking.Rooms[0]?.Boarding ?? "");
-
-                        const matched =
-                            (storedRoomId     && freshSearch.rooms.find(r => String(r.id)        === storedRoomId))
-                            || freshSearch.rooms.find(r => String(r.boardingId) === storedBoardingId)
-                            || freshSearch.rooms[0];
-
-                        if (matched?.id) {
-                            payloadToIpro.HotelBooking.Rooms[0].Id = String(matched.id);
-                            payloadToIpro.HotelBooking.Token       = matched._token  || freshSearch.token;
-                            payloadToIpro.HotelBooking.Source      = matched._source || freshSearch.source;
-                        }
-                    }
-                } catch (refreshErr) {
-                    console.warn("Token refresh failed, using stored token:", refreshErr.message);
-                } finally {
-                    toast.dismiss(refreshToastId);
-                }
-
-                const iProResponse = await apiClient.createBooking(payloadToIpro);
-                iProResponseId = iProResponse.Id || iProResponse.BookingCreation?.Id || iProResponse.BookingCreation?.[0]?.Id;
-
-                if (!iProResponseId) throw new Error("La réservation a été acceptée mais aucun ID n'a été retourné.");
-                toast.success("Réservation externe iPro confirmée !");
-
+                toast.loading("Confirmation en cours…", {id: "ipro-action"});
+                await AllezGoApi.client.post(`/api/bookings/${booking.id}/confirm`);
+                toast.dismiss("ipro-action");
+                toast.success("Réservation confirmée !");
             } else if (newStatus === "REJECTED") {
-                const externalId = booking.externalId || booking.bookingData?.iProId;
-                if (booking.status === "CONFIRMED" || externalId) {
-                    if (!externalId) {
-                        toast.error("Impossible d'annuler côté iPro : ID externe introuvable.");
-                        setIsPending(false);
-                        return;
-                    }
-                    await apiClient.cancelBooking(externalId, false);
-                    toast.success("Réservation externe iPro annulée avec succès !");
+                if (booking.externalId) {
+                    await AllezGoApi.client.post(`/api/bookings/${booking.id}/cancel`, {onlyFees: false});
                 }
+                await AllezGoApi.client.patch(`/api/bookings/${booking.id}`, {status: newStatus});
+                toast.success("Réservation rejetée.");
             }
 
-            const updatePayload = newStatus === "CONFIRMED" && iProResponseId
-                ? {status: newStatus, externalId: iProResponseId}
-                : {status: newStatus};
-
-            await AllezGoApi.client.patch(`/api/bookings/${booking.id}`, updatePayload);
-            toast.success(`Statut mis à jour : ${newStatus}`);
             queryClient.invalidateQueries({queryKey: ["admin-bookings"]});
             onClose();
 
         } catch (error) {
-            console.error("Booking Orchestration Failed:", error);
-            toast.error(error.message || "Erreur lors de la synchronisation de la réservation.");
+            toast.dismiss("ipro-action");
+            const code = error?.data?.message;
+            if (error?.status === 409 && CONFLICT_MESSAGES[code]) {
+                setConflictCode(code);
+            } else {
+                toast.error(error?.message || "Erreur lors de l'action sur la réservation.");
+            }
         } finally {
             setIsPending(false);
+        }
+    };
+
+    const handleConfirmAlternative = async () => {
+        if (!altSupplier) return;
+        setConflictCode(null);
+        try {
+            setIsPending(true);
+            toast.loading("Confirmation avec fournisseur alternatif…", {id: "alt-action"});
+            await AllezGoApi.Bookings.confirmWithAlternative(booking.id, altSupplier);
+            toast.dismiss("alt-action");
+            toast.success("Réservation confirmée via fournisseur alternatif !");
+            queryClient.invalidateQueries({queryKey: ["admin-bookings"]});
+            onClose();
+        } catch (error) {
+            toast.dismiss("alt-action");
+            const code = error?.data?.message;
+            if (error?.status === 409 && CONFLICT_MESSAGES[code]) {
+                setConflictCode(code);
+            } else {
+                toast.error(error?.message || "Erreur lors de la confirmation alternative.");
+            }
+        } finally {
+            setIsPending(false);
+            setShowAltForm(false);
         }
     };
 
@@ -658,10 +652,91 @@ export default function VerifyBookingModal({isOpen, booking, onClose}) {
                             </div>
                         </div>
                     )}
+
+                    {/* Supplier comparison */}
+                    <SupplierComparison
+                        booking={booking}
+                        comparisons={comparisons}
+                        isLoading={isLoadingDetail}
+                    />
+
+                    {/* Annulation block — only for cancelled bookings */}
+                    {booking.status === 'CANCELLED' && (booking.cancelledAt || booking.cancellationSource || booking.cancellationReason || booking.cancellationFee) && (
+                        <div className="bg-rose-50 border border-rose-200 rounded-xl p-4">
+                            <h4 className="text-xs font-extrabold text-rose-900 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <Ban size={14} className="text-rose-500"/>
+                                Annulation
+                            </h4>
+                            <div className="flex flex-col gap-3">
+                                {booking.cancelledAt && (
+                                    <DetailRow icon={Clock} label="Annulée le" accent="amber">
+                                        {new Date(booking.cancelledAt).toLocaleString('fr-DZ', {
+                                            day: '2-digit', month: '2-digit', year: 'numeric',
+                                            hour: '2-digit', minute: '2-digit', hour12: false,
+                                        }).replace(',', ' à')}
+                                    </DetailRow>
+                                )}
+                                {booking.cancellationSource && (
+                                    <DetailRow icon={User} label="Source">
+                                        {{ admin: 'Administration', client: 'Client', webhook: 'Webhook', system: 'Système' }[booking.cancellationSource] || booking.cancellationSource}
+                                    </DetailRow>
+                                )}
+                                {booking.cancellationReason && (
+                                    <DetailRow icon={FileText} label="Motif">
+                                        {booking.cancellationReason}
+                                    </DetailRow>
+                                )}
+                                {booking.cancellationFee != null && Number(booking.cancellationFee) > 0 && (
+                                    <DetailRow icon={BadgeDollarSign} label="Frais d'annulation" accent="amber">
+                                        {new Intl.NumberFormat('fr-DZ').format(Number(booking.cancellationFee))} DZD
+                                    </DetailRow>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* ── Footer actions ────────────────────────────────────────── */}
-                <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-gray-100 bg-slate-50">
+                <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-gray-100 bg-slate-50 flex flex-col gap-3">
+
+                    {/* Conflict error banner */}
+                    {conflictCode && (
+                        <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                            <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5"/>
+                            <p className="text-sm text-amber-800 font-medium">{CONFLICT_MESSAGES[conflictCode]}</p>
+                        </div>
+                    )}
+
+                    {/* Alternative supplier form */}
+                    {showAltForm && (
+                        <div className="flex items-center gap-2 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+                            <RefreshCw size={15} className="text-indigo-500 shrink-0"/>
+                            <select
+                                value={altSupplier}
+                                onChange={(e) => setAltSupplier(e.target.value)}
+                                className="flex-1 text-sm border border-indigo-200 rounded-lg px-2 py-1.5 bg-white text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                            >
+                                <option value="">— Choisir un fournisseur —</option>
+                                {KNOWN_SUPPLIERS.filter(s => s !== booking.supplier).map(s => (
+                                    <option key={s} value={s}>{SUPPLIER_LABELS[s] || s}</option>
+                                ))}
+                            </select>
+                            <button
+                                onClick={handleConfirmAlternative}
+                                disabled={isPending || !altSupplier}
+                                className="px-3 py-1.5 rounded-lg text-sm font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 transition-colors"
+                            >
+                                {isPending ? <Loader2 size={13} className="animate-spin"/> : 'Confirmer'}
+                            </button>
+                            <button
+                                onClick={() => { setShowAltForm(false); setAltSupplier(''); }}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                            >
+                                <X size={15}/>
+                            </button>
+                        </div>
+                    )}
+
                     <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
                         <button
                             onClick={onClose}
@@ -671,23 +746,38 @@ export default function VerifyBookingModal({isOpen, booking, onClose}) {
                             Annuler
                         </button>
 
-                        <button
-                            onClick={() => handleAction("REJECTED")}
-                            disabled={isPending}
-                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-extrabold text-white bg-rose-600 hover:bg-rose-700 active:scale-95 transition-all shadow-sm disabled:opacity-50"
-                        >
-                            {isPending ? <Loader2 size={15} className="animate-spin"/> : <XCircle size={15}/>}
-                            Rejeter
-                        </button>
+                        {booking.status === 'PENDING' && booking.supplier && !showAltForm && (
+                            <button
+                                onClick={() => { setShowAltForm(true); setConflictCode(null); }}
+                                disabled={isPending}
+                                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 transition-colors disabled:opacity-40"
+                            >
+                                <RefreshCw size={15}/>
+                                Fournisseur alternatif
+                            </button>
+                        )}
 
-                        <button
-                            onClick={() => handleAction("CONFIRMED")}
-                            disabled={isPending}
-                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all shadow-md disabled:opacity-50"
-                        >
-                            {isPending ? <Loader2 size={15} className="animate-spin"/> : <CheckCircle2 size={15}/>}
-                            Valider &amp; Réserver
-                        </button>
+                        {booking.status === 'PENDING' && (
+                            <>
+                                <button
+                                    onClick={() => handleAction("REJECTED")}
+                                    disabled={isPending}
+                                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-extrabold text-white bg-rose-600 hover:bg-rose-700 active:scale-95 transition-all shadow-sm disabled:opacity-50"
+                                >
+                                    {isPending ? <Loader2 size={15} className="animate-spin"/> : <XCircle size={15}/>}
+                                    Rejeter
+                                </button>
+
+                                <button
+                                    onClick={() => handleAction("CONFIRMED")}
+                                    disabled={isPending}
+                                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all shadow-md disabled:opacity-50"
+                                >
+                                    {isPending ? <Loader2 size={15} className="animate-spin"/> : <CheckCircle2 size={15}/>}
+                                    Valider &amp; Réserver
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>

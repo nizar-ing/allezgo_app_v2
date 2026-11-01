@@ -5,6 +5,8 @@ import {
     MessageSquare,
     Menu,
     X,
+    ChevronLeft,
+    ChevronRight,
     Globe,
     MapPin,
     Pencil,
@@ -23,13 +25,21 @@ import {
     Image as ImageIcon,
     BarChart2,
     Settings as SettingsIcon,
+    Server,
+    DollarSign,
+    GitMerge,
+    Filter,
+    TrendingUp,
 } from 'lucide-react';
+
+const SUPPLIER_SHORT = { ipro: 'iPro', tunisiabeds: 'TBeds' };
+const fmt = (n) => new Intl.NumberFormat('fr-DZ').format(Number(n));
 //import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import useDestinations from '../../custom-hooks/useDestinations.js';
 import useTestimonials from '../../custom-hooks/useTestimonials.js';
 import useUsers from '../../custom-hooks/useUsers.js';
-import Loader from '../../ui/Loader.jsx';
+import PageLoader from '../../ui/PageLoader.jsx';
 import CreateDestinationModal from './CreateDestinationModal.jsx';
 import EditDestinationModal from './EditDestinationModal.jsx';
 import CreateTestimonialModal from './CreateTestimonialModal.jsx';
@@ -43,6 +53,9 @@ import CancelBookingModal from "../../components/admin/CancelBookingModal.jsx";
 import CarouselAdmin from "../../components/admin/CarouselAdmin.jsx";
 import BusinessStats from './BusinessStats.jsx';
 import SettingsPanel from './SettingsPanel.jsx';
+import SuppliersPanel from './SuppliersPanel.jsx';
+import FxRatesPanel from './FxRatesPanel.jsx';
+import HotelMappingPanel from './HotelMappingPanel.jsx';
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 function StatusBadge({status}) {
@@ -66,6 +79,7 @@ function StatusBadge({status}) {
 export default function AdminDashboard() {
     const [activeTab, setActiveTab] = useState('destinations');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [editingDestination, setEditingDestination] = useState(null);
     const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
@@ -105,6 +119,8 @@ export default function AdminDashboard() {
     const [selectedBooking, setSelectedBooking] = useState(null);
     const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
     const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
+    const [bookingStatusFilter, setBookingStatusFilter] = useState('');
+    const [bookingSupplierFilter, setBookingSupplierFilter] = useState('');
 
     // --- Premium Custom Toast with Direct Cache Mutation ---
     const confirmDelete = (destination) => {
@@ -251,6 +267,9 @@ export default function AdminDashboard() {
         {id: 'users', label: 'Utilisateurs', icon: Users},
         {id: 'carousel', label: 'Carrousel', icon: ImageIcon},
         {id: 'analytics', label: 'My Business Stats', icon: BarChart2},
+        {id: 'suppliers', label: 'Fournisseurs', icon: Server},
+        {id: 'fx-rates', label: 'Taux de change', icon: DollarSign},
+        {id: 'hotel-mapping', label: 'Mapping hôtels', icon: GitMerge},
         {id: 'settings', label: 'Paramètres', icon: SettingsIcon},
     ];
 
@@ -277,8 +296,7 @@ export default function AdminDashboard() {
                     </div>
                     <div className="p-0">
                         {loading ? (
-                            <div className="py-12"><Loader variant="minimal" message="Chargement des destinations..."/>
-                            </div>
+                            <PageLoader compact message="Chargement des destinations..." />
                         ) : (
                             <div className="w-full overflow-x-auto scrollbar-hide">
                                 <table className="min-w-full divide-y divide-gray-200">
@@ -383,8 +401,7 @@ export default function AdminDashboard() {
                     </div>
                     <div className="p-0">
                         {testimonialsLoading ? (
-                            <div className="py-12"><Loader variant="minimal" message="Chargement des témoignages..."/>
-                            </div>
+                            <PageLoader compact message="Chargement des témoignages..." />
                         ) : (
                             <div className="w-full overflow-x-auto scrollbar-hide">
                                 <table className="min-w-full divide-y divide-gray-200">
@@ -493,8 +510,7 @@ export default function AdminDashboard() {
                     </div>
                     <div className="p-0">
                         {usersLoading ? (
-                            <div className="py-12"><Loader variant="minimal" message="Chargement des utilisateurs..."/>
-                            </div>
+                            <PageLoader compact message="Chargement des utilisateurs..." />
                         ) : (
                             <div className="w-full overflow-x-auto scrollbar-hide">
                                 <table className="min-w-full divide-y divide-gray-200">
@@ -587,18 +603,41 @@ export default function AdminDashboard() {
                             <p className="text-sm text-gray-500 mt-1">Gérez les virements et finalisez les
                                 réservations</p>
                         </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <Filter size={14} className="text-slate-400 shrink-0"/>
+                            <select
+                                value={bookingStatusFilter}
+                                onChange={e => setBookingStatusFilter(e.target.value)}
+                                className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-300"
+                            >
+                                <option value="">Tous les statuts</option>
+                                <option value="PENDING">En attente</option>
+                                <option value="CONFIRMED">Confirmée</option>
+                                <option value="REJECTED">Rejetée</option>
+                                <option value="CANCELLED">Annulée</option>
+                            </select>
+                            <select
+                                value={bookingSupplierFilter}
+                                onChange={e => setBookingSupplierFilter(e.target.value)}
+                                className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-300"
+                            >
+                                <option value="">Tous les fournisseurs</option>
+                                <option value="ipro">iPro</option>
+                                <option value="tunisiabeds">TunisiaBeds</option>
+                                <option value="legacy">Sans fournisseur</option>
+                            </select>
+                        </div>
                     </div>
                     <div className="p-0">
                         {bookingsLoading ? (
-                            <div className="py-12"><Loader variant="minimal" message="Chargement des réservations..."/>
-                            </div>
+                            <PageLoader compact message="Chargement des réservations..." />
                         ) : (
-                            <div className="w-full overflow-x-auto scrollbar-hide">
+                            <div className="w-full overflow-x-auto [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-slate-100 [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full">
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-slate-50">
                                     <tr>
                                         <th scope="col"
-                                            className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Référence
+                                            className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider sticky left-0 z-10 bg-slate-50 border-r border-slate-100">Référence
                                         </th>
                                         <th scope="col"
                                             className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Date de réservation
@@ -617,18 +656,29 @@ export default function AdminDashboard() {
                                             className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Total
                                         </th>
                                         <th scope="col"
+                                            className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Fournisseur
+                                        </th>
+                                        <th scope="col"
+                                            className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Économie
+                                        </th>
+                                        <th scope="col"
                                             className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status
                                         </th>
                                         <th scope="col"
-                                            className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions
+                                            className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider sticky right-0 z-10 bg-slate-50 border-l border-slate-100 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)]">Actions
                                         </th>
                                     </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-100">
                                     {(() => {
-                                        const sortedBookings = [...(bookings ?? [])].sort(
-                                            (a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0)
-                                        );
+                                        const sortedBookings = [...(bookings ?? [])]
+                                            .sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0))
+                                            .filter(b => {
+                                                if (bookingStatusFilter && b.status !== bookingStatusFilter) return false;
+                                                if (bookingSupplierFilter === 'legacy' && b.supplier) return false;
+                                                if (bookingSupplierFilter && bookingSupplierFilter !== 'legacy' && b.supplier !== bookingSupplierFilter) return false;
+                                                return true;
+                                            });
                                         return sortedBookings.length > 0 ? sortedBookings.map((booking) => {
                                         // --- Data Sniper: Ultra-aggressive extraction ---
                                         let parsedIpro = {};
@@ -664,8 +714,8 @@ export default function AdminDashboard() {
                                         const displayRef = booking?.reference || `ALG-${String(booking?.id || 0).padStart(3, '0')}`;
 
                                         return (
-                                            <tr key={booking.id} className="hover:bg-sky-50/50 transition-colors">
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-sky-700">{displayRef}</td>
+                                            <tr key={booking.id} className="hover:bg-sky-50/50 transition-colors group">
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-sky-700 sticky left-0 z-10 bg-white border-r border-gray-100 group-hover:bg-sky-50/50 transition-colors">{displayRef}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                                                     {booking.createdAt
                                                         ? new Date(booking.createdAt).toLocaleString('fr-DZ', {
@@ -689,10 +739,20 @@ export default function AdminDashboard() {
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{hotelDisplayName}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{booking.checkIn} - {booking.checkOut}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-sky-700">{new Intl.NumberFormat("fr-DZ").format(booking.clientPrice)} DZD</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                                                    {booking.supplier ? (SUPPLIER_SHORT[booking.supplier] || booking.supplier) : <span className="text-slate-400">—</span>}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                    {booking.marginDzd != null && Number(booking.marginDzd) > 0 ? (
+                                                        <span className="flex items-center gap-1 text-emerald-700 font-semibold">
+                                                            <TrendingUp size={13}/> {fmt(booking.marginDzd)} DZD
+                                                        </span>
+                                                    ) : <span className="text-slate-400">—</span>}
+                                                </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <StatusBadge status={booking.status}/>
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right sticky right-0 z-10 bg-white border-l border-gray-100 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-sky-50/50 transition-colors">
                                                     <div className="flex justify-end gap-2">
                                                         {booking.status === 'PENDING' && (
                                                             <button
@@ -704,6 +764,20 @@ export default function AdminDashboard() {
                                                                 }}
                                                                 className="p-2 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg transition-colors shadow-sm"
                                                                 title="Vérifier"
+                                                            >
+                                                                <Eye size={18}/>
+                                                            </button>
+                                                        )}
+                                                        {(booking.status === 'CANCELLED' || booking.status === 'REJECTED') && (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    setSelectedBooking(booking);
+                                                                    setIsVerifyModalOpen(true);
+                                                                }}
+                                                                className="p-2 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-lg transition-colors shadow-sm"
+                                                                title="Voir les détails"
                                                             >
                                                                 <Eye size={18}/>
                                                             </button>
@@ -740,7 +814,7 @@ export default function AdminDashboard() {
                                         );
                                     }) : (
                                         <tr>
-                                            <td colSpan="8" className="px-6 py-12 text-center text-gray-500">Aucune
+                                            <td colSpan="10" className="px-6 py-12 text-center text-gray-500">Aucune
                                                 réservation trouvée.
                                             </td>
                                         </tr>
@@ -754,6 +828,12 @@ export default function AdminDashboard() {
             );
         } else if (activeTab === 'analytics') {
             return <BusinessStats />;
+        } else if (activeTab === 'suppliers') {
+            return <SuppliersPanel />;
+        } else if (activeTab === 'fx-rates') {
+            return <FxRatesPanel />;
+        } else if (activeTab === 'hotel-mapping') {
+            return <HotelMappingPanel />;
         } else if (activeTab === 'carousel') {
             return <CarouselAdmin />;
         } else if (activeTab === 'settings') {
@@ -786,17 +866,45 @@ export default function AdminDashboard() {
 
             {/* Sidebar */}
             <aside className={`
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
-        md:translate-x-0 
-        fixed md:static inset-y-0 left-0 w-64 bg-gradient-to-b from-sky-950 via-sky-900 to-sky-950 text-white shadow-xl rounded-none md:rounded-xl transition-transform duration-300 ease-in-out z-50 md:z-20 flex flex-col
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        md:translate-x-0
+        fixed md:static inset-y-0 left-0 ${isCollapsed ? 'w-16' : 'w-64'} bg-gradient-to-b from-sky-950 via-sky-900 to-sky-950 text-white shadow-2xl rounded-none md:rounded-xl transition-all duration-300 ease-in-out z-50 md:z-20 flex flex-col overflow-hidden relative
       `}>
-                <div className="px-6 py-8 hidden md:block border-b border-sky-800/50">
-                    <h1 className="text-2xl font-bold tracking-tight">Admin<span
-                        className="text-orange-500">Panel</span></h1>
-                    <p className="text-sky-200 text-sm mt-1 font-medium">Gestion AllezGo</p>
+                {/* Decorative brand warmth — subtle orange tint at top */}
+                <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-orange-500/[0.07] to-transparent pointer-events-none" aria-hidden="true"/>
+                {/* Header — logo + collapse toggle (desktop only) */}
+                <div className={`hidden md:flex items-center border-b border-sky-800/50 min-h-[76px] ${isCollapsed ? 'flex-col justify-center gap-2 py-4 px-2' : 'justify-between px-5 py-6'}`}>
+                    {isCollapsed ? (
+                        <>
+                            <div className="w-9 h-9 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center font-black text-xs tracking-tight shadow-lg shadow-orange-900/50 ring-2 ring-orange-400/20 ring-offset-1 ring-offset-sky-950 shrink-0">
+                                AG
+                            </div>
+                            <button
+                                onClick={() => setIsCollapsed(false)}
+                                className="w-7 h-7 rounded-lg bg-sky-800/50 hover:bg-orange-500 text-sky-300 hover:text-white flex items-center justify-center transition-all duration-200 border border-sky-700/40 hover:border-orange-400/50 shadow-sm hover:shadow-md hover:shadow-orange-900/20 active:scale-95"
+                                title="Développer le menu"
+                            >
+                                <ChevronRight size={13}/>
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <div>
+                                <h1 className="text-2xl font-bold tracking-tight whitespace-nowrap">Admin<span className="text-orange-500">Panel</span></h1>
+                                <p className="text-sky-300/80 text-xs mt-0.5 font-medium whitespace-nowrap">Gestion AllezGo</p>
+                            </div>
+                            <button
+                                onClick={() => setIsCollapsed(true)}
+                                className="shrink-0 w-7 h-7 rounded-lg bg-sky-800/50 hover:bg-orange-500 text-sky-300 hover:text-white flex items-center justify-center transition-all duration-200 border border-sky-700/40 hover:border-orange-400/50 shadow-sm hover:shadow-md hover:shadow-orange-900/20 active:scale-95"
+                                title="Réduire le menu"
+                            >
+                                <ChevronLeft size={13}/>
+                            </button>
+                        </>
+                    )}
                 </div>
 
-                <nav className="flex-1 mt-6 px-4 space-y-2">
+                <nav className={`flex-1 mt-4 space-y-1 px-2 overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-sky-700/50 [&::-webkit-scrollbar-thumb]:rounded-full`}>
                     {tabs.map((tab) => {
                         const Icon = tab.icon;
                         const isActive = activeTab === tab.id;
@@ -807,16 +915,22 @@ export default function AdminDashboard() {
                                     setActiveTab(tab.id);
                                     setIsSidebarOpen(false);
                                 }}
-                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm lg:text-base font-medium transition-all duration-200
+                                title={isCollapsed ? tab.label : undefined}
+                                className={`w-full flex items-center rounded-lg text-sm font-medium transition-all duration-200 relative group
+                  ${isCollapsed ? 'justify-center px-2 py-3' : 'gap-3 px-3 py-3 lg:text-base'}
                   ${isActive
-                                    ? 'bg-orange-600 text-white font-semibold tracking-tight shadow-md border-l-4 lg:border-l-8 border-white'
-                                    : 'text-sky-200 hover:bg-white/10 hover:text-white border-l-4 border-transparent'
+                                    ? isCollapsed
+                                        ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-900/40 ring-1 ring-orange-400/25'
+                                        : 'bg-gradient-to-r from-orange-600 to-orange-500/90 text-white font-semibold tracking-tight shadow-lg shadow-orange-900/30 border-l-4 lg:border-l-[6px] border-white/80'
+                                    : isCollapsed
+                                        ? 'text-sky-300 hover:bg-white/[0.08] hover:text-white hover:ring-1 hover:ring-white/10'
+                                        : 'text-sky-200 hover:bg-white/[0.08] hover:text-white border-l-4 border-transparent'
                                 }
                 `}
                             >
-                                <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-white font-bold' : 'text-sky-300'}`}/>
-                                <span className="flex-1 text-left truncate">{tab.label}</span>
-                                {tab.id === 'bookings' && totalCount > 0 && (
+                                <Icon className={`w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110 ${isActive ? 'text-white drop-shadow-sm' : 'text-sky-300'}`}/>
+                                {!isCollapsed && <span className="flex-1 text-left truncate">{tab.label}</span>}
+                                {!isCollapsed && tab.id === 'bookings' && totalCount > 0 && (
                                     <span className="ml-auto shrink-0">
                                         {newCount > 0 ? (
                                             <span className="inline-flex items-center justify-center min-w-8 h-8 px-2 text-sm font-bold rounded-full bg-amber-400 text-white shadow-md animate-pulse">
@@ -829,25 +943,27 @@ export default function AdminDashboard() {
                                         )}
                                     </span>
                                 )}
+                                {isCollapsed && tab.id === 'bookings' && newCount > 0 && (
+                                    <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 animate-pulse shadow-[0_0_6px_rgba(251,191,36,0.8)]"/>
+                                )}
                             </button>
                         );
                     })}
                 </nav>
 
-                <div className="p-4 rounded-xlbg-sky-950 mt-auto border-t border-sky-800/50">
-                    <div className="flex items-center gap-3">
-                        <div
-                            className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold shadow-md">
+                <div className={`px-2 pb-3 pt-2 mt-auto border-t border-sky-800/30 ${isCollapsed ? 'flex justify-center' : ''}`}>
+                    <div className={`flex items-center rounded-xl transition-colors ${isCollapsed ? 'p-2 hover:bg-sky-800/40 cursor-default' : 'gap-3 px-3 py-2.5 bg-sky-900/50 border border-sky-700/20 hover:bg-sky-900/70'}`}>
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold shadow-md ring-2 ring-orange-400/20 ring-offset-1 ring-offset-sky-950 shrink-0">
                             A
                         </div>
-                        <div>
-                            <p className="text-sm font-medium text-white">Administrateur</p>
-                            <p className="text-xs text-sky-300 flex items-center gap-1">
-                                <span
-                                    className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span> En
-                                ligne
-                            </p>
-                        </div>
+                        {!isCollapsed && (
+                            <div>
+                                <p className="text-sm font-semibold text-white">Administrateur</p>
+                                <p className="text-xs text-sky-400 flex items-center gap-1.5 mt-0.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]"></span>En ligne
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </aside>
