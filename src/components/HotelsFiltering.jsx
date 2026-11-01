@@ -1,51 +1,48 @@
 // src/components/HotelsFiltering.jsx
 import { useState, useMemo, useCallback } from "react";
 import {
-    SlidersHorizontal, Star, Bed, UtensilsCrossed,  // ✅ Fix #6 — Wifi removed
+    SlidersHorizontal, Star, Bed, UtensilsCrossed,
     Waves, Dumbbell, Car, Sparkles, Users, ChevronDown,
     ChevronUp, X, Filter,
 } from "lucide-react";
 
-// ✅ Fix #1 — static data outside component, never recreated
 const ARRANGEMENTS = [
-    { id: "petit-dejeuner",        label: "Petit Déjeuner",         count: 4 },
-    { id: "demi-pension-plus",     label: "Demi Pension Plus",       count: 2 },
-    { id: "pension-complete-plus", label: "Pension Complète Plus",   count: 2 },
-    { id: "demi-pension",          label: "Demi Pension",            count: 5 },
-    { id: "all-inclusive",         label: "All Inclusive",           count: 4 },
-    { id: "pension-complete",      label: "Pension Complète",        count: 2 },
+    { id: "petit-dejeuner",        label: "Petit Déjeuner"        },
+    { id: "demi-pension-plus",     label: "Demi Pension Plus"      },
+    { id: "pension-complete-plus", label: "Pension Complète Plus"  },
+    { id: "demi-pension",          label: "Demi Pension"           },
+    { id: "all-inclusive",         label: "All Inclusive"          },
+    { id: "pension-complete",      label: "Pension Complète"       },
 ];
 
 const ROOM_TYPES = [
-    { id: "chambre-triple",         label: "Chambre Triple",          count: 5 },
-    { id: "chambre-double-vue-mer", label: "Chambre Double Vue Mer",  count: 5 },
-    { id: "chambre-standard",       label: "Chambre Standard",        count: 4 },
-    { id: "chambre-double",         label: "Chambre Double",          count: 2 },
-    { id: "suite",                  label: "Suite",                   count: 3 }, // ✅ Fix #7 — dead button replaced with proper filter entry
+    { id: "chambre-triple",         label: "Chambre Triple"         },
+    { id: "chambre-double-vue-mer", label: "Chambre Double Vue Mer" },
+    { id: "chambre-standard",       label: "Chambre Standard"       },
+    { id: "chambre-double",         label: "Chambre Double"         },
+    { id: "suite",                  label: "Suite"                  },
 ];
 
 const SERVICES = [
-    { id: "famille",               label: "Famille",                   count: 5, icon: Users },
-    { id: "thalasso-spa",          label: "Thalasso Spa",              count: 5, icon: Sparkles },
-    { id: "sport-loisirs",         label: "Sport & Loisirs",           count: 4, icon: Dumbbell },
-    { id: "bord-mer",              label: "Bord de Mer",               count: 5, icon: Waves },
-    { id: "tout-inclus",           label: "All Inclusive",             count: 5, icon: UtensilsCrossed },
-    { id: "internet-celibataires", label: "Interdit aux célibataires", count: 2, icon: Users },
-    { id: "degustation",           label: "Dégustation",               count: 2, icon: UtensilsCrossed },
-    { id: "interdit-parking",      label: "Interdit le parking",       count: 2, icon: Car },
-    { id: "affaires",              label: "Affaires",                  count: 2, icon: Bed },
-    { id: "golf",                  label: "Golf",                      count: 1, icon: Dumbbell },
-    { id: "luxe",                  label: "Luxe",                      count: 1, icon: Star },
+    { id: "famille",               label: "Famille",                   icon: Users          },
+    { id: "thalasso-spa",          label: "Thalasso Spa",              icon: Sparkles       },
+    { id: "sport-loisirs",         label: "Sport & Loisirs",           icon: Dumbbell       },
+    { id: "bord-mer",              label: "Bord de Mer",               icon: Waves          },
+    { id: "tout-inclus",           label: "All Inclusive",             icon: UtensilsCrossed },
+    { id: "internet-celibataires", label: "Interdit aux célibataires", icon: Users          },
+    { id: "degustation",           label: "Dégustation",               icon: UtensilsCrossed },
+    { id: "interdit-parking",      label: "Interdit le parking",       icon: Car            },
+    { id: "affaires",              label: "Affaires",                  icon: Bed            },
+    { id: "golf",                  label: "Golf",                      icon: Dumbbell       },
+    { id: "luxe",                  label: "Luxe",                      icon: Star           },
 ];
 
 const TARIFS_OPTIONS = [
-    { key: "hotelRecommander",    label: "Hôtel à recommander",  count: 4 },
-    { key: "tarifEnPromotion",    label: "Tarifs en promotion",   count: 8 },
-    { key: "disponibleSeulement", label: "Disponible seulement",  count: 5 },
-    { key: "annulationGratuite",  label: "Annulation Gratuite",   count: 6 },
+    { key: "hotelRecommander",    label: "Hôtel à recommander" },
+    { key: "tarifEnPromotion",    label: "Tarifs en promotion"  },
+    { key: "disponibleSeulement", label: "Disponible seulement" },
+    { key: "annulationGratuite",  label: "Annulation Gratuite"  },
 ];
-
-const STAR_COUNTS = { 5: 1, 4: 5, 3: 5 };
 
 const ARRAY_FILTER_KEYS = new Set(["arrangements", "categories", "roomTypes", "services"]);
 
@@ -79,7 +76,6 @@ function HotelsFiltering({ onFilterChange, initialFilters, className }) {
         services:     true,
     });
 
-    // ✅ Fix #2 — useMemo replaces plain function call
     const activeFilterCount = useMemo(() => {
         let count = 0;
         if (filters.hotelRecommander)    count++;
@@ -94,12 +90,10 @@ function HotelsFiltering({ onFilterChange, initialFilters, className }) {
         return count;
     }, [filters]);
 
-    // ✅ Fix #4 — toggleSection with functional update (no stale deps)
     const toggleSection = useCallback((section) => {
         setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
     }, []);
 
-    // ✅ Fix #3 — useCallback with filters + onFilterChange as deps
     const handleFilterChange = useCallback((filterType, value) => {
         const updated = ARRAY_FILTER_KEYS.has(filterType)
             ? {
@@ -114,7 +108,6 @@ function HotelsFiltering({ onFilterChange, initialFilters, className }) {
         onFilterChange?.(updated);
     }, [filters, onFilterChange]);
 
-    // ✅ Fix #4 — useCallback
     const resetFilters = useCallback(() => {
         setFilters(DEFAULT_FILTERS);
         onFilterChange?.(DEFAULT_FILTERS);
@@ -157,7 +150,7 @@ function HotelsFiltering({ onFilterChange, initialFilters, className }) {
                 </button>
                 {expandedSections.tarifs && (
                     <div className="space-y-3 pl-1">
-                        {TARIFS_OPTIONS.map(({ key, label, count }) => (
+                        {TARIFS_OPTIONS.map(({ key, label }) => (
                             <label key={key} className="flex items-center gap-3 cursor-pointer group">
                                 <input
                                     type="checkbox"
@@ -165,8 +158,7 @@ function HotelsFiltering({ onFilterChange, initialFilters, className }) {
                                     onChange={(e) => handleFilterChange(key, e.target.checked)}
                                     className="w-4 h-4 rounded border-2 border-gray-300 text-sky-600 focus:ring-sky-500 cursor-pointer"
                                 />
-                                <span className="text-sm text-gray-700 group-hover:text-gray-900 flex-1">{label}</span>
-                                <span className="text-xs text-gray-400 font-semibold">{count}</span>
+                                <span className="text-sm text-gray-700 group-hover:text-gray-900">{label}</span>
                             </label>
                         ))}
                     </div>
@@ -193,8 +185,7 @@ function HotelsFiltering({ onFilterChange, initialFilters, className }) {
                                     onChange={() => handleFilterChange("arrangements", arrangement.id)}
                                     className="w-4 h-4 rounded border-2 border-gray-300 text-sky-600 focus:ring-sky-500 cursor-pointer"
                                 />
-                                <span className="text-sm text-gray-700 group-hover:text-gray-900 flex-1">{arrangement.label}</span>
-                                <span className="text-xs text-gray-400 font-semibold">{arrangement.count}</span>
+                                <span className="text-sm text-gray-700 group-hover:text-gray-900">{arrangement.label}</span>
                             </label>
                         ))}
                     </div>
@@ -221,14 +212,11 @@ function HotelsFiltering({ onFilterChange, initialFilters, className }) {
                                     onChange={() => handleFilterChange("categories", starCount)}
                                     className="w-4 h-4 rounded border-2 border-gray-300 text-sky-600 focus:ring-sky-500 cursor-pointer"
                                 />
-                                <div className="flex items-center gap-1 flex-1">
+                                <div className="flex items-center gap-1">
                                     {Array.from({ length: starCount }, (_, i) => (
                                         <Star key={i} size={16} fill="#f97316" className="text-orange-500" />
                                     ))}
                                 </div>
-                                <span className="text-xs text-gray-400 font-semibold">
-                                    {STAR_COUNTS[starCount]}
-                                </span>
                             </label>
                         ))}
                     </div>
@@ -249,9 +237,7 @@ function HotelsFiltering({ onFilterChange, initialFilters, className }) {
                     <div className="space-y-4 pl-1">
                         <div className="flex items-center gap-3">
                             <div className="flex-1">
-                                <label className="block text-xs font-semibold text-gray-600 mb-1">
-                                    Min DA {/* ✅ Fix #5 — DT → DA */}
-                                </label>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Min DA</label>
                                 <input
                                     type="number"
                                     value={filters.budgetMin}
@@ -261,9 +247,7 @@ function HotelsFiltering({ onFilterChange, initialFilters, className }) {
                                 />
                             </div>
                             <div className="flex-1">
-                                <label className="block text-xs font-semibold text-gray-600 mb-1">
-                                    Max DA {/* ✅ Fix #5 */}
-                                </label>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Max DA</label>
                                 <input
                                     type="number"
                                     value={filters.budgetMax}
@@ -275,11 +259,11 @@ function HotelsFiltering({ onFilterChange, initialFilters, className }) {
                         </div>
                         <div className="flex items-center justify-between text-xs font-bold">
                             <span className="px-3 py-1 bg-sky-100 text-sky-700 rounded-full">
-                                {filters.budgetMin} DA {/* ✅ Fix #5 */}
+                                {filters.budgetMin} DA
                             </span>
                             <span className="text-gray-400">—</span>
                             <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full">
-                                {filters.budgetMax} DA {/* ✅ Fix #5 */}
+                                {filters.budgetMax} DA
                             </span>
                         </div>
                     </div>
@@ -306,11 +290,9 @@ function HotelsFiltering({ onFilterChange, initialFilters, className }) {
                                     onChange={() => handleFilterChange("roomTypes", room.id)}
                                     className="w-4 h-4 rounded border-2 border-gray-300 text-sky-600 focus:ring-sky-500 cursor-pointer"
                                 />
-                                <span className="text-sm text-gray-700 group-hover:text-gray-900 flex-1">{room.label}</span>
-                                <span className="text-xs text-gray-400 font-semibold">{room.count}</span>
+                                <span className="text-sm text-gray-700 group-hover:text-gray-900">{room.label}</span>
                             </label>
                         ))}
-                        {/* ✅ Fix #7 — dead "Suite suite 3" button removed; Suite is now a proper filter entry in ROOM_TYPES */}
                     </div>
                 )}
             </div>
@@ -338,8 +320,7 @@ function HotelsFiltering({ onFilterChange, initialFilters, className }) {
                                         className="w-4 h-4 rounded border-2 border-gray-300 text-sky-600 focus:ring-sky-500 cursor-pointer"
                                     />
                                     <Icon size={16} className="text-gray-400 group-hover:text-sky-600 transition-colors flex-shrink-0" />
-                                    <span className="text-sm text-gray-700 group-hover:text-gray-900 flex-1">{service.label}</span>
-                                    <span className="text-xs text-gray-400 font-semibold">{service.count}</span>
+                                    <span className="text-sm text-gray-700 group-hover:text-gray-900">{service.label}</span>
                                 </label>
                             );
                         })}
