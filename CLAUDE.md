@@ -54,13 +54,14 @@ User → React Router (pages + suspense)
 
 **`src/services/allezgo-api/allezGoApi.js`** — AllezGo custom backend
 - JWT login/register, user CRUD, destinations, e-visas, testimonials, settings.
-- Booking management with admin verification workflow.
+- Booking management with admin verification workflow. Includes `Bookings.getById(id)` and `Bookings.confirmWithAlternative(id, supplier)`.
+- Admin namespaces (Phase 7): `Suppliers` (list/update/health/stats), `Fx` (list/update FX rates), `Catalog` (matches, boardings, sync).
 - Emits `allezgo:refresh-data` event to trigger `GlobalCacheListener` → invalidates all React Query.
 - Exports a named `isRequestCanceled(err)` helper used by hooks to silently swallow abort-controller cancellations.
 
 ### Routing Structure
 - Layout outlet pattern: `Layout` wraps all pages with Header + Footer.
-- All pages except `Layout` use `React.lazy()` with `<Suspense>` + `Loader` fallback.
+- All pages except `Layout` use `React.lazy()` with `<Suspense>` + `<PageLoader>` fallback (default/no-props variant).
 - `<ProtectedRoute allowedRoles={[...]}>` enforces JWT + role checks; non-admins hitting `/admin` are redirected home.
 
 | Path | Page | Notes |
@@ -73,6 +74,7 @@ User → React Router (pages + suspense)
 | `/booking/:hotelId` | `BookingPage` | |
 | `/voyages-organises` | `OrganizedTrips` | List page — debounced name search + sort (price, duration, name) |
 | `/voyages-organises/:tripId` | `OrganizedTrip` | Detail — uses `useDestination(id)` from React Query |
+| `/voyages-organises/:tripId/reserver` | `VoyageOrganiseBooking` | VO booking form — departure date select, room quantities, client info, WhatsApp submit (BST-06a; BST-06b will add real API POST) |
 | `/e-visa` | `E_Visa` | |
 | `/sign-in` | `SignInPage` | |
 | `/profile` | `ProfilePage` | Protected: client + admin |
@@ -91,7 +93,7 @@ User → React Router (pages + suspense)
    - Computes availability status per hotel: `available` / `on_request` / `full`.
 2. Navigate to `/booking/:hotelId` → fetch room availability via `searchRoomAvailability()`.
 3. Guest info collected via `GuestInfoForm` + `react-hook-form` (booking subcomponents live in `src/components/booking/`).
-4. `useBooking()` mutation POSTs `FormData` to AllezGo backend (includes client price with markup, passenger data, optional receipt file, `paymentMethod`: `AGENCE` | `VIREMENT`).
+4. `useBooking()` mutation POSTs `FormData` to AllezGo backend (includes `offerIds` array, passengers grouped by room, optional receipt file, `paymentMethod`: `AGENCE` | `VIREMENT`). Backend reprices from `offer_quotes` — `clientPrice` is ignored when `offerIds` are present.
    - **Guest bookings are allowed**: the backend reads the JWT optionally and skips the user relation if unauthenticated.
 5. Admin dashboard: admin confirms payment → backend calls `apiClient.createBooking()` on iPro. Admin can also download payment receipts via `GET /api/bookings/receipt/:filename`.
 
@@ -192,13 +194,16 @@ onSuccess: () => {
 
 ### Admin Dashboard
 `AdminDashboard` is a single-page admin SPA with sidebar navigation. Tabs:
-- **Réservations** — booking list; PENDING → CONFIRMED (triggers iPro `HotelBooking` POST) or REJECTED or CANCELLED. `VerifyBookingModal` handles payment confirmation; `VoucherModal` generates the client PDF voucher; `CancelBookingModal` handles cancellation.
+- **Réservations** — booking list with status + supplier filters; "Fournisseur" and "Économie" columns; PENDING → CONFIRMED (triggers iPro `HotelBooking` POST) or REJECTED or CANCELLED. `VerifyBookingModal` handles payment confirmation, shows `BookingOfferComparison` data (quoted vs. confirmed price, outcome badge), and handles 409 conflicts: `ALREADY_CONFIRMING` (banner), `PRICE_CHANGED` (shows diff + confirm-with-alternative form), `OFFER_UNAVAILABLE` (banner); `VoucherModal` generates the client PDF voucher; `CancelBookingModal` handles cancellation.
 - **Destinations** — organized trip CRUD (`useDestinations`).
 - **Témoignages** — testimonial CRUD (`useTestimonials`).
 - **Utilisateurs** — user CRUD (`useUsers`).
 - **Carousel** — homepage banner image management (`CarouselAdmin`, `/carousel` endpoint).
 - **Statistiques** — `BusinessStats` page using `useBusinessAnalytics` + Recharts (composed charts, bar, pie). KPIs derived from admin bookings.
-- **Paramètres** — `SettingsPanel` tab for editing `benefit_marge` (the agency markup %) stored in the backend; changes take effect immediately via `useSettings` which syncs `apiClient.setBenefitRate()`.
+- **Paramètres** — `SettingsPanel` tab: (1) `benefit_marge` editor — changes take effect immediately via `useSettings` which clears `apiClient` cache + invalidates `hotelSearch`; (2) contact info form (`contact_phone`, `contact_whatsapp`, `contact_email`) — separate save button with `isContactDirty` guard.
+- **Fournisseurs** (`SuppliersPanel`) — supplier mode/priority/markup/timeout editor; mode → live requires explicit confirmation dialog; inline health check per supplier; 24h stats table (calls, errors, p95ms, win rate).
+- **Taux de change** (`FxRatesPanel`) — inline FX rate editor with history; pencil opens input, Enter saves.
+- **Mapping hôtels** (`HotelMappingPanel`) — pending match review queue; status + supplier filters; confirm/reject actions for pending rows.
 
 Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFIRMED triggers the iPro side; the AllezGo backend status is always updated first regardless.
 
@@ -216,15 +221,20 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 - `dateHelpers.js` — French-locale date formatting (`formatDate`), API date serialization (`formatDateForAPI` → `YYYY-MM-DD` local time), calendar math. Import `API_DATE_REGEX` as the single source of truth for date validation.
 - `validateVisaData.js` — e-visa form field validation.
 
-**`src/ui/`** — reusable presentational primitives: `Button`, `Loader`, `Stars`, `Gallery`, `HotelCarrousel`, `HotelsListView`, `Carrousel`, `PartnerCarrousel`.
+**`src/ui/`** — reusable presentational primitives: `Button`, `Loader`, `PageLoader`, `Stars`, `Gallery`, `HotelCarrousel`, `HotelsListView`, `Carrousel`, `PartnerCarrousel`.
 
 ### Loading Pattern Convention
+- **`<PageLoader>`** (`src/ui/PageLoader.jsx`) — animated airplane GIF loader, 4 variants:
+  - Default (no props) — full-page `<Suspense>` fallback and route transitions (`App.jsx`).
+  - `section` — section-height loading inside a page zone (e.g. `HotelsSearchResultsPage`).
+  - `overlay` — fixed backdrop + floating card for search overlays.
+  - `compact` — smaller inline variant for admin panels.
 - **Skeletons** (layout-accurate, animate-pulse) for page-level initial loads. All live in `src/components/`:
   - `SearchResultsSkeleton` — sidebar + search bar + 3 hotel card stubs; used on `SearchResultsPage`.
   - `HotelShowcaseSkeleton` — section header + 3-column card grid × 2; used on `HotelShowcase`.
   - `OrganizedTripsSkeleton` — card grid stubs; used on `OrganizedTrips` (list page).
   - `OrganizedTripSkeleton` — hero + content stubs; used on `OrganizedTrip` (detail page).
-- **`<Loader>` spinner** only for in-button/inline/overlay scenarios (e.g., a button's own pending state). Do not use `<Loader>` as a page-level loading fallback.
+- **`<Loader>` spinner** only for in-button/inline/modal scenarios (e.g., a button's own pending state, modal confirmation spinners). Do not use `<Loader>` as a page-level or overlay loading fallback — use `<PageLoader>` instead.
 
 **`src/components/booking/`** — booking-flow UI subcomponents: `DateRangePicker` (wraps `react-day-picker`), `GuestRoomSelector`, `GuestInfoForm`, `LocationSearch`, `BookingSummaryCard`, `BookingHotels`.
 
@@ -304,9 +314,14 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 
 **`src/custom-hooks/useBusinessAnalytics.js`** (`useBusinessAnalytics(bookings, selectedYear)`)  
 - Pure computation hook (no network calls); derives KPIs, monthly revenue, status breakdown, top destinations, and seasonal pattern from admin bookings. Reads `benefit_marge` from `useSettings`.
+- Margin formula (Phase 7 fix): uses stored `marginDzd` for Phase 5+ bookings; falls back to `clientPrice × r / (1 + r)` for legacy rows (not `clientPrice × r`).
+- Phase 7 KPIs: `supplierWins` (object keyed by supplier code), `avgSavingsPct`, `shareWithAlternative` (% of confirmed-with-supplier bookings that used a non-iPro supplier).
 
 **`src/custom-hooks/useBookingValidation.js`** (`useBookingValidation()`)  
 - Returns `validateSearch({ selectedCity, selectedHotel, range, rooms })` — shows toast and returns `false` on invalid input for the search form.
+
+**`src/custom-hooks/useVisitorStats.js`**  
+- Fetches `GET /api/analytics/stats` (admin-only); query key `["visitor-stats"]`. Used alongside `useBusinessAnalytics` in the admin Statistiques tab.
 
 **`src/custom-hooks/useDebounce.js`** — generic debounce primitive used by `useDebouncedHotelSearch`.
 
@@ -333,7 +348,7 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 
 ## Known Constraints
 
-- **Tunisian city IDs hardcoded** as `[34, 35, 36, 37, 38]` in `ApiClient.js` and booking hooks — update if market expands.
+- **Tunisian city IDs** — authoritative list is `TUNISIAN_CITY_IDS` in `allez-go_backend/src/suppliers/core/constants.ts`; client-side market injection was removed in Phase 6. Update the backend constant if market expands.
 - **Max 300 hotels per explicit-ID search** — configured in `ApiClient::CONFIG.LIMITS`.
 - **JWT decoded manually** (no library) — assumes standard HS256 payload claims.
 - **Markup** — `benefit_marge` is stored in the backend's `Settings` table and applied server-side. Prices returned by `ApiClient.js` already include the markup. Never recalculate in the booking flow.
