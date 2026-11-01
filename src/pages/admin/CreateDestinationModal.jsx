@@ -54,13 +54,33 @@ export default function CreateDestinationModal({ isOpen, onClose }) {
     };
 
     const handleAddAccommodation = () => {
-        setAccommodations([...accommodations, { location: '', hotel: '', stars: 3, nights: 1 }]);
+        setAccommodations([...accommodations, { location: '', hotel: '', stars: 3, nights: 1, prices: [] }]);
     };
 
     const updateAccommodation = (index, field, value) => {
         const newAcc = [...accommodations];
         newAcc[index][field] = field === 'stars' || field === 'nights' ? Number(value) : value;
         setAccommodations(newAcc);
+    };
+
+    const addPrice = (accIdx) => {
+        const updated = [...accommodations];
+        updated[accIdx] = { ...updated[accIdx], prices: [...(updated[accIdx].prices ?? []), { roomType: 'double', pricePerAdult: 0, currency: 'DZD' }] };
+        setAccommodations(updated);
+    };
+
+    const updatePrice = (accIdx, priceIdx, field, value) => {
+        const updated = [...accommodations];
+        const prices = [...(updated[accIdx].prices ?? [])];
+        prices[priceIdx] = { ...prices[priceIdx], [field]: value };
+        updated[accIdx] = { ...updated[accIdx], prices };
+        setAccommodations(updated);
+    };
+
+    const removePrice = (accIdx, priceIdx) => {
+        const updated = [...accommodations];
+        updated[accIdx] = { ...updated[accIdx], prices: (updated[accIdx].prices ?? []).filter((_, i) => i !== priceIdx) };
+        setAccommodations(updated);
     };
 
     const handleAddItinerary = () => {
@@ -88,8 +108,6 @@ export default function CreateDestinationModal({ isOpen, onClose }) {
             // 1. Validation
             const name = formData.get('name');
             if (!name) return { success: false, error: "Veuillez remplir le Nom de la destination (Onglet 1)." };
-            if (itineraries.length === 0) return { success: false, error: "Veuillez ajouter au moins un jour d'itinéraire (Onglet 5)." };
-
             const imageFile = formData.get('image_file');
             if (!imageFile || imageFile.size === 0)
                 return { success: false, error: "Veuillez sélectionner une image (Onglet 1)." };
@@ -465,7 +483,7 @@ export default function CreateDestinationModal({ isOpen, onClose }) {
                                 ) : (
                                     <div className="space-y-4">
                                         {accommodations.map((acc, index) => (
-                                            <div key={index} className="flex gap-4 items-start bg-white p-4 border border-sky-100 rounded-xl shadow-sm relative">
+                                            <div key={index} className="bg-white p-4 border border-sky-100 rounded-xl shadow-sm relative">
                                                 <button type="button" onClick={() => setAccommodations(accommodations.filter((_, i) => i !== index))} className="absolute top-4 right-4 text-slate-400 hover:text-red-500 transition-colors p-1 bg-slate-50 hover:bg-red-50 rounded-md">
                                                     <Trash2 size={16} />
                                                 </button>
@@ -485,6 +503,64 @@ export default function CreateDestinationModal({ isOpen, onClose }) {
                                                     <div>
                                                         <label className="block text-xs font-semibold text-slate-500 mb-1">Nombre de nuits</label>
                                                         <input type="number" min="1" value={acc.nights} onChange={(e) => updateAccommodation(index, 'nights', e.target.value)} onKeyDown={preventEnterSubmit} className="block w-full px-3 py-2 text-sm border border-sky-100 rounded-lg focus:ring-1 focus:ring-sky-500 outline-none" required />
+                                                    </div>
+                                                </div>
+                                                {/* Per-hotel price grid */}
+                                                <div className="mt-3 pt-3 border-t border-sky-50">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="text-xs font-semibold text-slate-600">Tarifs par type de chambre</span>
+                                                        <button type="button" onClick={() => addPrice(index)} className="flex items-center gap-1 px-2 py-1 text-xs font-semibold bg-sky-50 text-sky-700 hover:bg-sky-100 rounded-lg transition-colors">
+                                                            <Plus size={12} /> Ajouter un tarif
+                                                        </button>
+                                                    </div>
+                                                    {(acc.prices ?? []).length === 0 && (
+                                                        <p className="text-xs text-slate-400 italic">Aucun tarif — utilisera les tarifs généraux du voyage.</p>
+                                                    )}
+                                                    <div className="space-y-2">
+                                                        {(acc.prices ?? []).map((p, pi) => (
+                                                            <div key={pi} className="bg-slate-50 rounded-lg p-2.5 space-y-2">
+                                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 items-end">
+                                                                    <div>
+                                                                        <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Type</label>
+                                                                        <select value={p.roomType} onChange={(e) => updatePrice(index, pi, 'roomType', e.target.value)} className="block w-full px-2 py-1.5 text-xs border border-sky-100 rounded-md bg-white focus:ring-1 focus:ring-sky-500 outline-none">
+                                                                            <option value="double">Double</option>
+                                                                            <option value="triple">Triple</option>
+                                                                            <option value="single">Single</option>
+                                                                            <option value="quadruple">Quadruple</option>
+                                                                        </select>
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Prix / adulte</label>
+                                                                        <input type="number" min="0" value={p.pricePerAdult ?? ''} onKeyDown={preventEnterSubmit} onChange={(e) => updatePrice(index, pi, 'pricePerAdult', Number(e.target.value))} className="block w-full px-2 py-1.5 text-xs border border-sky-100 rounded-md focus:ring-1 focus:ring-sky-500 outline-none" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Prix promo</label>
+                                                                        <input type="number" min="0" value={p.promoPrice ?? ''} onKeyDown={preventEnterSubmit} onChange={(e) => updatePrice(index, pi, 'promoPrice', e.target.value ? Number(e.target.value) : null)} placeholder="Optionnel" className="block w-full px-2 py-1.5 text-xs border border-sky-100 rounded-md focus:ring-1 focus:ring-sky-500 outline-none" />
+                                                                    </div>
+                                                                    <div className="flex items-end gap-1.5">
+                                                                        <div className="flex-1">
+                                                                            <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Label promo</label>
+                                                                            <input type="text" value={p.promoLabel ?? ''} onKeyDown={preventEnterSubmit} onChange={(e) => updatePrice(index, pi, 'promoLabel', e.target.value || null)} placeholder="Ex: Early Booking" className="block w-full px-2 py-1.5 text-xs border border-sky-100 rounded-md focus:ring-1 focus:ring-sky-500 outline-none" />
+                                                                        </div>
+                                                                        <button type="button" onClick={() => removePrice(index, pi)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors shrink-0">
+                                                                            <Trash2 size={13} />
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                                {p.promoPrice != null && p.promoPrice !== '' && p.promoPrice !== 0 && (
+                                                                    <div className="grid grid-cols-2 gap-2">
+                                                                        <div>
+                                                                            <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Promo du</label>
+                                                                            <input type="date" value={p.promoStartsAt ?? ''} onChange={(e) => updatePrice(index, pi, 'promoStartsAt', e.target.value || null)} className="block w-full px-2 py-1.5 text-xs border border-sky-100 rounded-md focus:ring-1 focus:ring-sky-500 outline-none" />
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Au</label>
+                                                                            <input type="date" value={p.promoEndsAt ?? ''} onChange={(e) => updatePrice(index, pi, 'promoEndsAt', e.target.value || null)} className="block w-full px-2 py-1.5 text-xs border border-sky-100 rounded-md focus:ring-1 focus:ring-sky-500 outline-none" />
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
                                                     </div>
                                                 </div>
                                             </div>

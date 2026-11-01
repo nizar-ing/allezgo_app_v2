@@ -26,12 +26,22 @@ function DestinationCard({
     const currency = pricing?.currency || 'DZD';
 
     const lowestPrice = useMemo(() => {
+        const today = new Date().toISOString().slice(0, 10);
+        const perHotel = accommodations.flatMap((acc) =>
+            (acc.prices ?? []).map((p) => {
+                const promoOn = p.promoPrice != null &&
+                    (!p.promoStartsAt || p.promoStartsAt <= today) &&
+                    (!p.promoEndsAt || p.promoEndsAt >= today);
+                return promoOn ? Number(p.promoPrice) : Number(p.pricePerAdult);
+            })
+        ).filter((v) => v > 0);
+        if (perHotel.length) return Math.min(...perHotel);
+        // fall back to trip-level pricing (legacy / trips without per-hotel prices)
         if (!pricing) return null;
-        const candidates = [
-            pricing.double, pricing.triple, pricing.single,
-        ].filter((v) => typeof v === 'number' && v > 0);
+        const candidates = [pricing.double, pricing.triple, pricing.single]
+            .filter((v) => typeof v === 'number' && v > 0);
         return candidates.length ? Math.min(...candidates) : null;
-    }, [pricing]);
+    }, [pricing, accommodations]);
 
     const mainPriceRows = useMemo(() => {
         if (!pricing) return [];

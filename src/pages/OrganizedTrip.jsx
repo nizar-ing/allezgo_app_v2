@@ -28,6 +28,18 @@ function OrganizedTrip() {
     const pricing = destination.pricing || {};
     const currency = pricing.currency || 'DZD';
 
+    const today = new Date().toISOString().slice(0, 10);
+
+    /** Effective price for one AccommodationPrice row (promo if active, else base). */
+    const effectivePrice = (p) => {
+        const promoOn = p.promoPrice != null &&
+            (!p.promoStartsAt || p.promoStartsAt <= today) &&
+            (!p.promoEndsAt || p.promoEndsAt >= today);
+        return { price: promoOn ? Number(p.promoPrice) : Number(p.pricePerAdult), promoOn, p };
+    };
+
+    const ROOM_LABELS = { single: 'Single', double: 'Double', triple: 'Triple', quadruple: 'Quadruple' };
+
     const mainPriceRows = [
         { label: 'Chambre Double', value: pricing.double },
         { label: 'Chambre Triple', value: pricing.triple },
@@ -164,40 +176,77 @@ function OrganizedTrip() {
                                     Hébergement
                                 </h2>
                                 <div className="space-y-3 sm:space-y-4">
-                                    {accommodations.map((acc, index) => (
-                                        <div
-                                            key={acc.id ?? index}
-                                            className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-purple-50 to-white border border-purple-100 hover:shadow-md transition-all duration-200"
-                                        >
-                                            <div className="flex items-start justify-between mb-2 gap-3">
-                                                <div className="flex items-center gap-3">
-                                                    <Hotel className="w-5 h-5 sm:w-6 sm:h-6 text-purple-500 shrink-0" />
-                                                    <div>
-                                                        <h3 className="font-bold text-gray-900 text-sm sm:text-base md:text-lg">{acc.hotel}</h3>
-                                                        {acc.location && (
-                                                            <p className="text-xs sm:text-sm text-gray-600 flex items-center gap-1 mt-0.5">
-                                                                <MapPin className="w-3 h-3 shrink-0" />
-                                                                {acc.location}
-                                                            </p>
-                                                        )}
+                                    {accommodations.map((acc, index) => {
+                                        const accPrices = (acc.prices ?? [])
+                                            .map(effectivePrice)
+                                            .sort((a, b) => a.price - b.price);
+                                        const accCurrency = accPrices[0]?.p?.currency ?? currency;
+                                        return (
+                                            <div
+                                                key={acc.id ?? index}
+                                                className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-purple-50 to-white border border-purple-100 hover:shadow-md transition-all duration-200"
+                                            >
+                                                <div className="flex items-start justify-between mb-2 gap-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <Hotel className="w-5 h-5 sm:w-6 sm:h-6 text-purple-500 shrink-0" />
+                                                        <div>
+                                                            <h3 className="font-bold text-gray-900 text-sm sm:text-base md:text-lg">{acc.hotel}</h3>
+                                                            {acc.location && (
+                                                                <p className="text-xs sm:text-sm text-gray-600 flex items-center gap-1 mt-0.5">
+                                                                    <MapPin className="w-3 h-3 shrink-0" />
+                                                                    {acc.location}
+                                                                </p>
+                                                            )}
+                                                        </div>
                                                     </div>
+                                                    {acc.stars > 0 && (
+                                                        <div className="flex items-center gap-0.5 px-2.5 py-1 bg-yellow-50 rounded-full border border-yellow-200 shrink-0">
+                                                            {[...Array(acc.stars)].map((_, i) => (
+                                                                <Star key={i} className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                {acc.stars > 0 && (
-                                                    <div className="flex items-center gap-0.5 px-2.5 py-1 bg-yellow-50 rounded-full border border-yellow-200 shrink-0">
-                                                        {[...Array(acc.stars)].map((_, i) => (
-                                                            <Star key={i} className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                                                {acc.nights > 0 && (
+                                                    <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 mb-3">
+                                                        <Bed className="w-4 h-4 text-purple-400" />
+                                                        <span className="font-medium">{acc.nights} nuits</span>
+                                                    </div>
+                                                )}
+
+                                                {/* Per-hotel prices */}
+                                                {accPrices.length > 0 && (
+                                                    <div className="mt-2 space-y-1.5">
+                                                        {accPrices.map(({ price, promoOn, p }) => (
+                                                            <div key={p.id ?? p.roomType} className="flex items-center justify-between text-xs sm:text-sm">
+                                                                <span className="text-gray-600">{ROOM_LABELS[p.roomType] ?? p.roomType}</span>
+                                                                <div className="flex items-center gap-2">
+                                                                    {promoOn && p.promoLabel && (
+                                                                        <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-semibold">{p.promoLabel}</span>
+                                                                    )}
+                                                                    {promoOn && (
+                                                                        <span className="line-through text-gray-400 text-xs">{formatPrice(Number(p.pricePerAdult), accCurrency)}</span>
+                                                                    )}
+                                                                    <span className={`font-bold ${promoOn ? 'text-green-600' : 'text-blue-600'}`}>
+                                                                        {formatPrice(price, accCurrency)}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
                                                         ))}
                                                     </div>
                                                 )}
+
+                                                {/* Réserver button per hotel */}
+                                                <Link
+                                                    to={`/voyages-organises/${destination.id}/reserver${acc.id ? `?accId=${acc.id}` : ''}`}
+                                                    className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold rounded-xl transition-colors shadow-sm"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    Réserver
+                                                </Link>
                                             </div>
-                                            {acc.nights > 0 && (
-                                                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
-                                                    <Bed className="w-4 h-4 text-purple-400" />
-                                                    <span className="font-medium">{acc.nights} nuits</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                                 {destination.mealPlan && (
                                     <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-blue-50 rounded-xl border border-blue-100">
