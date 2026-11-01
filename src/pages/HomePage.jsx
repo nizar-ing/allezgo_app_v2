@@ -7,6 +7,7 @@ import TestimonialCarousel from "../components/TestimonialsCarousel.jsx";
 import Gallery from "../ui/Gallery.jsx";
 import PartnerCarrousel from "../ui/PartnerCarrousel.jsx";
 import HotelShowcase from "../components/HotelShowcase.jsx";
+import WhyBookWithUs from "../components/WhyBookWithUs.jsx";
 
 const API_BASE = "https://api.allezgoo.com";
 
@@ -46,6 +47,7 @@ function HomePage() {
                 error={errorTestimonials}
             />
             <PartnerCarrousel />
+            <WhyBookWithUs />
         </section>
     );
 }
