@@ -87,14 +87,87 @@ export default function SettingsPanel() {
     return (
         <div className="flex gap-5 items-start">
 
-            {/* Left column: Traffic stats */}
-            <div className="flex-1 min-w-0">
+            {/* Left column: Traffic stats + Coordonnées */}
+            <div className="flex-1 min-w-0 flex flex-col gap-5">
                 <SiteStatsBox />
+
+                {/* Coordonnées */}
+                <div className="bg-white rounded-xl shadow-sm border border-sky-100/50 overflow-hidden font-sans">
+                    <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-white to-sky-50/30">
+                        <div className="flex items-center gap-2.5">
+                            <div className="h-9 w-9 rounded-lg bg-sky-100/70 flex items-center justify-center shrink-0">
+                                <Phone className="w-5 h-5 text-sky-600" />
+                            </div>
+                            <div>
+                                <h3 className="text-base font-semibold text-sky-900">Coordonnées</h3>
+                                <p className="text-xs text-gray-400 mt-0.5">Affichées sur le site et les bons</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="p-5">
+                        {loading ? (
+                            <PageLoader compact message="Chargement..." />
+                        ) : (
+                            <form onSubmit={handleContactSubmit} className="space-y-3">
+                                <div className="space-y-1.5">
+                                    <label htmlFor="contact_phone" className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                                        <Phone size={13} className="text-gray-400" /> Téléphone
+                                    </label>
+                                    <input
+                                        id="contact_phone"
+                                        type="text"
+                                        value={contactPhone}
+                                        onChange={e => { setContactPhone(e.target.value); setIsContactDirty(true); }}
+                                        placeholder="+213 770 93 25 63"
+                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 hover:border-sky-300 transition-colors"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label htmlFor="contact_whatsapp" className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                                        <MessageCircle size={13} className="text-gray-400" /> WhatsApp <span className="text-xs font-normal text-gray-400">(chiffres seuls)</span>
+                                    </label>
+                                    <input
+                                        id="contact_whatsapp"
+                                        type="text"
+                                        value={contactWhatsapp}
+                                        onChange={e => { setContactWhatsapp(e.target.value); setIsContactDirty(true); }}
+                                        placeholder="213770932563"
+                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 hover:border-sky-300 transition-colors"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label htmlFor="contact_email" className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                                        <Mail size={13} className="text-gray-400" /> Email
+                                    </label>
+                                    <input
+                                        id="contact_email"
+                                        type="email"
+                                        value={contactEmail}
+                                        onChange={e => { setContactEmail(e.target.value); setIsContactDirty(true); }}
+                                        placeholder="info@allezgoo.com"
+                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 hover:border-sky-300 transition-colors"
+                                    />
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={actionLoading || !isContactDirty}
+                                    className="w-full flex items-center justify-center gap-2 px-5 py-2.5 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors shadow-sm"
+                                >
+                                    <Save size={15} />
+                                    {actionLoading ? 'Enregistrement...' : 'Enregistrer'}
+                                </button>
+                            </form>
+                        )}
+                    </div>
+                </div>
+
             </div>
 
-            {/* Right column: App settings */}
-            <div className="w-[300px] shrink-0 flex flex-col gap-4">
-                <div className="bg-white rounded-xl shadow-sm border border-sky-100/50 overflow-hidden font-sans">
+            {/* Right column: Paramètres + Paiement */}
+            <div className="w-[400px] shrink-0 flex flex-col gap-5">
+
+            {/* Paramètres */}
+            <div className="bg-white rounded-xl shadow-sm border border-sky-100/50 overflow-hidden font-sans">
 
                     {/* Header — mirrors SiteStatsBox header style */}
                     <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-white to-sky-50/30">
@@ -185,84 +258,9 @@ export default function SettingsPanel() {
                             </div>
                         )}
                     </div>
-                </div>
             </div>
 
-            {/* Contact settings card */}
-            <div className="bg-white rounded-xl shadow-sm border border-sky-100/50 overflow-hidden font-sans">
-                <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-white to-sky-50/30">
-                    <div className="flex items-center gap-2.5">
-                        <div className="h-9 w-9 rounded-lg bg-sky-100/70 flex items-center justify-center shrink-0">
-                            <Phone className="w-5 h-5 text-sky-600" />
-                        </div>
-                        <div>
-                            <h3 className="text-base font-semibold text-sky-900">Coordonnées</h3>
-                            <p className="text-xs text-gray-400 mt-0.5">Affichées sur le site et les bons</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="p-5">
-                    {loading ? (
-                        <PageLoader compact message="Chargement..." />
-                    ) : (
-                        <form onSubmit={handleContactSubmit} className="space-y-3">
-                            <div className="space-y-1.5">
-                                <label htmlFor="contact_phone" className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                                    <Phone size={13} className="text-gray-400" /> Téléphone
-                                </label>
-                                <input
-                                    id="contact_phone"
-                                    type="text"
-                                    value={contactPhone}
-                                    onChange={e => { setContactPhone(e.target.value); setIsContactDirty(true); }}
-                                    placeholder="+213 770 93 25 63"
-                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 hover:border-sky-300 transition-colors"
-                                />
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <label htmlFor="contact_whatsapp" className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                                    <MessageCircle size={13} className="text-gray-400" /> WhatsApp <span className="text-xs font-normal text-gray-400">(chiffres seuls)</span>
-                                </label>
-                                <input
-                                    id="contact_whatsapp"
-                                    type="text"
-                                    value={contactWhatsapp}
-                                    onChange={e => { setContactWhatsapp(e.target.value); setIsContactDirty(true); }}
-                                    placeholder="213770932563"
-                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 hover:border-sky-300 transition-colors"
-                                />
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <label htmlFor="contact_email" className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                                    <Mail size={13} className="text-gray-400" /> Email
-                                </label>
-                                <input
-                                    id="contact_email"
-                                    type="email"
-                                    value={contactEmail}
-                                    onChange={e => { setContactEmail(e.target.value); setIsContactDirty(true); }}
-                                    placeholder="info@allezgoo.com"
-                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 hover:border-sky-300 transition-colors"
-                                />
-                            </div>
-
-                            <button
-                                type="submit"
-                                disabled={actionLoading || !isContactDirty}
-                                className="w-full flex items-center justify-center gap-2 px-5 py-2.5 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors shadow-sm"
-                            >
-                                <Save size={15} />
-                                {actionLoading ? 'Enregistrement...' : 'Enregistrer'}
-                            </button>
-                        </form>
-                    )}
-                </div>
-            </div>
-
-            {/* Payment settings card */}
+            {/* Paiement */}
             <div className="bg-white rounded-xl shadow-sm border border-sky-100/50 overflow-hidden font-sans">
                 <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-white to-sky-50/30">
                     <div className="flex items-center gap-2.5">
@@ -352,6 +350,8 @@ export default function SettingsPanel() {
                     )}
                 </div>
             </div>
+
+            </div>{/* /right col */}
 
         </div>
     );
