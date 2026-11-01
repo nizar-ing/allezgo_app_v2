@@ -13,8 +13,7 @@ import useSettings from "../custom-hooks/useSettings.js";
 import HotelLightCard from "../components/HotelLightCard.jsx";
 import BookingHotels from "../components/booking/BookingHotels.jsx";
 import HotelsFiltering from "../components/HotelsFiltering.jsx";
-import SearchResultsSkeleton from "../components/SearchResultsSkeleton.jsx";
-import Loader from "../ui/Loader.jsx";
+import PageLoader from "../ui/PageLoader.jsx";
 
 // ── Country banner constants ───────────────────────────────────────────────────
 const COUNTRY_BANNERS = {
@@ -22,6 +21,19 @@ const COUNTRY_BANNERS = {
     algerie: "/images/algerie_hotels.jpeg",
 };
 const FALLBACK_BANNER = "/images/tunisie_hotels.jpeg";
+
+// Maps service filter IDs (slugs) to the keyword searched inside h.Theme strings.
+// Slugs like "sport-loisirs" never match "Sport & Loisirs" via includes(); use the
+// first meaningful word instead. Single-word IDs fall back to the ID itself.
+const SERVICE_KEYWORDS = {
+    'thalasso-spa':          'thalasso',
+    'sport-loisirs':         'sport',
+    'bord-mer':              'bord',
+    'tout-inclus':           'inclus',
+    'internet-celibataires': 'libataire',
+    'degustation':           'gustation',
+    'interdit-parking':      'parking',
+};
 
 const HOTELS_PER_PAGE = 15;
 
@@ -308,6 +320,7 @@ function SearchResultsPage() {
                 availabilityStatus: transformed?.availabilityStatus ?? fallbackStatus,
                 token: sr.Token,
                 discountPercent: transformed?.maxDiscount ?? maxDiscount,
+                bestPriceAcrossSuppliers: sr.BestPriceAcrossSuppliers ?? false,
             };
 
             return {
@@ -371,9 +384,18 @@ function SearchResultsPage() {
 
         if (filters.services?.length)
             result = result.filter((h) =>
-                h.Theme?.some((theme) =>
-                    filters.services.some((s) => theme.toLowerCase().includes(s.toLowerCase()))
-                )
+                filters.services.every((s) => {
+                    const kw = (SERVICE_KEYWORDS[s] ?? s).toLowerCase();
+                    if (h.Theme?.length) {
+                        return h.Theme.some((theme) =>
+                            typeof theme === 'string'
+                                ? theme.toLowerCase().includes(kw)
+                                : String(theme?.Title ?? theme?.Name ?? '').toLowerCase().includes(kw)
+                        );
+                    }
+                    // iPro omits Theme in city-search results for most hotels; fall back to name
+                    return (h.Name ?? '').toLowerCase().includes(kw);
+                })
             );
 
         if ((filters.budgetMin ?? 0) > 0 || (filters.budgetMax ?? 1000) < 1000)
@@ -601,6 +623,8 @@ function SearchResultsPage() {
     const isError = isErrorHotels || isErrorSearch;
     const error = errorHotels || errorSearch;
 
+    if (isLoading) return <PageLoader section message="Recherche des hôtels disponibles..." />;
+
     return (
         <div className="min-h-screen w-full bg-gradient-to-br from-sky-50 via-blue-50 to-sky-100">
             {/* ── Hero Banner ─────────────────────────────────────────────────────── */}
@@ -671,9 +695,8 @@ function SearchResultsPage() {
             {/* ── Main Content ─────────────────────────────────────────────────────── */}
             <div className="w-full max-w-450 mx-auto px-2 sm:px-4 lg:px-6 xl:px-8 py-4 sm:py-6 lg:py-8">
 
-                {/* Mobile filter toggle — hidden while loading */}
-                {!isLoading && (
-                    <div className="lg:hidden mb-4">
+                {/* Mobile filter toggle */}
+                <div className="lg:hidden mb-4">
                         <button
                             onClick={() => setShowFilterSidebar(true)}
                             className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-sky-200 hover:border-sky-400 text-sky-700 font-semibold rounded-xl shadow-sm transition-all"
@@ -685,10 +708,9 @@ function SearchResultsPage() {
                             )}
                         </button>
                     </div>
-                )}
 
-                {/* Mobile filter drawer — hidden while loading */}
-                {!isLoading && showFilterSidebar && (
+                {/* Mobile filter drawer */}
+                {showFilterSidebar && (
                     <div className="fixed inset-0 z-50 lg:hidden">
                         <div className="absolute inset-0 bg-black/50" onClick={() => setShowFilterSidebar(false)} />
                         <div className="absolute left-0 top-0 bottom-0 w-80 max-w-[85vw] shadow-2xl flex flex-col">
@@ -709,9 +731,6 @@ function SearchResultsPage() {
                     </div>
                 )}
 
-                {isLoading ? (
-                    <SearchResultsSkeleton />
-                ) : (
                 <div className="flex gap-6 items-start">
 
                     {/* Desktop sidebar */}
@@ -830,7 +849,7 @@ function SearchResultsPage() {
 
                 {hasNextPage && (
                     <div ref={loadMoreRef} className="mt-6 sm:mt-8">
-                        {isFetchingNextPage ? <Loader message="Chargement de plus d'hôtels..." fullHeight={false} /> : (
+                        {isFetchingNextPage ? <PageLoader section message="Chargement de plus d'hôtels..." /> : (
                             <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg flex justify-center p-4">
                                 <button onClick={() => fetchNextPage()} className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-sky-600 hover:bg-sky-700 text-white font-bold text-base sm:text-lg rounded-lg sm:rounded-xl transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 active:scale-95">
                                     <ChevronDown size={20} className="sm:w-6 sm:h-6" />Charger plus d'hôtels
@@ -853,7 +872,6 @@ function SearchResultsPage() {
                 )}
                     </div>
                 </div>
-                )}
             </div>
         </div>
     );
