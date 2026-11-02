@@ -386,15 +386,11 @@ function SearchResultsPage() {
             result = result.filter((h) =>
                 filters.services.every((s) => {
                     const kw = (SERVICE_KEYWORDS[s] ?? s).toLowerCase();
-                    if (h.Theme?.length) {
-                        return h.Theme.some((theme) =>
-                            typeof theme === 'string'
-                                ? theme.toLowerCase().includes(kw)
-                                : String(theme?.Title ?? theme?.Name ?? '').toLowerCase().includes(kw)
-                        );
-                    }
-                    // iPro omits Theme in city-search results for most hotels; fall back to name
-                    return (h.Name ?? '').toLowerCase().includes(kw);
+                    return h.Theme?.some((theme) =>
+                        typeof theme === 'string'
+                            ? theme.toLowerCase().includes(kw)
+                            : String(theme?.Title ?? theme?.Name ?? '').toLowerCase().includes(kw)
+                    ) ?? false;
                 })
             );
 
