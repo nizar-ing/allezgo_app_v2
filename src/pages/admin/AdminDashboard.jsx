@@ -57,6 +57,7 @@ import SettingsPanel from './SettingsPanel.jsx';
 import SuppliersPanel from './SuppliersPanel.jsx';
 import FxRatesPanel from './FxRatesPanel.jsx';
 import HotelMappingPanel from './HotelMappingPanel.jsx';
+import VisaApplicationsPanel from './VisaApplicationsPanel.jsx';
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 function StatusBadge({status}) {
@@ -263,6 +264,7 @@ export default function AdminDashboard() {
     const tabs = [
         {id: 'destinations', label: 'Voyages Organisés', icon: Plane},
         {id: 'evisas', label: 'E-Visas', icon: FileText},
+        {id: 'visa-applications', label: 'Demandes Visa', icon: FileText},
         {id: 'bookings', label: 'Réservations', icon: CreditCard},
         {id: 'testimonials', label: 'Témoignages', icon: MessageSquare},
         {id: 'users', label: 'Utilisateurs', icon: Users},
@@ -827,6 +829,8 @@ export default function AdminDashboard() {
                     </div>
                 </div>
             );
+        } else if (activeTab === 'visa-applications') {
+            return <VisaApplicationsPanel />;
         } else if (activeTab === 'analytics') {
             return (
                 <div className="space-y-6">

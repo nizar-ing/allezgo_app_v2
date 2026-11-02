@@ -14,6 +14,7 @@ const ROUTES = {
   CAROUSEL: "/carousel",
   SETTINGS: "/api/settings",
   VO_BOOKINGS: "/api/vo-bookings",
+  VISA_APPLICATIONS: "/api/visa-applications",
   ANALYTICS_PAGEVIEW: "/api/analytics/pageview",
   ANALYTICS_STATS: "/api/analytics/stats",
   ANALYTICS_WILAYA_STATS: "/api/analytics/wilaya-stats",
@@ -499,6 +500,16 @@ const VoBookings = {
   create: (payload) => axiosInstance.post(ROUTES.VO_BOOKINGS, payload),
 };
 
+const VisaApplications = {
+  create: (formData) => axiosInstance.post(ROUTES.VISA_APPLICATIONS, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+  getAll: () => axiosInstance.get(ROUTES.VISA_APPLICATIONS),
+  updateStatus: (id, payload) =>
+    axiosInstance.patch(`${ROUTES.VISA_APPLICATIONS}/${id}/status`, payload),
+  getDocumentUrl: (filename) => `${ROUTES.VISA_APPLICATIONS}/document/${filename}`,
+};
+
 const Hotels = {
   /**
    * Search hotels via server-side proxy (credentials + markup applied server-side).
@@ -671,6 +682,7 @@ export const AllezGoApi = {
   client: axiosInstance,
   Destinations,
   VoBookings,
+  VisaApplications,
   EVisas,
   Testimonials,
   Users,

@@ -19,9 +19,10 @@ import {
     X,
     Loader2
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { validateVisaData } from "../utils/validateVisaData.js";
-import useEVisas from "../custom-hooks/useEVisas.js"; 
-import Loader from "../ui/Loader.jsx"; 
+import useEVisas from "../custom-hooks/useEVisas.js";
+import PageLoader from "../ui/PageLoader.jsx";
 
 /* -------------------------------------------------------------------------- */
 /* Helper Functions & Sub-Components                                          */
@@ -238,7 +239,8 @@ const MemoizedHeavyContent = memo(function MemoizedHeavyContent({
     demandeIndex,
     setDemandeIndex,
     activeTab,
-    setActiveTab
+    setActiveTab,
+    onApply,
 }) {
     return (
         <>
@@ -271,16 +273,24 @@ const MemoizedHeavyContent = memo(function MemoizedHeavyContent({
                         </div>
                     </div>
 
-                    <div className="bg-gradient-to-br from-teal-600 to-cyan-600 rounded-xl p-3 sm:p-4 shadow-xl border border-white/20 w-full sm:w-auto sm:min-w-[180px] lg:min-w-[200px]">
-                        <p className="text-cyan-100 text-xs font-medium mb-1">
-                            À partir de
-                        </p>
-                        <p className="text-white text-xl sm:text-2xl font-bold">
-                            {formatPrice(currentPrice)}
-                        </p>
-                        <p className="text-cyan-100 text-xs mt-1">
-                            par personne
-                        </p>
+                    <div className="flex flex-col gap-3 w-full sm:w-auto">
+                        <div className="bg-gradient-to-br from-teal-600 to-cyan-600 rounded-xl p-3 sm:p-4 shadow-xl border border-white/20 sm:min-w-[180px] lg:min-w-[200px]">
+                            <p className="text-cyan-100 text-xs font-medium mb-1">
+                                À partir de
+                            </p>
+                            <p className="text-white text-xl sm:text-2xl font-bold">
+                                {formatPrice(currentPrice)}
+                            </p>
+                            <p className="text-cyan-100 text-xs mt-1">
+                                par personne
+                            </p>
+                        </div>
+                        <button
+                            onClick={onApply}
+                            className="w-full py-2.5 bg-white text-sky-800 font-semibold text-sm rounded-xl hover:bg-cyan-50 transition-colors shadow border border-white/30"
+                        >
+                            Demander ce visa →
+                        </button>
                     </div>
                 </div>
             </header>
@@ -344,6 +354,7 @@ const MemoizedHeavyContent = memo(function MemoizedHeavyContent({
 /* -------------------------------------------------------------------------- */
 
 export default function EVisa() {
+    const navigate = useNavigate();
     const { data: visaData, loading, error } = useEVisas();
 
     const [sidebarIndex, setSidebarIndex] = useState(0); 
@@ -434,9 +445,7 @@ export default function EVisa() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex justify-center items-center bg-slate-50">
-                <Loader />
-            </div>
+            <PageLoader section />
         );
     }
 
@@ -548,6 +557,7 @@ export default function EVisa() {
                             setDemandeIndex={setDemandeIndex}
                             activeTab={activeTab}
                             setActiveTab={setActiveTab}
+                            onApply={() => navigate(`/e-visa/${selectedCountry.id}/demande`)}
                         />
                     </div>
                 </main>

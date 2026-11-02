@@ -19,6 +19,7 @@ const OrganizedTrips = lazy(() => import("./pages/OrganizedTrips.jsx"));
 const OrganizedTrip = lazy(() => import("./pages/OrganizedTrip.jsx"));
 const VoyageOrganiseBooking = lazy(() => import("./pages/VoyageOrganiseBooking.jsx"));
 const EVisa = lazy(() => import("./pages/E_Visa.jsx")); // ✅ Back to Lazy Loading
+const VisaDemandePage = lazy(() => import("./pages/VisaDemandePage.jsx"));
 const SignInPage = lazy(() => import("./pages/SignInPage.jsx"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage.jsx"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage.jsx"));
@@ -112,7 +113,8 @@ function App() {
             <Route path="voyages-organises/:tripId/reserver" element={<SuspenseRoute><VoyageOrganiseBooking /></SuspenseRoute>} />
 
             {/* Other pages */}
-            <Route path="e-visa" element={<EVisa />} /> {/* ✅ Renders the lazy component */}
+            <Route path="e-visa" element={<EVisa />} />
+            <Route path="e-visa/:id/demande" element={<SuspenseRoute><VisaDemandePage /></SuspenseRoute>} />
             <Route path="sign-in" element={<SignInPage />} />
             
             {/* Profile - Protected for both */}
