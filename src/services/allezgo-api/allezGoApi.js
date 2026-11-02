@@ -16,6 +16,7 @@ const ROUTES = {
   VO_BOOKINGS: "/api/vo-bookings",
   ANALYTICS_PAGEVIEW: "/api/analytics/pageview",
   ANALYTICS_STATS: "/api/analytics/stats",
+  ANALYTICS_WILAYA_STATS: "/api/analytics/wilaya-stats",
   ADMIN_SUPPLIERS: "/api/admin/suppliers",
   ADMIN_FX_RATES: "/api/admin/fx-rates",
   ADMIN_CATALOG: "/api/admin/catalog",
@@ -560,6 +561,13 @@ const Analytics = {
    * @returns {Promise<VisitorStats>}
    */
   getStats: () => axiosInstance.get(ROUTES.ANALYTICS_STATS),
+
+  /**
+   * @param {number} days
+   * @returns {Promise<{ period: number, total: number, wilayas: number, rows: { code: string, name: string, visitors: number, pageViews: number, share: number }[] }>}
+   */
+  getWilayaStats: (days = 30) =>
+    axiosInstance.get(`${ROUTES.ANALYTICS_WILAYA_STATS}?days=${days}`),
 };
 
 const Carousel = {

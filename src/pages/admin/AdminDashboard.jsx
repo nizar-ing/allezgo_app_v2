@@ -52,6 +52,7 @@ import VoucherModal from '../../components/admin/VoucherModal.jsx';
 import CancelBookingModal from "../../components/admin/CancelBookingModal.jsx";
 import CarouselAdmin from "../../components/admin/CarouselAdmin.jsx";
 import BusinessStats from './BusinessStats.jsx';
+import WilayaStats from './WilayaStats.jsx';
 import SettingsPanel from './SettingsPanel.jsx';
 import SuppliersPanel from './SuppliersPanel.jsx';
 import FxRatesPanel from './FxRatesPanel.jsx';
@@ -827,7 +828,12 @@ export default function AdminDashboard() {
                 </div>
             );
         } else if (activeTab === 'analytics') {
-            return <BusinessStats />;
+            return (
+                <div className="space-y-6">
+                    <WilayaStats />
+                    <BusinessStats />
+                </div>
+            );
         } else if (activeTab === 'suppliers') {
             return <SuppliersPanel />;
         } else if (activeTab === 'fx-rates') {
