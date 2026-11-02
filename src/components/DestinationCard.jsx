@@ -94,16 +94,16 @@ function DestinationCard({
                     style={{ backfaceVisibility: 'hidden' }}
                 >
                     {/* Hero image */}
-                    <div className="relative h-52 sm:h-56 md:h-60 overflow-hidden">
+                    <div className="relative h-64 sm:h-72 overflow-hidden">
                         <img
                             src={resolveMediaUrl(image_url) || '/placeholder-image.jpg'}
                             alt={name}
                             loading="lazy"
                             width="420"
-                            height="208"
+                            height="288"
                             className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-700"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
                         <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 right-3 sm:right-4">
                             <h3 className="text-2xl sm:text-3xl font-bold text-white mb-1 drop-shadow-lg">{name}</h3>
                             <div className="flex items-center gap-2 text-white/95">
