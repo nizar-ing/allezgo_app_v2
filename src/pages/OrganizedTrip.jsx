@@ -4,11 +4,11 @@ import {
     Plane, Hotel, Calendar, Users, MapPin, CheckCircle2,
     XCircle, Star, Utensils, Baby, Info, Phone,
     ChevronDown, ChevronUp, Globe, Bed, ShieldCheck, Compass,
+    ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { useDestination } from "../custom-hooks/useDestinations.js";
 import useSettings from "../custom-hooks/useSettings.js";
 import { resolveMediaUrl } from "../utils/resolveMediaUrl.js";
-import { formatDateForAPI } from "../utils/dateHelpers.js";
 import PageLoader from "../ui/PageLoader.jsx";
 import Button from "../ui/Button.jsx";
 
@@ -21,6 +21,7 @@ function OrganizedTrip() {
     const { settings } = useSettings();
     const waNumber = settings?.contact_whatsapp || '213770932563';
     const [expandedDay, setExpandedDay] = useState(null);
+    const [imgIdx, setImgIdx] = useState(0);
 
     if (isLoading) return <PageLoader section />;
     if (error || !destination) return <Navigate to="/not-found" replace />;
@@ -53,10 +54,13 @@ function OrganizedTrip() {
         { label: 'Bébé',              value: pricing.infant        },
     ].filter(({ value }) => typeof value === 'number' && value > 0);
 
+    const galleryUrls = destination.images?.length > 0
+        ? destination.images.map(img => img.url)
+        : (destination.image_url ? [destination.image_url] : ['/placeholder-image.jpg']);
+
     const itineraries = destination.itineraries ?? [];
     const accommodations = destination.accommodations ?? [];
 
-    const today = formatDateForAPI(new Date());
     const futureDates = (destination.departureDates ?? [])
         .filter(d => d.outbound >= today)
         .sort((a, b) => (a.outbound < b.outbound ? -1 : 1));
@@ -69,15 +73,26 @@ function OrganizedTrip() {
             <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-10 sm:pb-12">
 
                 {/* Hero */}
-                <div className="relative h-[260px] sm:h-[340px] md:h-[420px] rounded-3xl overflow-hidden mb-8 sm:mb-10 shadow-2xl group">
+                <div className="mb-8 sm:mb-10">
+                <div className="relative h-[260px] sm:h-[340px] md:h-[420px] rounded-3xl overflow-hidden shadow-2xl">
                     <img
-                        src={resolveMediaUrl(destination.image_url) || '/placeholder-image.jpg'}
+                        src={resolveMediaUrl(galleryUrls[imgIdx]) || '/placeholder-image.jpg'}
                         alt={destination.name}
                         loading="lazy"
                         width="1200"
                         height="500"
-                        className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105"
+                        className="w-full h-full object-cover transition-all duration-700"
                     />
+                    {galleryUrls.length > 1 && (
+                        <>
+                            <button type="button" onClick={() => setImgIdx(i => (i - 1 + galleryUrls.length) % galleryUrls.length)} className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 rounded-full p-1.5 text-white z-10 transition-colors">
+                                <ChevronLeft size={20} />
+                            </button>
+                            <button type="button" onClick={() => setImgIdx(i => (i + 1) % galleryUrls.length)} className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 rounded-full p-1.5 text-white z-10 transition-colors">
+                                <ChevronRight size={20} />
+                            </button>
+                        </>
+                    )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
                     <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 md:p-8 text-white">
                         <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
@@ -114,6 +129,21 @@ function OrganizedTrip() {
                             )}
                         </div>
                     </div>
+                </div>
+                {galleryUrls.length > 1 && (
+                    <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
+                        {galleryUrls.map((url, i) => (
+                            <button
+                                key={i}
+                                type="button"
+                                onClick={() => setImgIdx(i)}
+                                className={`shrink-0 w-16 h-10 rounded-lg overflow-hidden border-2 transition-colors ${i === imgIdx ? 'border-sky-500' : 'border-transparent opacity-70 hover:opacity-100'}`}
+                            >
+                                <img src={resolveMediaUrl(url)} alt="" className="w-full h-full object-cover" />
+                            </button>
+                        ))}
+                    </div>
+                )}
                 </div>
 
                 {/* Main grid */}

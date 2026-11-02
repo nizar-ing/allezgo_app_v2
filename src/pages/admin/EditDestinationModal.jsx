@@ -1,5 +1,5 @@
 import React, { useState, useActionState, useEffect } from 'react';
-import { X, Save, Globe, Plane, DollarSign, List, Home, Map, Plus, Trash2, ImageUp } from 'lucide-react';
+import { X, Save, Globe, Plane, DollarSign, List, Home, Map, Plus, Trash2, ImageUp, Images } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import AllezGoApi from "../../services/allezgo-api/allezGoApi.js";
@@ -20,6 +20,7 @@ export default function EditDestinationModal({ destination, onClose }) {
     const [itineraries, setItineraries] = useState([]);
     const [departureDates, setDepartureDates] = useState([]);
     const [visaInfo, setVisaInfo] = useState({ required: false, price: '', duration: '', notes: '' });
+    const [galleryImages, setGalleryImages] = useState([]);
     const [flightType, setFlightType] = useState('Vol direct');
 
     useEffect(() => {
@@ -35,10 +36,52 @@ export default function EditDestinationModal({ destination, onClose }) {
             const vi = destination.visaInfo;
             setVisaInfo(vi ? { required: vi.required ?? false, price: vi.price ?? '', duration: vi.duration ?? '', notes: vi.notes ?? '' } : { required: false, price: '', duration: '', notes: '' });
             setFlightType(destination.flightDetails?.type || 'Vol direct');
+            setGalleryImages(destination.images || []);
             setImagePreview(null);
             setActiveTab(1);
         }
     }, [destination]);
+
+    const handleGalleryUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+            const newImage = await AllezGoApi.Destinations.addImage(destination.id, formData);
+            setGalleryImages(prev => [...prev, newImage]);
+            queryClient.invalidateQueries({ queryKey: ['destinations'] });
+            queryClient.invalidateQueries({ queryKey: ['destination', String(destination.id)] });
+            toast.success('Photo ajoutée');
+        } catch {
+            toast.error("Erreur lors de l'ajout de la photo");
+        }
+        e.target.value = '';
+    };
+
+    const handleGalleryRemove = async (imageId) => {
+        try {
+            await AllezGoApi.Destinations.removeImage(destination.id, imageId);
+            setGalleryImages(prev => prev.filter(img => img.id !== imageId));
+            queryClient.invalidateQueries({ queryKey: ['destinations'] });
+            queryClient.invalidateQueries({ queryKey: ['destination', String(destination.id)] });
+            toast.success('Photo supprimée');
+        } catch {
+            toast.error('Erreur lors de la suppression');
+        }
+    };
+
+    const handleSetCover = async (imageId) => {
+        try {
+            await AllezGoApi.Destinations.setCover(destination.id, imageId);
+            setGalleryImages(prev => prev.map(img => ({ ...img, isCover: img.id === imageId })));
+            queryClient.invalidateQueries({ queryKey: ['destinations'] });
+            queryClient.invalidateQueries({ queryKey: ['destination', String(destination.id)] });
+            toast.success('Photo de couverture mise à jour');
+        } catch {
+            toast.error('Erreur lors de la mise à jour');
+        }
+    };
 
     const handleClose = () => {
         setImagePreview(null);
@@ -204,6 +247,7 @@ export default function EditDestinationModal({ destination, onClose }) {
         { id: 3, label: 'Détails & Inclusions', icon: List },
         { id: 4, label: 'Hébergements', icon: Home },
         { id: 5, label: 'Itinéraire', icon: Map },
+        { id: 6, label: 'Photos', icon: Images },
     ];
 
     return (
@@ -628,6 +672,43 @@ export default function EditDestinationModal({ destination, onClose }) {
                                 )}
                             </div>
 
+                            {/* Tab 6: Photos */}
+                            <div className={activeTab === 6 ? 'block' : 'hidden'}>
+                                <h4 className="text-lg font-bold text-slate-800 mb-6 border-b border-sky-50 pb-2">Galerie Photos</h4>
+                                <label className="flex items-center gap-2 cursor-pointer mb-6 px-4 py-3 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded-xl border border-dashed border-sky-300 w-fit transition-colors">
+                                    <ImageUp size={20} />
+                                    <span className="font-medium text-sm">Ajouter une photo</span>
+                                    <input type="file" accept="image/*" className="hidden" onChange={handleGalleryUpload} />
+                                </label>
+                                {galleryImages.length === 0 ? (
+                                    <div className="text-center py-10 bg-slate-50 border border-dashed border-slate-200 rounded-xl">
+                                        <Images className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                                        <p className="text-slate-500 font-medium text-sm">Aucune photo. La photo de l'Onglet 1 sert de couverture.</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                        {galleryImages.map(img => (
+                                            <div key={img.id} className="relative rounded-xl overflow-hidden aspect-video bg-slate-100 group/img">
+                                                <img src={resolveMediaUrl(img.url)} alt="" className="w-full h-full object-cover" />
+                                                {img.isCover && (
+                                                    <span className="absolute top-2 left-2 px-2 py-0.5 bg-sky-600 text-white text-xs font-semibold rounded-full">Couverture</span>
+                                                )}
+                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                                    {!img.isCover && (
+                                                        <button type="button" onClick={() => handleSetCover(img.id)} className="px-2 py-1 bg-sky-600 text-white text-xs rounded-lg font-medium">
+                                                            Couverture
+                                                        </button>
+                                                    )}
+                                                    <button type="button" onClick={() => handleGalleryRemove(img.id)} className="px-2 py-1 bg-red-600 text-white text-xs rounded-lg font-medium">
+                                                        Supprimer
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
                         </div>
 
                         {/* Modal Footer */}
@@ -638,7 +719,7 @@ export default function EditDestinationModal({ destination, onClose }) {
                                         Précédent
                                     </button>
                                 )}
-                                {activeTab < 5 && (
+                                {activeTab < 6 && (
                                     <button type="button" onClick={() => setActiveTab(activeTab + 1)} className="px-4 py-2 text-sky-700 bg-sky-100 hover:bg-sky-200 rounded-lg font-medium transition-colors">
                                         Suivant
                                     </button>

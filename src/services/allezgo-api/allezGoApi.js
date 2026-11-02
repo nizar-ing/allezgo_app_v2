@@ -300,6 +300,20 @@ const Destinations = {
     axiosInstance.post(ROUTES.DESTINATIONS_UPLOAD, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
+
+  addImage: (id, formData) =>
+    axiosInstance.post(`${ROUTES.DESTINATIONS}${withId(id)}/images`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+
+  removeImage: (id, imageId) =>
+    axiosInstance.delete(`${ROUTES.DESTINATIONS}${withId(id)}/images/${imageId}`),
+
+  setCover: (id, imageId) =>
+    axiosInstance.patch(`${ROUTES.DESTINATIONS}${withId(id)}/images/${imageId}/cover`),
+
+  reorderImages: (id, ids) =>
+    axiosInstance.patch(`${ROUTES.DESTINATIONS}${withId(id)}/images/order`, { ids }),
 };
 
 const EVisas = {

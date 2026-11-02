@@ -123,6 +123,7 @@ export function normalizeDestination(raw) {
         flightDetails:  normalizeFlightDetails(raw.flightDetails),
         departureDates: normalizeDepartureDates(raw.departureDates),
         visaInfo:       normalizeVisaInfo(raw.visaInfo),
+        images:         Array.isArray(raw.images)          ? raw.images         : [],
         accommodations: Array.isArray(raw.accommodations) ? raw.accommodations : [],
         itineraries:    Array.isArray(raw.itineraries)    ? raw.itineraries    : [],
         mainCities:     Array.isArray(raw.mainCities)     ? raw.mainCities     : [],
