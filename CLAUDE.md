@@ -55,7 +55,8 @@ User → React Router (pages + suspense)
 **`src/services/allezgo-api/allezGoApi.js`** — AllezGo custom backend
 - JWT login/register, user CRUD, destinations, e-visas, testimonials, settings.
 - Booking management with admin verification workflow. Includes `Bookings.getById(id)` and `Bookings.confirmWithAlternative(id, supplier)`.
-- Admin namespaces (Phase 7): `Suppliers` (list/update/health/stats), `Fx` (list/update FX rates), `Catalog` (matches, boardings, sync).
+- Admin namespaces (Phase 7): `Suppliers` (list/update/health/stats), `Fx` (list/update FX rates), `Catalog` (matches, boardings, sync), `Analytics` (`getWilayaStats(days)`).
+- `VisaApplications` namespace: `list()`, `updateStatus(id, dto)`, `getDocumentUrl(filename)` — used by `VisaApplicationsPanel`.
 - Emits `allezgo:refresh-data` event to trigger `GlobalCacheListener` → invalidates all React Query.
 - Exports a named `isRequestCanceled(err)` helper used by hooks to silently swallow abort-controller cancellations.
 
@@ -74,8 +75,9 @@ User → React Router (pages + suspense)
 | `/booking/:hotelId` | `BookingPage` | |
 | `/voyages-organises` | `OrganizedTrips` | List page — debounced name search + sort (price, duration, name) |
 | `/voyages-organises/:tripId` | `OrganizedTrip` | Detail — uses `useDestination(id)` from React Query |
-| `/voyages-organises/:tripId/reserver` | `VoyageOrganiseBooking` | VO booking form — departure date select, room quantities, client info, WhatsApp submit (BST-06a; BST-06b will add real API POST) |
+| `/voyages-organises/:tripId/reserver` | `VoyageOrganiseBooking` | VO booking form — departure date select, room quantities, client info, payment method select; POSTs via `AllezGoApi.VoBookings.create()` to `POST /api/vo-bookings` (BST-06b done); reads `?date=YYYY-MM-DD` to pre-select a departure date when navigated from trip detail date links |
 | `/e-visa` | `E_Visa` | |
+| `/e-visa/:id/demande` | `VisaDemandePage` | Public visa application form — name/email/phone/travel date/travelers + optional document upload; shows `VISA-XXXXX` reference on success |
 | `/sign-in` | `SignInPage` | |
 | `/profile` | `ProfilePage` | Protected: client + admin |
 | `/admin` | `AdminDashboard` | Protected: admin only |
@@ -148,6 +150,8 @@ Three-phase data assembly:
 
 **`ARRANGEMENT_KEYWORD_MAP`** — maps boarding arrangement IDs (e.g. `"petit-dejeuner"`, `"all-inclusive"`) to French/English keyword arrays. Used to match `preloadedRooms[].boardingName` when filtering by meal plan.
 
+**`SERVICE_KEYWORDS`** — maps service filter slugs (e.g. `'thalasso-spa'`, `'sport-loisirs'`) to keyword strings matched against `h.Theme` in `SearchResultsPage`. Returns `false` when `h.Theme` is absent — correct until `POST /api/admin/catalog/sync-themes` backfills hotel themes at production deploy.
+
 **`COUNTRY_BANNERS`** — maps lowercase `countryName` param (`"tunisie"`, `"algerie"`) to a banner image path for the results page header. Falls back to the Tunisian banner.
 
 ### HotelDetails Page (`/hotel/:hotelId`)
@@ -199,11 +203,12 @@ onSuccess: () => {
 - **Témoignages** — testimonial CRUD (`useTestimonials`).
 - **Utilisateurs** — user CRUD (`useUsers`).
 - **Carousel** — homepage banner image management (`CarouselAdmin`, `/carousel` endpoint).
-- **Statistiques** — `BusinessStats` page using `useBusinessAnalytics` + Recharts (composed charts, bar, pie). KPIs derived from admin bookings.
+- **Statistiques** — `BusinessStats` page using `useBusinessAnalytics` + Recharts (composed charts, bar, pie). KPIs derived from admin bookings. Also includes `WilayaStats` component: period presets (7j/30j/365j), KPI cards, top-10 wilaya bar chart, full ranked table, CSV export; calls `AllezGoApi.Analytics.getWilayaStats(days)` → `GET /api/analytics/wilaya-stats`.
 - **Paramètres** — `SettingsPanel` tab: (1) `benefit_marge` editor — changes take effect immediately via `useSettings` which clears `apiClient` cache + invalidates `hotelSearch`; (2) contact info form (`contact_phone`, `contact_whatsapp`, `contact_email`) — separate save button with `isContactDirty` guard.
 - **Fournisseurs** (`SuppliersPanel`) — supplier mode/priority/markup/timeout editor; mode → live requires explicit confirmation dialog; inline health check per supplier; 24h stats table (calls, errors, p95ms, win rate).
 - **Taux de change** (`FxRatesPanel`) — inline FX rate editor with history; pencil opens input, Enter saves.
 - **Mapping hôtels** (`HotelMappingPanel`) — pending match review queue; status + supplier filters; confirm/reject actions for pending rows.
+- **Demandes Visa** (`VisaApplicationsPanel`) — lists all visa applications; inline status + notes editing; auth-gated document download via `AllezGoApi.VisaApplications`.
 
 Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFIRMED triggers the iPro side; the AllezGo backend status is always updated first regardless.
 
@@ -216,7 +221,7 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 **`src/utils/`** — pure functions, no side effects:
 - `pricingHelpers.js` — `getStartingPrice()`, `formatPrice()`, `getStartingPriceLabel()`. Hotel pricing shapes: flat `{double, triple}` or tiered `{hotel3Star, hotel4Star, hotel5Star}`. **Destination pricing** is a separate shape: `{double, triple, single, child_under4, child_under12, second_child, infant, currency}` — all number fields optional, shown selectively by `DestinationCard` and `OrganizedTrip`.
 - `normalizeHotel.js` — `normalizeHotelForCard()` maps any raw iPro API hotel shape to the stable `HotelCard` contract used by all listing components.
-- `normalizeDestination.js` — `normalizeDestination(raw)` maps any API destination response to a stable view-model. Normalizes `pricing` (tiered→flat), `flightDetails` (legacy flat→structured), `departureDates` (string[]→`{outbound,return?}`[]), `visaInfo` (string|legacy obj→canonical shape), and all array fields (ensures `[]` fallback).
+- `normalizeDestination.js` — `normalizeDestination(raw)` maps any API destination response to a stable view-model. Normalizes `pricing` (tiered→flat), `flightDetails` (legacy flat→structured), `departureDates` (string[]→`{outbound,return?}`[]), `visaInfo` (string|legacy obj→canonical shape), and all array fields (ensures `[]` fallback). Passes `images` array through as-is (BST-05 photo gallery; `OrganizedTrip` hero becomes a carousel when `images.length > 1`, falls back to `image_url`).
 - `resolveMediaUrl.js` — `resolveMediaUrl(url)` resolves relative backend media paths to absolute URLs using `VITE_API_BASE_URL` (falls back to `https://api.allezgoo.com`). Use this instead of defining `const BACKEND_BASE` locally in each component.
 - `dateHelpers.js` — French-locale date formatting (`formatDate`), API date serialization (`formatDateForAPI` → `YYYY-MM-DD` local time), calendar math. Import `API_DATE_REGEX` as the single source of truth for date validation.
 - `validateVisaData.js` — e-visa form field validation.
