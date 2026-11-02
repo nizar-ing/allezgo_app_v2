@@ -27,7 +27,7 @@ const ROOM_LABELS = {
 export default function VoyageOrganiseBooking() {
     const { tripId } = useParams();
     const [searchParams] = useSearchParams();
-    const hotelParam = searchParams.get("hotel");
+    const hotelParam = searchParams.get("accId");
 
     const { data: destination, isLoading, error } = useDestination(tripId);
     const { settings } = useSettings();
@@ -162,256 +162,383 @@ export default function VoyageOrganiseBooking() {
         );
     }
 
+    const stepBase = futureDates.length > 0 ? 1 : 0;
+
     return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="max-w-2xl mx-auto px-4 py-6 sm:py-10">
+        <div className="min-h-screen bg-slate-50">
 
-                {/* Back link */}
-                <Link
-                    to={`/voyages-organises/${tripId}`}
-                    className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-sky-600 mb-6 transition-colors"
-                >
-                    <ChevronLeft size={16} />
-                    Retour au voyage
-                </Link>
-
-                {/* Trip header */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-                    {destination.image_url && (
-                        <img
-                            src={resolveMediaUrl(destination.image_url)}
-                            alt={destination.name}
-                            className="w-full h-36 object-cover"
-                        />
-                    )}
-                    <div className="p-4 sm:p-5">
-                        <h1 className="text-lg sm:text-xl font-bold text-gray-900">{destination.name}</h1>
-                        <p className="text-sm text-gray-500 mt-0.5">
-                            {destination.duration?.days} jours · Départ de {destination.departureFrom}
-                        </p>
-                        {selectedAcc && (
-                            <p className="text-xs text-sky-600 mt-1 font-medium">
-                                Hébergement sélectionné : {selectedAcc.hotel}
-                            </p>
+            {/* ── Hero banner ── */}
+            <div className="bg-gradient-to-br from-[#0c1a2e] via-[#0e2647] to-[#0c1a2e] pb-16 pt-8 px-4">
+                <div className="max-w-5xl mx-auto">
+                    <Link
+                        to={`/voyages-organises/${tripId}`}
+                        className="inline-flex items-center gap-1.5 text-sm text-sky-400/80 hover:text-sky-300 mb-8 transition-colors"
+                    >
+                        <ChevronLeft size={16} />
+                        Retour au voyage
+                    </Link>
+                    <p className="text-sky-400 text-[11px] uppercase tracking-[0.2em] font-bold mb-2">
+                        Réservation en ligne
+                    </p>
+                    <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">
+                        {destination.name}
+                    </h1>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-slate-400 text-sm">
+                        {destination.duration?.days && (
+                            <span className="flex items-center gap-1.5">
+                                <Calendar className="w-3.5 h-3.5 text-sky-500" />
+                                {destination.duration.days} jours
+                            </span>
                         )}
+                        {destination.departureFrom && <span>Départ de {destination.departureFrom}</span>}
+                        {destination.airline && <span>{destination.airline}</span>}
                     </div>
                 </div>
+            </div>
 
-                <form onSubmit={handleSubmit} noValidate className="space-y-6">
+            {/* ── Content pulled up over hero ── */}
+            <div className="max-w-5xl mx-auto px-4 pb-12 -mt-8">
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 lg:gap-8 items-start">
 
-                    {/* Departure date */}
-                    {futureDates.length > 0 && (
-                        <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
-                            <h2 className="font-bold text-gray-900 flex items-center gap-2 mb-4">
-                                <Calendar className="w-4 h-4 text-sky-500" />
-                                Date de départ *
-                            </h2>
-                            <select
-                                value={selectedDate}
-                                onChange={(e) => { setSelectedDate(e.target.value); setErrors((p) => ({ ...p, date: undefined })); }}
-                                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-400 outline-none bg-white"
-                            >
-                                <option value="">— Choisir une date —</option>
-                                {futureDates.map((d, i) => (
-                                    <option key={i} value={d.outbound}>
-                                        {fmtDate(d.outbound)}{d.return ? ` → ${fmtDate(d.return)}` : ""}
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.date && <p className="text-red-500 text-xs mt-1">{errors.date}</p>}
-                        </section>
-                    )}
+                    {/* ── Form column (3/5) ── */}
+                    <div className="lg:col-span-3">
+                        <form onSubmit={handleSubmit} noValidate className="space-y-4">
 
-                    {/* Room type */}
-                    <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
-                        <h2 className="font-bold text-gray-900 flex items-center gap-2 mb-4">
-                            <Users className="w-4 h-4 text-sky-500" />
-                            Type de chambre *
-                        </h2>
-                        <div className="space-y-3">
-                            {roomLines.map((r) => (
-                                <div key={r.key} className="flex items-center justify-between gap-4">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-800">{r.label}</p>
-                                        <p className="text-xs text-gray-500">
-                                            à partir de {fmtPrice(r.price)} {currency} / pers.
-                                        </p>
+                            {/* Step 1 — Date */}
+                            {futureDates.length > 0 && (
+                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                                    <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-50">
+                                        <span className="w-7 h-7 rounded-full bg-sky-600 text-white text-xs font-bold flex items-center justify-center shrink-0">1</span>
+                                        <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                                            <Calendar className="w-4 h-4 text-sky-500" />
+                                            Date de départ *
+                                        </h2>
                                     </div>
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        <button
-                                            type="button"
-                                            onClick={() => setRooms((p) => ({ ...p, [r.key]: Math.max(0, (p[r.key] ?? 0) - 1) }))}
-                                            className="w-8 h-8 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100 font-bold text-lg flex items-center justify-center"
-                                        >−</button>
-                                        <span className="w-6 text-center text-sm font-semibold">{r.qty}</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => setRooms((p) => ({ ...p, [r.key]: (p[r.key] ?? 0) + 1 }))}
-                                            className="w-8 h-8 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100 font-bold text-lg flex items-center justify-center"
-                                        >+</button>
+                                    <div className="p-5">
+                                        <select
+                                            value={selectedDate}
+                                            onChange={(e) => { setSelectedDate(e.target.value); setErrors((p) => ({ ...p, date: undefined })); }}
+                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-400 outline-none bg-white"
+                                        >
+                                            <option value="">— Choisir une date —</option>
+                                            {futureDates.map((d, i) => (
+                                                <option key={i} value={d.outbound}>
+                                                    {fmtDate(d.outbound)}{d.return ? ` → ${fmtDate(d.return)}` : ""}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {errors.date && <p className="text-red-500 text-xs mt-2">{errors.date}</p>}
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                        {errors.rooms && <p className="text-red-500 text-xs mt-2">{errors.rooms}</p>}
-                        {total > 0 && (
-                            <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between text-sm font-bold text-gray-900">
-                                <span>Total estimé</span>
-                                <span>{fmtPrice(total)} {currency}</span>
-                            </div>
-                        )}
-                    </section>
+                            )}
 
-                    {/* Client info */}
-                    <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
-                        <h2 className="font-bold text-gray-900 mb-4">Informations Client</h2>
-                        <div className="space-y-3">
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-600 mb-1">Nom & Prénom *</label>
-                                <input
-                                    type="text"
-                                    value={client.nom}
-                                    onChange={(e) => { setClient((p) => ({ ...p, nom: e.target.value })); setErrors((p) => ({ ...p, nom: undefined })); }}
-                                    placeholder="Ex : Amir Benali"
-                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-400 outline-none"
-                                />
-                                {errors.nom && <p className="text-red-500 text-xs mt-1">{errors.nom}</p>}
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-600 mb-1">GSM *</label>
-                                <input
-                                    type="tel"
-                                    value={client.gsm}
-                                    onChange={(e) => { setClient((p) => ({ ...p, gsm: e.target.value })); setErrors((p) => ({ ...p, gsm: undefined })); }}
-                                    placeholder="Ex : 0661234567"
-                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-400 outline-none"
-                                />
-                                {errors.gsm && <p className="text-red-500 text-xs mt-1">{errors.gsm}</p>}
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-600 mb-1">Email</label>
-                                <input
-                                    type="email"
-                                    value={client.email}
-                                    onChange={(e) => { setClient((p) => ({ ...p, email: e.target.value })); setErrors((p) => ({ ...p, email: undefined })); }}
-                                    placeholder="optionnel"
-                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-400 outline-none"
-                                />
-                                {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-600 mb-1">Adresse</label>
-                                <input
-                                    type="text"
-                                    value={client.adresse}
-                                    onChange={(e) => setClient((p) => ({ ...p, adresse: e.target.value }))}
-                                    placeholder="optionnel"
-                                    maxLength={255}
-                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-400 outline-none"
-                                />
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* Commentaire */}
-                    <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
-                        <h2 className="font-bold text-gray-900 flex items-center gap-2 mb-4">
-                            <MessageSquare className="w-4 h-4 text-sky-500" />
-                            Commentaire
-                        </h2>
-                        <textarea
-                            value={commentaire}
-                            onChange={(e) => setCommentaire(e.target.value)}
-                            rows={3}
-                            maxLength={1000}
-                            placeholder="Demandes spéciales, informations complémentaires…"
-                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-400 outline-none resize-none"
-                        />
-                        <p className="text-xs text-gray-400 text-right mt-1">{commentaire.length}/1000</p>
-                    </section>
-
-                    {/* Mode de paiement */}
-                    <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
-                        <h2 className="font-bold text-gray-900 flex items-center gap-2 mb-4">
-                            <CreditCard className="w-4 h-4 text-sky-500" />
-                            Mode de paiement
-                        </h2>
-                        <div className="flex rounded-xl border border-gray-200 overflow-hidden text-sm font-semibold mb-4">
-                            {[
-                                { value: "AGENCE",   label: "Paiement à l'agence" },
-                                { value: "VIREMENT", label: "Versement bancaire" },
-                            ].map((opt) => (
-                                <button
-                                    key={opt.value}
-                                    type="button"
-                                    onClick={() => setPaiement(opt.value)}
-                                    className={`flex-1 py-2.5 transition-colors ${paiement === opt.value ? "bg-sky-600 text-white" : "text-gray-600 hover:bg-gray-50"}`}
-                                >
-                                    {opt.label}
-                                </button>
-                            ))}
-                        </div>
-                        {paiement === "VIREMENT" && (settings?.baridimob_number || settings?.bank_rib) && (
-                            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                                <p className="text-xs font-semibold text-blue-700 uppercase flex items-center gap-1.5 mb-3">
-                                    <Info size={12} />
-                                    Coordonnées de paiement
-                                </p>
-                                {settings.baridimob_number && (
-                                    <div className="mb-3">
-                                        <p className="text-xs text-gray-500 mb-0.5">BaridiMob / CCP</p>
-                                        <p className="text-sm font-mono font-semibold text-gray-800">{settings.baridimob_number}</p>
-                                        {settings.baridimob_holder && (
-                                            <p className="text-xs text-gray-500 mt-0.5">Au nom de : {settings.baridimob_holder}</p>
-                                        )}
+                            {/* Step 2 — Rooms */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                                <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-50">
+                                    <span className="w-7 h-7 rounded-full bg-sky-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                                        {stepBase + 1}
+                                    </span>
+                                    <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                                        <Users className="w-4 h-4 text-sky-500" />
+                                        Type de chambre *
+                                    </h2>
+                                </div>
+                                <div className="p-5 space-y-3">
+                                    {roomLines.map((r) => (
+                                        <div key={r.key} className="flex items-center justify-between gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100 hover:border-sky-100 transition-colors">
+                                            <div>
+                                                <p className="text-sm font-semibold text-gray-800">{r.label}</p>
+                                                <p className="text-xs font-bold text-sky-600 mt-0.5">{fmtPrice(r.price)} {currency} / pers.</p>
+                                            </div>
+                                            <div className="flex items-center gap-3 shrink-0">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setRooms((p) => ({ ...p, [r.key]: Math.max(0, (p[r.key] ?? 0) - 1) }))}
+                                                    className="w-9 h-9 rounded-full border-2 border-gray-200 text-gray-500 hover:border-sky-400 hover:text-sky-600 font-bold text-lg flex items-center justify-center transition-colors"
+                                                >−</button>
+                                                <span className={`w-8 h-8 flex items-center justify-center text-sm font-black rounded-lg transition-all ${r.qty > 0 ? "bg-sky-600 text-white shadow-sm" : "text-gray-900"}`}>
+                                                    {r.qty}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setRooms((p) => ({ ...p, [r.key]: (p[r.key] ?? 0) + 1 }))}
+                                                    className="w-9 h-9 rounded-full border-2 border-gray-200 text-gray-500 hover:border-sky-400 hover:text-sky-600 font-bold text-lg flex items-center justify-center transition-colors"
+                                                >+</button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                {errors.rooms && <p className="text-red-500 text-xs px-5 pb-3">{errors.rooms}</p>}
+                                {total > 0 && (
+                                    <div className="mx-5 mb-5 pt-3 border-t border-gray-100 flex justify-between items-center">
+                                        <span className="text-sm font-bold text-gray-600">Sous-total</span>
+                                        <span className="text-lg font-black text-sky-600">{fmtPrice(total)} {currency}</span>
                                     </div>
                                 )}
-                                {settings.bank_rib && (
+                            </div>
+
+                            {/* Step 3 — Client info */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                                <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-50">
+                                    <span className="w-7 h-7 rounded-full bg-sky-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                                        {stepBase + 2}
+                                    </span>
+                                    <h2 className="font-bold text-gray-900">Informations Client</h2>
+                                </div>
+                                <div className="p-5 space-y-3">
                                     <div>
-                                        {settings.bank_name && (
-                                            <p className="text-xs text-gray-500 mb-0.5">{settings.bank_name}</p>
-                                        )}
-                                        <p className="text-sm font-mono font-semibold text-gray-800">{settings.bank_rib}</p>
-                                        {settings.bank_holder && (
-                                            <p className="text-xs text-gray-500 mt-0.5">Au nom de : {settings.bank_holder}</p>
-                                        )}
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Nom & Prénom *</label>
+                                        <input
+                                            type="text"
+                                            value={client.nom}
+                                            onChange={(e) => { setClient((p) => ({ ...p, nom: e.target.value })); setErrors((p) => ({ ...p, nom: undefined })); }}
+                                            placeholder="Ex : Amir Benali"
+                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-400 outline-none transition-shadow"
+                                        />
+                                        {errors.nom && <p className="text-red-500 text-xs mt-1">{errors.nom}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">GSM *</label>
+                                        <input
+                                            type="tel"
+                                            value={client.gsm}
+                                            onChange={(e) => { setClient((p) => ({ ...p, gsm: e.target.value })); setErrors((p) => ({ ...p, gsm: undefined })); }}
+                                            placeholder="Ex : 0661234567"
+                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-400 outline-none transition-shadow"
+                                        />
+                                        {errors.gsm && <p className="text-red-500 text-xs mt-1">{errors.gsm}</p>}
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Email</label>
+                                            <input
+                                                type="email"
+                                                value={client.email}
+                                                onChange={(e) => { setClient((p) => ({ ...p, email: e.target.value })); setErrors((p) => ({ ...p, email: undefined })); }}
+                                                placeholder="optionnel"
+                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-400 outline-none transition-shadow"
+                                            />
+                                            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Adresse</label>
+                                            <input
+                                                type="text"
+                                                value={client.adresse}
+                                                onChange={(e) => setClient((p) => ({ ...p, adresse: e.target.value }))}
+                                                placeholder="optionnel"
+                                                maxLength={255}
+                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-400 outline-none transition-shadow"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Step 4 — Comment (optional, muted badge) */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                                <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-50">
+                                    <span className="w-7 h-7 rounded-full bg-slate-200 text-slate-500 text-xs font-bold flex items-center justify-center shrink-0">
+                                        {stepBase + 3}
+                                    </span>
+                                    <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                                        <MessageSquare className="w-4 h-4 text-sky-500" />
+                                        Commentaire
+                                        <span className="text-[10px] font-normal text-gray-400 ml-1">optionnel</span>
+                                    </h2>
+                                </div>
+                                <div className="p-5">
+                                    <textarea
+                                        value={commentaire}
+                                        onChange={(e) => setCommentaire(e.target.value)}
+                                        rows={3}
+                                        maxLength={1000}
+                                        placeholder="Demandes spéciales, informations complémentaires…"
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-400 outline-none resize-none transition-shadow"
+                                    />
+                                    <p className="text-xs text-gray-400 text-right mt-1">{commentaire.length}/1000</p>
+                                </div>
+                            </div>
+
+                            {/* Step 5 — Payment */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                                <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-50">
+                                    <span className="w-7 h-7 rounded-full bg-sky-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                                        {stepBase + 4}
+                                    </span>
+                                    <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                                        <CreditCard className="w-4 h-4 text-sky-500" />
+                                        Mode de paiement
+                                    </h2>
+                                </div>
+                                <div className="p-5">
+                                    <div className="grid grid-cols-2 gap-3 mb-4">
+                                        {[
+                                            { value: "AGENCE",   label: "À l'agence" },
+                                            { value: "VIREMENT", label: "Virement bancaire" },
+                                        ].map((opt) => (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                onClick={() => setPaiement(opt.value)}
+                                                className={`py-3 px-4 rounded-xl text-sm font-semibold border-2 transition-all ${paiement === opt.value ? "border-sky-500 bg-sky-50 text-sky-700 shadow-sm" : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-slate-50"}`}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {paiement === "VIREMENT" && (settings?.baridimob_number || settings?.bank_rib) && (
+                                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                                            <p className="text-xs font-semibold text-blue-700 uppercase flex items-center gap-1.5 mb-3">
+                                                <Info size={12} />
+                                                Coordonnées de paiement
+                                            </p>
+                                            {settings.baridimob_number && (
+                                                <div className="mb-3">
+                                                    <p className="text-xs text-gray-500 mb-0.5">BaridiMob / CCP</p>
+                                                    <p className="text-sm font-mono font-semibold text-gray-800">{settings.baridimob_number}</p>
+                                                    {settings.baridimob_holder && (
+                                                        <p className="text-xs text-gray-500 mt-0.5">Au nom de : {settings.baridimob_holder}</p>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {settings.bank_rib && (
+                                                <div>
+                                                    {settings.bank_name && <p className="text-xs text-gray-500 mb-0.5">{settings.bank_name}</p>}
+                                                    <p className="text-sm font-mono font-semibold text-gray-800">{settings.bank_rib}</p>
+                                                    {settings.bank_holder && <p className="text-xs text-gray-500 mt-0.5">Au nom de : {settings.bank_holder}</p>}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* CGV */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                                <label className="flex items-start gap-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={cgv}
+                                        onChange={(e) => { setCgv(e.target.checked); setErrors((p) => ({ ...p, cgv: undefined })); }}
+                                        className="mt-0.5 w-4 h-4 accent-sky-600 shrink-0"
+                                    />
+                                    <span className="text-sm text-gray-600">
+                                        J'accepte les{" "}
+                                        <span className="text-sky-600 font-semibold">conditions générales de vente</span>
+                                        {" "}et confirme avoir pris connaissance des informations relatives au voyage.
+                                    </span>
+                                </label>
+                                {errors.cgv && <p className="text-red-500 text-xs mt-2 ml-7">{errors.cgv}</p>}
+                            </div>
+
+                            {errors.submit && <p className="text-center text-red-500 text-sm">{errors.submit}</p>}
+
+                            {/* Tactile 3D submit button */}
+                            <button
+                                type="submit"
+                                disabled={submitting}
+                                className="w-full py-4 relative select-none font-black text-base text-white rounded-2xl bg-gradient-to-br from-sky-400 to-sky-700 shadow-[0_5px_0_#0369a1,0_8px_20px_rgba(3,105,161,0.35)] hover:shadow-[0_3px_0_#0369a1,0_5px_12px_rgba(3,105,161,0.25)] hover:translate-y-[2px] active:shadow-[0_1px_0_#0369a1,0_2px_6px_rgba(3,105,161,0.20)] active:translate-y-[4px] transition-[box-shadow,transform] duration-100 ease-out disabled:opacity-60 disabled:pointer-events-none"
+                            >
+                                {submitting ? "Envoi en cours…" : "Confirmer ma réservation"}
+                            </button>
+
+                        </form>
+                    </div>
+
+                    {/* ── Summary sidebar (2/5) ── */}
+                    <div className="lg:col-span-2 lg:sticky lg:top-6 space-y-4">
+                        <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+
+                            {/* Image hero with overlay */}
+                            <div className="relative h-52 overflow-hidden">
+                                {destination.image_url ? (
+                                    <img
+                                        src={resolveMediaUrl(destination.image_url)}
+                                        alt={destination.name}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full bg-gradient-to-br from-sky-600 to-sky-900" />
+                                )}
+                                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent" />
+                                <div className="absolute bottom-4 left-4 right-4">
+                                    <p className="text-white font-black text-xl leading-tight">{destination.name}</p>
+                                    <p className="text-sky-300 text-xs mt-1 font-medium">
+                                        {destination.duration?.days} jours · {destination.departureFrom}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="p-5 space-y-4">
+
+                                {/* Selected date */}
+                                <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                    <Calendar className="w-4 h-4 text-sky-500 shrink-0" />
+                                    {selectedDate ? (
+                                        <div>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Date de départ</p>
+                                            <p className="text-sm text-gray-800 font-semibold">{fmtDate(selectedDate)}</p>
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-gray-400 italic">Aucune date sélectionnée</p>
+                                    )}
+                                </div>
+
+                                {/* Accommodation if selected */}
+                                {selectedAcc && (
+                                    <div className="p-3 rounded-xl bg-sky-50 border border-sky-100">
+                                        <p className="text-[10px] font-bold text-sky-500 uppercase tracking-wide">Hébergement</p>
+                                        <p className="text-sm text-gray-800 font-semibold mt-0.5">{selectedAcc.hotel}</p>
                                     </div>
                                 )}
+
+                                {/* Room breakdown */}
+                                {roomLines.some((r) => r.qty > 0) ? (
+                                    <div>
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Chambres</p>
+                                        <div className="space-y-2">
+                                            {roomLines.filter((r) => r.qty > 0).map((r) => (
+                                                <div key={r.key} className="flex justify-between items-center text-sm">
+                                                    <span className="text-gray-600">
+                                                        <span className="font-bold text-gray-900">{r.qty}×</span>{" "}
+                                                        {r.label.replace("Adulte en chambre ", "").replace("Adulte en ", "")}
+                                                    </span>
+                                                    <span className="font-bold text-gray-800">{fmtPrice(r.qty * r.price)} {currency}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-gray-400 italic text-center py-1">Sélectionnez vos chambres</p>
+                                )}
+
+                                {/* Total */}
+                                {total > 0 && (
+                                    <div className="pt-4 border-t-2 border-dashed border-gray-100">
+                                        <div className="flex justify-between items-end">
+                                            <div>
+                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Total estimé</p>
+                                                <p className="text-[10px] text-gray-400">Toutes taxes incluses</p>
+                                            </div>
+                                            <p className="text-2xl font-black text-sky-600 leading-none">
+                                                {fmtPrice(total)}{" "}
+                                                <span className="text-sm font-bold">{currency}</span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Guarantee */}
+                                <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100 rounded-xl">
+                                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                                    <p className="text-xs text-green-700 font-semibold">Départ garanti · Paiement sécurisé</p>
+                                </div>
                             </div>
-                        )}
-                    </section>
+                        </div>
+                    </div>
 
-                    {/* CGV */}
-                    <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
-                        <label className="flex items-start gap-3 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={cgv}
-                                onChange={(e) => { setCgv(e.target.checked); setErrors((p) => ({ ...p, cgv: undefined })); }}
-                                className="mt-0.5 w-4 h-4 accent-sky-600 shrink-0"
-                            />
-                            <span className="text-sm text-gray-700">
-                                J'accepte les{" "}
-                                <span className="text-sky-600 font-semibold">conditions générales de vente</span>
-                                {" "}et confirme avoir pris connaissance des informations relatives au voyage.
-                            </span>
-                        </label>
-                        {errors.cgv && <p className="text-red-500 text-xs mt-2 ml-7">{errors.cgv}</p>}
-                    </section>
-
-                    {errors.submit && (
-                        <p className="text-center text-red-500 text-sm">{errors.submit}</p>
-                    )}
-
-                    <button
-                        type="submit"
-                        disabled={submitting}
-                        className="w-full py-4 bg-sky-600 hover:bg-sky-700 disabled:opacity-60 text-white font-bold rounded-2xl shadow-lg shadow-sky-500/30 transition-all hover:scale-[1.02] text-base"
-                    >
-                        {submitting ? "Envoi en cours…" : "Confirmer ma réservation"}
-                    </button>
-
-                </form>
+                </div>
             </div>
         </div>
     );

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { MapPin, AlertCircle, Search, SlidersHorizontal, X } from "lucide-react";
 import DestinationCard from "../components/DestinationCard.jsx";
-import OrganizedTripsSkeleton from "../components/OrganizedTripsSkeleton.jsx";
+import PageLoader from "../ui/PageLoader.jsx";
 import useDestinations from "../custom-hooks/useDestinations.js";
 import useDebounce from "../custom-hooks/useDebounce.js";
 
@@ -65,7 +65,7 @@ function OrganizedTrips() {
     const hasDestinations = Array.isArray(destinations) && destinations.length > 0;
     const hasResults = filtered.length > 0;
 
-    if (loading) return <OrganizedTripsSkeleton />;
+    if (loading) return <PageLoader section />;
 
     if (error) {
         return (
