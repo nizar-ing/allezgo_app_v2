@@ -455,19 +455,18 @@ function OrganizedTrip() {
                                             <Calendar className="w-4 h-4 text-blue-600" />
                                             Dates disponibles
                                         </h4>
-                                        <div className="space-y-2">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                             {futureDates.map((date, index) => (
-                                                <div
+                                                <Link
                                                     key={index}
-                                                    className="p-2.5 sm:p-3 rounded-xl bg-gradient-to-r from-gray-50 to-white border border-gray-200 hover:border-blue-300 transition-all duration-200"
+                                                    to={`/voyages-organises/${destination.id}/reserver?date=${date.outbound}`}
+                                                    className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-gradient-to-r from-gray-50 to-white border border-gray-200 hover:border-blue-400 hover:bg-blue-50/40 transition-all duration-200"
                                                 >
-                                                    <div className="flex items-center justify-between text-xs sm:text-sm">
-                                                        <span className="text-gray-700">
-                                                            {fmtDepartureDate(date.outbound)}{date.return && ` → ${fmtDepartureDate(date.return)}`}
-                                                        </span>
-                                                        <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-                                                    </div>
-                                                </div>
+                                                    <span className="text-gray-700 text-xs sm:text-sm">
+                                                        {fmtDepartureDate(date.outbound)}{date.return && ` → ${fmtDepartureDate(date.return)}`}
+                                                    </span>
+                                                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                                                </Link>
                                             ))}
                                         </div>
                                     </div>

@@ -32,7 +32,7 @@ export default function VoyageOrganiseBooking() {
     const { data: destination, isLoading, error } = useDestination(tripId);
     const { settings } = useSettings();
 
-    const [selectedDate, setSelectedDate] = useState("");
+    const [selectedDate, setSelectedDate] = useState(searchParams.get('date') ?? "");
     const [rooms, setRooms] = useState({});
     const [client, setClient] = useState({ nom: "", gsm: "", email: "", adresse: "" });
     const [commentaire, setCommentaire] = useState("");
