@@ -18,6 +18,9 @@ const BookingPage = lazy(() => import("./pages/BookingPage.jsx"));
 const OrganizedTrips = lazy(() => import("./pages/OrganizedTrips.jsx"));
 const OrganizedTrip = lazy(() => import("./pages/OrganizedTrip.jsx"));
 const VoyageOrganiseBooking = lazy(() => import("./pages/VoyageOrganiseBooking.jsx"));
+const Omra = lazy(() => import("./pages/Omra.jsx"));
+const OmraDetail = lazy(() => import("./pages/OmraDetail.jsx"));
+const OmraBooking = lazy(() => import("./pages/OmraBooking.jsx"));
 const EVisa = lazy(() => import("./pages/E_Visa.jsx")); // ✅ Back to Lazy Loading
 const VisaDemandePage = lazy(() => import("./pages/VisaDemandePage.jsx"));
 const SignInPage = lazy(() => import("./pages/SignInPage.jsx"));
@@ -111,6 +114,11 @@ function App() {
             <Route path="voyages-organises" element={<OrganizedTrips />} />
             <Route path="voyages-organises/:tripId" element={<OrganizedTrip />} />
             <Route path="voyages-organises/:tripId/reserver" element={<SuspenseRoute><VoyageOrganiseBooking /></SuspenseRoute>} />
+
+            {/* Omra */}
+            <Route path="omra" element={<Omra />} />
+            <Route path="omra/:tripId" element={<OmraDetail />} />
+            <Route path="omra/:tripId/reserver" element={<SuspenseRoute><OmraBooking /></SuspenseRoute>} />
 
             {/* Other pages */}
             <Route path="e-visa" element={<EVisa />} />

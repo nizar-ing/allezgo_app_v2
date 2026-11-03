@@ -22,6 +22,7 @@ export default function EditDestinationModal({ destination, onClose }) {
     const [visaInfo, setVisaInfo] = useState({ required: false, price: '', duration: '', notes: '' });
     const [galleryImages, setGalleryImages] = useState([]);
     const [flightType, setFlightType] = useState('Vol direct');
+    const [category, setCategory] = useState(destination?.category ?? 'voyage_organise');
 
     useEffect(() => {
         if (destination) {
@@ -37,6 +38,7 @@ export default function EditDestinationModal({ destination, onClose }) {
             setVisaInfo(vi ? { required: vi.required ?? false, price: vi.price ?? '', duration: vi.duration ?? '', notes: vi.notes ?? '' } : { required: false, price: '', duration: '', notes: '' });
             setFlightType(destination.flightDetails?.type || 'Vol direct');
             setGalleryImages(destination.images || []);
+            setCategory(destination.category ?? 'voyage_organise');
             setImagePreview(null);
             setActiveTab(1);
         }
@@ -106,7 +108,11 @@ export default function EditDestinationModal({ destination, onClose }) {
 
     const updateAccommodation = (index, field, value) => {
         const newAcc = [...accommodations];
-        newAcc[index][field] = field === 'stars' || field === 'nights' ? Number(value) : value;
+        newAcc[index][field] = (field === 'stars' || field === 'nights')
+            ? Number(value)
+            : field === 'distance_to_haram'
+                ? (value === '' ? null : Number(value))
+                : value;
         setAccommodations(newAcc);
     };
 
@@ -217,12 +223,17 @@ export default function EditDestinationModal({ destination, onClose }) {
                 included,
                 notIncluded,
                 keyAttractions,
-                accommodations,
+                accommodations: accommodations.map(acc => ({
+                    ...acc,
+                    holy_city: acc.holy_city || undefined,
+                    distance_to_haram: acc.distance_to_haram ?? undefined,
+                })),
                 itineraries,
+                category,
             };
 
             await AllezGoApi.Destinations.update(destination.id, payload);
-            await queryClient.invalidateQueries({ queryKey: ['destinations'] });
+            await queryClient.invalidateQueries({ queryKey: ['destinations', category] });
 
             toast.success('Destination modifiée avec succès !');
             handleClose();
@@ -309,6 +320,14 @@ export default function EditDestinationModal({ destination, onClose }) {
                                     <div className="col-span-2">
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">Nom (ex: Istanbul Evasion)</label>
                                         <input type="text" name="name" defaultValue={destination.name} onKeyDown={preventEnterSubmit} required className="block w-full px-3 py-2 border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-2 focus:ring-sky-500" />
+                                    </div>
+
+                                    <div className="col-span-2">
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">Catégorie</label>
+                                        <select value={category} onChange={(e) => setCategory(e.target.value)} className="block w-full md:w-1/2 px-3 py-2 border border-sky-100 bg-slate-50/50 rounded-lg focus:ring-2 focus:ring-sky-500">
+                                            <option value="voyage_organise">Voyage organisé</option>
+                                            <option value="omra">Omra</option>
+                                        </select>
                                     </div>
 
                                     {/* Image section */}
@@ -573,6 +592,22 @@ export default function EditDestinationModal({ destination, onClose }) {
                                                         <input type="number" min="1" value={acc.nights} onChange={(e) => updateAccommodation(index, 'nights', e.target.value)} onKeyDown={preventEnterSubmit} className="block w-full px-3 py-2 text-sm border border-sky-100 rounded-lg focus:ring-1 focus:ring-sky-500 outline-none" required />
                                                     </div>
                                                 </div>
+                                                {category === 'omra' && (
+                                                    <div className="grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-emerald-50">
+                                                        <div>
+                                                            <label className="block text-xs font-semibold text-emerald-600 mb-1">Ville sainte</label>
+                                                            <select value={acc.holy_city ?? ''} onChange={(e) => updateAccommodation(index, 'holy_city', e.target.value || null)} className="block w-full px-3 py-2 text-sm border border-emerald-100 rounded-lg focus:ring-1 focus:ring-emerald-500 outline-none bg-white">
+                                                                <option value="">— Choisir —</option>
+                                                                <option value="makkah">🕋 Makkah</option>
+                                                                <option value="madinah">🕌 Madinah</option>
+                                                            </select>
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-xs font-semibold text-emerald-600 mb-1">Distance du Haram (m)</label>
+                                                            <input type="number" min="0" value={acc.distance_to_haram ?? ''} onChange={(e) => updateAccommodation(index, 'distance_to_haram', e.target.value)} onKeyDown={preventEnterSubmit} placeholder="Ex: 500" className="block w-full px-3 py-2 text-sm border border-emerald-100 rounded-lg focus:ring-1 focus:ring-emerald-500 outline-none" />
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 {/* Per-hotel price grid */}
                                                 <div className="mt-3 pt-3 border-t border-sky-50">
                                                     <div className="flex items-center justify-between mb-2">

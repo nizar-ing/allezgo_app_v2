@@ -26,10 +26,10 @@ import {
     FaTags,
     FaBars,
     FaTimes,
-    FaWhatsapp,
     FaPassport,
     FaChevronDown,
 } from "react-icons/fa";
+import { MdMosque } from "react-icons/md";
 import HotelsPopup from "./HotelsPopup";
 import { LogIn, Plane, LogOut, User, Shield } from "lucide-react";
 import { NavLink, Link } from "react-router-dom";
@@ -194,54 +194,6 @@ const RegularMenuItem = ({ item, hoveredMenu, setHoveredMenu }) => {
     );
 };
 
-// WhatsApp external link component
-const WhatsAppMenuItem = ({ item, hoveredMenu, setHoveredMenu }) => {
-    const Icon = item.icon;
-    const isHovered = hoveredMenu === item.name;
-
-    return (
-        <div className="relative group">
-            <a
-                href={item.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Nous contacter sur WhatsApp"
-                onMouseEnter={() => setHoveredMenu(item.name)}
-                onMouseLeave={() => setHoveredMenu(null)}
-                className="relative flex items-center px-3 py-2 rounded-xl transition-all duration-300"
-                style={{
-                    transform: isHovered ? "translateY(-3px) scale(1.08)" : "translateY(0) scale(1)",
-                    boxShadow: isHovered
-                        ? "0 8px 24px rgba(37, 211, 102, 0.45), 0 0 0 4px rgba(37, 211, 102, 0.12)"
-                        : "0 2px 8px rgba(37, 211, 102, 0.2)",
-                    background: isHovered
-                        ? "linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)"
-                        : "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)",
-                }}
-            >
-                <Icon
-                    size={28}
-                    style={{
-                        color: "#25D366",
-                        filter: isHovered
-                            ? "drop-shadow(0 0 8px rgba(37, 211, 102, 0.7))"
-                            : "drop-shadow(0 1px 3px rgba(37, 211, 102, 0.3))",
-                        transform: isHovered ? "rotate(-12deg)" : "rotate(0deg)",
-                        transition: "transform 0.3s ease, filter 0.3s ease",
-                    }}
-                />
-            </a>
-            {/* Tooltip */}
-            <span
-                className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 whitespace-nowrap rounded-md bg-gray-900 px-2.5 py-1 text-xs text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-                role="tooltip"
-            >
-                Nous contacter
-                <span className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-gray-900" />
-            </span>
-        </div>
-    );
-};
 
 function Header() {
     const { isAuthenticated, user, logout } = useAuth();
@@ -286,9 +238,9 @@ function Header() {
         { name: "ACCUEIL", icon: FaHome, path: "/" },
         { name: "HOTELS", icon: FaHotel, hasSubmenu: true },
         { name: "VOYAGES ORGANISES", icon: Plane, path: "/voyages-organises" },
+        { name: "OMRA", icon: MdMosque, path: "/omra" },
         { name: "E-VISA", icon: FaPassport, path: "/e-visa" },
         { name: "OFFRES SPECIALES", icon: FaTags, path: "/offres-speciales" },
-        { name: "WhatsApp", icon: FaWhatsapp, href: "https://wa.me/213770932563", isWhatsApp: true },
     ];
 
     return (
@@ -330,14 +282,7 @@ function Header() {
                     {/* COLUMN 2 — Navigation */}
                     <nav className="flex-2 hidden md:flex justify-center items-center gap-5">
                         {menuItems.map((item) =>
-                            item.isWhatsApp ? (
-                                <WhatsAppMenuItem
-                                    key={item.name}
-                                    item={item}
-                                    hoveredMenu={hoveredMenu}
-                                    setHoveredMenu={setHoveredMenu}
-                                />
-                            ) : item.hasSubmenu ? (
+                            item.hasSubmenu ? (
                                 <MenuItemWithSubmenu
                                     key={item.name}
                                     item={item}
@@ -466,24 +411,6 @@ function Header() {
                     <nav className="flex flex-col space-y-2 py-4">
                         {menuItems.map((item) => {
                             const Icon = item.icon;
-
-                            if (item.isWhatsApp) {
-                                return (
-                                    <a
-                                        key={item.name}
-                                        href={item.href}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        aria-label="Nous contacter sur WhatsApp"
-                                        onClick={() => setIsMobileMenuOpen(false)}
-                                        className="flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-300 text-gray-700 hover:bg-green-50 hover:text-green-700"
-                                    >
-                                        <Icon className="text-xl" style={{ color: "#25D366" }} />
-                                        <span className="font-medium">0770 93 25 63</span>
-                                        <span className="ml-auto text-xs text-green-600 font-medium">WhatsApp</span>
-                                    </a>
-                                );
-                            }
 
                             if (item.hasSubmenu) {
                                 return (

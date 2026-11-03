@@ -21,6 +21,7 @@ function DestinationCard({
     accommodations = [],
     keyAttractions = [],
     itineraries = [],
+    basePath = '/voyages-organises',
 }) {
     const [isFlipped, setIsFlipped] = useState(false);
     const currency = pricing?.currency || 'DZD';
@@ -271,7 +272,7 @@ function DestinationCard({
                         {/* CTA */}
                         <div className="pt-2">
                             <Link
-                                to={`/voyages-organises/${id}`}
+                                to={`${basePath}/${id}`}
                                 onClick={(e) => e.stopPropagation()}
                                 className="w-full inline-flex justify-center items-center gap-3 text-white font-bold
                                     py-3 px-6 text-sm sm:text-base rounded-lg transition-all shadow-lg

@@ -9,9 +9,9 @@ const toApiError = (error) => ({
   data: error?.data ?? null,
 });
 
-export default function useDestinations() {
+function useDestinationsCRUD(category) {
   const queryClient = useQueryClient();
-  const QUERY_KEY = ["destinations"];
+  const QUERY_KEY = ["destinations", category];
 
   const {
     data: queryResult = {},
@@ -23,8 +23,7 @@ export default function useDestinations() {
     queryKey: QUERY_KEY,
     queryFn: async ({ signal }) => {
       try {
-        const result = await AllezGoApi.Destinations.getAll({ signal });
-        // API returns { data: Destination[], meta: {...} }; fall back to array for compat
+        const result = await AllezGoApi.Destinations.getAll({ params: { category }, signal });
         const raw = Array.isArray(result) ? result : (result?.data ?? []);
         const meta = Array.isArray(result) ? null : (result?.meta ?? null);
         return { data: raw.map(normalizeDestination), meta };
@@ -118,6 +117,14 @@ export default function useDestinations() {
     updateDestination: updateMutation.mutateAsync,
     removeDestination: removeMutation.mutateAsync,
   };
+}
+
+export default function useDestinations() {
+  return useDestinationsCRUD('voyage_organise');
+}
+
+export function useOmraDestinations() {
+  return useDestinationsCRUD('omra');
 }
 
 /**

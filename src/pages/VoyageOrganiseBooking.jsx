@@ -24,7 +24,7 @@ const ROOM_LABELS = {
     quadruple: "Adulte en chambre quadruple",
 };
 
-export default function VoyageOrganiseBooking() {
+export default function VoyageOrganiseBooking({ basePath = '/voyages-organises' }) {
     const { tripId } = useParams();
     const [searchParams] = useSearchParams();
     const hotelParam = searchParams.get("accId");
@@ -152,7 +152,7 @@ export default function VoyageOrganiseBooking() {
                         </div>
                     )}
                     <Link
-                        to={`/voyages-organises/${tripId}`}
+                        to={`${basePath}/${tripId}`}
                         className="inline-block px-6 py-2.5 bg-sky-600 text-white rounded-xl font-semibold text-sm hover:bg-sky-700 transition-colors"
                     >
                         Retour au voyage
@@ -171,7 +171,7 @@ export default function VoyageOrganiseBooking() {
             <div className="bg-gradient-to-br from-[#0c1a2e] via-[#0e2647] to-[#0c1a2e] pb-16 pt-8 px-4">
                 <div className="max-w-5xl mx-auto">
                     <Link
-                        to={`/voyages-organises/${tripId}`}
+                        to={`${basePath}/${tripId}`}
                         className="inline-flex items-center gap-1.5 text-sm text-sky-400/80 hover:text-sky-300 mb-8 transition-colors"
                     >
                         <ChevronLeft size={16} />

@@ -1,0 +1,581 @@
+import { useState } from "react";
+import { useParams, Navigate, Link } from "react-router-dom";
+import {
+    Plane, Hotel, Calendar, Users, MapPin, CheckCircle2,
+    XCircle, Star, Utensils, Baby, Info, Phone,
+    ChevronDown, ChevronUp, Globe, Bed, ShieldCheck, Compass,
+    ChevronLeft, ChevronRight,
+} from "lucide-react";
+import { useDestination } from "../custom-hooks/useDestinations.js";
+import useSettings from "../custom-hooks/useSettings.js";
+import { resolveMediaUrl } from "../utils/resolveMediaUrl.js";
+import PageLoader from "../ui/PageLoader.jsx";
+import Button from "../ui/Button.jsx";
+
+const formatPrice = (value, currency = 'DZD') =>
+    `${new Intl.NumberFormat('fr-DZ').format(value)} ${currency}`;
+
+const HOLY_CITY_LABELS = { makkah: '🕋 Makkah', madinah: '🕌 Madinah' };
+
+function OmraDetail() {
+    const { tripId: id } = useParams();
+    const { data: destination, isLoading, error } = useDestination(id);
+    const { settings } = useSettings();
+    const waNumber = settings?.contact_whatsapp || '213770932563';
+    const [expandedDay, setExpandedDay] = useState(null);
+    const [imgIdx, setImgIdx] = useState(0);
+
+    if (isLoading) return <PageLoader section />;
+    if (error || !destination) return <Navigate to="/not-found" replace />;
+
+    const pricing = destination.pricing || {};
+    const currency = pricing.currency || 'DZD';
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    const effectivePrice = (p) => {
+        const promoOn = p.promoPrice != null &&
+            (!p.promoStartsAt || p.promoStartsAt <= today) &&
+            (!p.promoEndsAt || p.promoEndsAt >= today);
+        return { price: promoOn ? Number(p.promoPrice) : Number(p.pricePerAdult), promoOn, p };
+    };
+
+    const ROOM_LABELS = { single: 'Single', double: 'Double', triple: 'Triple', quadruple: 'Quadruple' };
+
+    const mainPriceRows = [
+        { label: 'Chambre Double', value: pricing.double },
+        { label: 'Chambre Triple', value: pricing.triple },
+        { label: 'Chambre Single', value: pricing.single },
+    ].filter(({ value }) => typeof value === 'number' && value > 0);
+
+    const childPriceRows = [
+        { label: 'Enfant (< 4 ans)',  value: pricing.child_under4  },
+        { label: 'Enfant (< 12 ans)', value: pricing.child_under12 },
+        { label: '2e enfant',          value: pricing.second_child  },
+        { label: 'Bébé',              value: pricing.infant        },
+    ].filter(({ value }) => typeof value === 'number' && value > 0);
+
+    const galleryUrls = destination.images?.length > 0
+        ? destination.images.map(img => img.url)
+        : (destination.image_url ? [destination.image_url] : ['/placeholder-image.jpg']);
+
+    const itineraries = destination.itineraries ?? [];
+    const accommodations = destination.accommodations ?? [];
+
+    const futureDates = (destination.departureDates ?? [])
+        .filter(d => d.outbound >= today)
+        .sort((a, b) => (a.outbound < b.outbound ? -1 : 1));
+    const fmtDepartureDate = (iso) =>
+        new Intl.DateTimeFormat('fr-DZ', { day: 'numeric', month: 'short', year: 'numeric' })
+            .format(new Date(iso + 'T00:00:00'));
+
+    return (
+        <section className="min-h-screen w-full bg-gradient-to-br from-gray-50 via-emerald-50/30 to-gray-50">
+            <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-10 sm:pb-12">
+
+                {/* Hero */}
+                <div className="mb-8 sm:mb-10">
+                <div className="relative h-[260px] sm:h-[340px] md:h-[420px] rounded-3xl overflow-hidden shadow-2xl">
+                    <img
+                        src={resolveMediaUrl(galleryUrls[imgIdx]) || '/placeholder-image.jpg'}
+                        alt={destination.name}
+                        loading="lazy"
+                        width="1200"
+                        height="500"
+                        className="w-full h-full object-cover transition-all duration-700"
+                    />
+                    {galleryUrls.length > 1 && (
+                        <>
+                            <button type="button" onClick={() => setImgIdx(i => (i - 1 + galleryUrls.length) % galleryUrls.length)} className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 rounded-full p-1.5 text-white z-10 transition-colors">
+                                <ChevronLeft size={20} />
+                            </button>
+                            <button type="button" onClick={() => setImgIdx(i => (i + 1) % galleryUrls.length)} className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 rounded-full p-1.5 text-white z-10 transition-colors">
+                                <ChevronRight size={20} />
+                            </button>
+                        </>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 md:p-8 text-white">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                            <span className="px-3 sm:px-4 py-1.5 sm:py-2 bg-emerald-600/90 backdrop-blur-sm rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2">
+                                <Compass className="w-3.5 h-3.5" />
+                                Omra
+                            </span>
+                            <span className="px-3 sm:px-4 py-1.5 sm:py-2 bg-green-600/90 backdrop-blur-sm rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2">
+                                <ShieldCheck className="w-3.5 h-3.5" />
+                                Garanti
+                            </span>
+                        </div>
+                        <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-2 sm:mb-3">
+                            {destination.name}
+                        </h1>
+                        <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm md:text-base">
+                            {destination.mainCities?.length > 0 && (
+                                <div className="flex items-center gap-1.5 sm:gap-2">
+                                    <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                    <span className="truncate">{destination.mainCities.join(" • ")}</span>
+                                </div>
+                            )}
+                            {(destination.duration?.days || destination.duration?.nights) && (
+                                <div className="flex items-center gap-1.5 sm:gap-2">
+                                    <Calendar className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                    <span>{destination.duration?.days} jours / {destination.duration?.nights} nuits</span>
+                                </div>
+                            )}
+                            {destination.airline && (
+                                <div className="flex items-center gap-1.5 sm:gap-2">
+                                    <Plane className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                    <span>{destination.airline}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+                {galleryUrls.length > 1 && (
+                    <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
+                        {galleryUrls.map((url, i) => (
+                            <button
+                                key={i}
+                                type="button"
+                                onClick={() => setImgIdx(i)}
+                                className={`shrink-0 w-16 h-10 rounded-lg overflow-hidden border-2 transition-colors ${i === imgIdx ? 'border-emerald-500' : 'border-transparent opacity-70 hover:opacity-100'}`}
+                            >
+                                <img src={resolveMediaUrl(url)} alt="" className="w-full h-full object-cover" />
+                            </button>
+                        ))}
+                    </div>
+                )}
+                </div>
+
+                {/* Main grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+
+                    {/* ── Left column ── */}
+                    <div className="lg:col-span-2 space-y-6">
+
+                        {/* About */}
+                        <div className="bg-white rounded-3xl shadow-lg hover:shadow-xl transition-all duration-300 p-5 sm:p-8 border border-gray-100">
+                            <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 flex items-center gap-2">
+                                <div className="w-1 h-7 sm:h-8 bg-gradient-to-b from-emerald-500 to-emerald-600 rounded-full" />
+                                À propos de ce programme
+                            </h2>
+                            <div className="text-gray-600 leading-relaxed space-y-3 sm:space-y-4">
+                                <p className="text-base sm:text-lg">
+                                    Partez accomplir votre Omra avec{" "}
+                                    <span className="font-semibold text-gray-900">{destination.name}</span>,
+                                    un programme soigneusement conçu pour vous offrir un pèlerinage serein et spirituellement enrichissant.
+                                    {destination.duration?.days && ` Ce séjour de ${destination.duration.days} jours comprend tout ce dont vous avez besoin pour vous concentrer sur votre dévotion.`}
+                                </p>
+                                {destination.departureFrom && (
+                                    <p className="text-sm sm:text-base">
+                                        Au départ de{" "}
+                                        <span className="font-semibold">{destination.departureFrom}</span>
+                                        {destination.airline && <>{" "}avec {destination.airline}</>},
+                                        vous bénéficierez d&apos;un accompagnement complet par des guides religieux expérimentés.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Highlights */}
+                        {destination.highlights?.length > 0 && (
+                            <div className="bg-white rounded-3xl shadow-lg hover:shadow-xl transition-all duration-300 p-5 sm:p-8 border border-gray-100">
+                                <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 flex items-center gap-2">
+                                    <div className="w-1 h-7 sm:h-8 bg-gradient-to-b from-green-500 to-green-600 rounded-full" />
+                                    Points forts du programme
+                                </h2>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                                    {destination.highlights.map((highlight, index) => (
+                                        <div
+                                            key={index}
+                                            className="flex items-start gap-3 p-3 sm:p-4 rounded-xl bg-gradient-to-br from-green-50 to-white border border-green-100 hover:shadow-md transition-all duration-200"
+                                        >
+                                            <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 shrink-0" />
+                                            <span className="font-medium text-gray-700 text-sm sm:text-base">{highlight}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Accommodations */}
+                        {accommodations.length > 0 && (
+                            <div className="bg-white rounded-3xl shadow-lg hover:shadow-xl transition-all duration-300 p-5 sm:p-8 border border-gray-100">
+                                <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 flex items-center gap-2">
+                                    <div className="w-1 h-7 sm:h-8 bg-gradient-to-b from-purple-500 to-purple-600 rounded-full" />
+                                    Hébergement
+                                </h2>
+                                <div className="space-y-3 sm:space-y-4">
+                                    {accommodations.map((acc, index) => {
+                                        const accPrices = (acc.prices ?? [])
+                                            .map(effectivePrice)
+                                            .sort((a, b) => a.price - b.price);
+                                        const accCurrency = accPrices[0]?.p?.currency ?? currency;
+                                        return (
+                                            <div
+                                                key={acc.id ?? index}
+                                                className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-purple-50 to-white border border-purple-100 hover:shadow-md transition-all duration-200"
+                                            >
+                                                <div className="flex items-start justify-between mb-2 gap-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <Hotel className="w-5 h-5 sm:w-6 sm:h-6 text-purple-500 shrink-0" />
+                                                        <div>
+                                                            <h3 className="font-bold text-gray-900 text-sm sm:text-base md:text-lg">{acc.hotel}</h3>
+                                                            {acc.location && (
+                                                                <p className="text-xs sm:text-sm text-gray-600 flex items-center gap-1 mt-0.5">
+                                                                    <MapPin className="w-3 h-3 shrink-0" />
+                                                                    {acc.location}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    {acc.stars > 0 && (
+                                                        <div className="flex items-center gap-0.5 px-2.5 py-1 bg-yellow-50 rounded-full border border-yellow-200 shrink-0">
+                                                            {[...Array(acc.stars)].map((_, i) => (
+                                                                <Star key={i} className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Omra-specific: holy city + distance */}
+                                                {acc.holy_city && (
+                                                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                                                        <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-full border border-emerald-200">
+                                                            {HOLY_CITY_LABELS[acc.holy_city] ?? acc.holy_city}
+                                                        </span>
+                                                        {acc.distance_to_haram > 0 && (
+                                                            <span className="text-xs text-gray-500 flex items-center gap-1">
+                                                                <MapPin className="w-3 h-3" />
+                                                                {acc.distance_to_haram} m du Haram
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {acc.nights > 0 && (
+                                                    <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 mb-3">
+                                                        <Bed className="w-4 h-4 text-purple-400" />
+                                                        <span className="font-medium">{acc.nights} nuits</span>
+                                                    </div>
+                                                )}
+
+                                                {/* Per-hotel prices */}
+                                                {accPrices.length > 0 && (
+                                                    <div className="mt-2 space-y-1.5">
+                                                        {accPrices.map(({ price, promoOn, p }) => (
+                                                            <div key={p.id ?? p.roomType} className="flex items-center justify-between text-xs sm:text-sm">
+                                                                <span className="text-gray-600">{ROOM_LABELS[p.roomType] ?? p.roomType}</span>
+                                                                <div className="flex items-center gap-2">
+                                                                    {promoOn && p.promoLabel && (
+                                                                        <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-semibold">{p.promoLabel}</span>
+                                                                    )}
+                                                                    {promoOn && (
+                                                                        <span className="line-through text-gray-400 text-xs">{formatPrice(Number(p.pricePerAdult), accCurrency)}</span>
+                                                                    )}
+                                                                    <span className={`font-bold ${promoOn ? 'text-green-600' : 'text-emerald-600'}`}>
+                                                                        {formatPrice(price, accCurrency)}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {/* Réserver button per hotel */}
+                                                <Link
+                                                    to={`/omra/${destination.id}/reserver${acc.id ? `?accId=${acc.id}` : ''}`}
+                                                    className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold rounded-xl transition-colors shadow-sm"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    Réserver
+                                                </Link>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                {destination.mealPlan && (
+                                    <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+                                        <div className="flex items-center gap-2 text-emerald-800 text-sm sm:text-base">
+                                            <Utensils className="w-4 h-4 text-emerald-600" />
+                                            <span className="font-semibold">Formule: {destination.mealPlan}</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Itinerary */}
+                        {itineraries.length > 0 && (
+                            <div className="bg-white rounded-3xl shadow-lg hover:shadow-xl transition-all duration-300 p-5 sm:p-8 border border-gray-100">
+                                <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 flex items-center gap-2">
+                                    <div className="w-1 h-7 sm:h-8 bg-gradient-to-b from-orange-500 to-orange-600 rounded-full" />
+                                    Programme détaillé
+                                </h2>
+                                <div className="space-y-3">
+                                    {itineraries.map((day, index) => (
+                                        <div
+                                            key={day.id ?? index}
+                                            className="border border-gray-200 rounded-2xl overflow-hidden hover:border-orange-300 transition-all duration-200"
+                                        >
+                                            <button
+                                                onClick={() => setExpandedDay(expandedDay === index ? null : index)}
+                                                className="w-full px-3 py-4 sm:p-5 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white hover:from-orange-50 hover:to-white transition-all duration-200"
+                                            >
+                                                <div className="flex items-center gap-3 sm:gap-4">
+                                                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold shadow-lg text-sm sm:text-base shrink-0">
+                                                        {day.day}
+                                                    </div>
+                                                    <div className="text-left">
+                                                        <p className="text-[11px] sm:text-xs text-orange-500 font-semibold uppercase tracking-wide mb-0.5">
+                                                            Jour {day.day}
+                                                        </p>
+                                                        <h3 className="font-bold text-gray-800 text-sm sm:text-base leading-tight">
+                                                            {day.title || "Programme du jour"}
+                                                        </h3>
+                                                    </div>
+                                                </div>
+                                                {expandedDay === index
+                                                    ? <ChevronUp className="w-4 h-4 text-orange-500 shrink-0" />
+                                                    : <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+                                                }
+                                            </button>
+                                            {expandedDay === index && (
+                                                <div className="p-4 sm:p-5 bg-white border-t border-gray-100">
+                                                    <p className="text-xs sm:text-sm md:text-base text-gray-600 leading-relaxed">
+                                                        {day.description || `Journée de découvertes. ${day.title}. Accompagnement par guide religieux francophone.`}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Key Attractions */}
+                        {destination.keyAttractions?.length > 0 && (
+                            <div className="bg-white rounded-3xl shadow-lg hover:shadow-xl transition-all duration-300 p-5 sm:p-8 border border-gray-100">
+                                <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 flex items-center gap-2">
+                                    <div className="w-1 h-7 sm:h-8 bg-gradient-to-b from-sky-500 to-sky-600 rounded-full" />
+                                    Sites & Lieux Saints
+                                </h2>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {destination.keyAttractions.map((attraction, index) => (
+                                        <div
+                                            key={index}
+                                            className="flex items-center gap-3 p-3 sm:p-4 rounded-xl bg-gradient-to-br from-sky-50 to-white border border-sky-100 hover:shadow-md hover:scale-[1.01] transition-all duration-200"
+                                        >
+                                            <Globe className="w-5 h-5 text-sky-500 shrink-0" />
+                                            <span className="font-medium text-gray-700 text-sm sm:text-base">{attraction}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Included / Not included */}
+                        {(destination.included?.length > 0 || destination.notIncluded?.length > 0) && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                                {destination.included?.length > 0 && (
+                                    <div className="bg-white rounded-3xl shadow-lg hover:shadow-xl transition-all duration-300 p-5 sm:p-8 border border-green-100">
+                                        <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 flex items-center gap-2 text-green-700">
+                                            <CheckCircle2 className="w-5 h-5 text-green-500" />
+                                            Inclus dans le prix
+                                        </h3>
+                                        <ul className="space-y-2.5 sm:space-y-3">
+                                            {destination.included.map((item, index) => (
+                                                <li key={index} className="flex items-start gap-2 text-xs sm:text-sm text-gray-700">
+                                                    <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                                                    <span>{item}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                                {destination.notIncluded?.length > 0 && (
+                                    <div className="bg-white rounded-3xl shadow-lg hover:shadow-xl transition-all duration-300 p-5 sm:p-8 border border-red-100">
+                                        <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 flex items-center gap-2 text-red-700">
+                                            <XCircle className="w-5 h-5 text-red-500" />
+                                            Non inclus
+                                        </h3>
+                                        <ul className="space-y-2.5 sm:space-y-3">
+                                            {destination.notIncluded.map((item, index) => (
+                                                <li key={index} className="flex items-start gap-2 text-xs sm:text-sm text-gray-700">
+                                                    <XCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                                                    <span>{item}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* ── Right sidebar ── */}
+                    <div className="lg:sticky lg:top-24 h-fit space-y-4">
+
+                        {/* Pricing card */}
+                        <div className="bg-white rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 p-5 sm:p-7 border-2 border-emerald-100 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 sm:w-40 h-32 sm:h-40 bg-gradient-to-br from-emerald-50 to-transparent rounded-full -mr-16 sm:-mr-20 -mt-16 sm:-mt-20 opacity-50" />
+                            <div className="relative">
+                                <h3 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900">
+                                    Tarifs & Réservation
+                                </h3>
+
+                                {mainPriceRows.length > 0 && (
+                                    <div className="space-y-3 mb-4">
+                                        {mainPriceRows.map(({ label, value }) => (
+                                            <div
+                                                key={label}
+                                                className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100"
+                                            >
+                                                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <Users className="w-4 h-4 text-emerald-600 shrink-0" />
+                                                        <span className="font-semibold text-gray-900 text-sm sm:text-base">{label}</span>
+                                                    </div>
+                                                    <span className="text-xl sm:text-2xl font-bold text-emerald-600">
+                                                        {formatPrice(value, currency)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {childPriceRows.length > 0 && (
+                                    <div className="p-3 sm:p-4 rounded-xl bg-pink-50 border border-pink-200 mb-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Baby className="w-4 h-4 text-pink-600" />
+                                            <span className="font-semibold text-gray-900 text-sm sm:text-base">Tarifs Enfants</span>
+                                        </div>
+                                        <div className="space-y-1 text-xs sm:text-sm text-gray-700">
+                                            {childPriceRows.map(({ label, value }) => (
+                                                <div key={label} className="flex justify-between">
+                                                    <span>{label}:</span>
+                                                    <span className="font-semibold">{formatPrice(value, currency)}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {futureDates.length > 0 && (
+                                    <div className="mb-4 sm:mb-6">
+                                        <h4 className="font-semibold text-gray-900 mb-2 sm:mb-3 flex items-center gap-2 text-sm sm:text-base">
+                                            <Calendar className="w-4 h-4 text-emerald-600" />
+                                            Dates disponibles
+                                        </h4>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {futureDates.map((date, index) => (
+                                                <Link
+                                                    key={index}
+                                                    to={`/omra/${destination.id}/reserver?date=${date.outbound}`}
+                                                    className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-gradient-to-r from-gray-50 to-white border border-gray-200 hover:border-emerald-400 hover:bg-emerald-50/40 transition-all duration-200"
+                                                >
+                                                    <span className="text-gray-700 text-xs sm:text-sm">
+                                                        {fmtDepartureDate(date.outbound)}{date.return && ` → ${fmtDepartureDate(date.return)}`}
+                                                    </span>
+                                                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {destination.visaInfo && (
+                                    <div className="mb-4 p-3 sm:p-4 rounded-xl bg-amber-50 border border-amber-200">
+                                        <div className="flex items-start gap-2">
+                                            <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                                            <div className="text-xs sm:text-sm text-gray-700">
+                                                <span className="font-semibold text-amber-800">Visa :</span>{" "}
+                                                {destination.visaInfo.required ? (
+                                                    <>
+                                                        Requis
+                                                        {destination.visaInfo.price && ` • ${destination.visaInfo.price}`}
+                                                        {destination.visaInfo.duration && ` • ${destination.visaInfo.duration}`}
+                                                        {destination.visaInfo.notes && (
+                                                            <span className="block text-gray-600 mt-0.5">{destination.visaInfo.notes}</span>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    "Non requis"
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 sm:p-5 rounded-2xl mb-4 sm:mb-6 border border-green-200">
+                                    <div className="flex items-start gap-3">
+                                        <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 mt-0.5 shrink-0" />
+                                        <div>
+                                            <h4 className="font-bold text-green-900 mb-0.5 sm:mb-1 text-sm sm:text-base">
+                                                Garantie & Sécurité
+                                            </h4>
+                                            <p className="text-xs sm:text-sm text-green-700 leading-relaxed">
+                                                Départ garanti • Accompagnement spirituel • Paiement sécurisé
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <Link
+                                    to={`/omra/${destination.id}/reserver`}
+                                    className="block w-full"
+                                >
+                                    <Button
+                                        variant="primary"
+                                        className="w-full py-3.5 sm:py-4 text-sm sm:text-lg font-bold shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 hover:scale-105 transition-all duration-300 mb-2.5 sm:mb-3"
+                                        style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}
+                                    >
+                                        Réserver maintenant
+                                    </Button>
+                                </Link>
+
+                                <p className="text-[10px] sm:text-xs text-center text-gray-500 flex items-center justify-center gap-1.5 sm:gap-2">
+                                    <Info className="w-3 h-3" />
+                                    Places limitées • Réservez dès maintenant
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Support card */}
+                        <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-3xl shadow-lg hover:shadow-xl transition-all duration-300 p-5 sm:p-6 border border-orange-200">
+                            <div className="flex items-start gap-3 sm:gap-4 mb-3 sm:mb-4">
+                                <div className="bg-white p-2.5 sm:p-3 rounded-full shadow-md">
+                                    <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900 mb-0.5 sm:mb-1 text-sm sm:text-base">
+                                        Besoin d&apos;aide ?
+                                    </h3>
+                                    <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
+                                        Notre équipe est disponible pour répondre à toutes vos questions.
+                                    </p>
+                                </div>
+                            </div>
+                            <a
+                                href={`https://wa.me/${waNumber}?text=${encodeURIComponent(`Bonjour, j'ai besoin d'aide concernant le programme Omra "${destination.name}".`)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block w-full"
+                            >
+                                <Button
+                                    variant="outline"
+                                    className="w-full border-2 border-orange-300 text-orange-700 hover:bg-orange-100 font-semibold text-xs sm:text-sm transition-all duration-200"
+                                >
+                                    Contacter le support
+                                </Button>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </section>
+    );
+}
+
+export default OmraDetail;

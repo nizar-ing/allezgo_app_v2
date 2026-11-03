@@ -1,4 +1,5 @@
 import React, {useState, useEffect} from 'react';
+import { MdMosque } from 'react-icons/md';
 import {
     Plane,
     FileText,
@@ -36,7 +37,7 @@ const SUPPLIER_SHORT = { ipro: 'iPro', tunisiabeds: 'TBeds' };
 const fmt = (n) => new Intl.NumberFormat('fr-DZ').format(Number(n));
 //import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import useDestinations from '../../custom-hooks/useDestinations.js';
+import useDestinations, { useOmraDestinations } from '../../custom-hooks/useDestinations.js';
 import useTestimonials from '../../custom-hooks/useTestimonials.js';
 import useUsers from '../../custom-hooks/useUsers.js';
 import PageLoader from '../../ui/PageLoader.jsx';
@@ -94,6 +95,7 @@ export default function AdminDashboard() {
 
     //const queryClient = useQueryClient();
     const {data: destinations, loading, removeDestination, actionLoading: destActionLoading} = useDestinations();
+    const {data: omraDestinations, loading: omraLoading, removeDestination: removeOmraDestination, actionLoading: omraActionLoading} = useOmraDestinations();
     const {
         data: testimonials,
         loading: testimonialsLoading,
@@ -125,7 +127,7 @@ export default function AdminDashboard() {
     const [bookingSupplierFilter, setBookingSupplierFilter] = useState('');
 
     // --- Premium Custom Toast with Direct Cache Mutation ---
-    const confirmDelete = (destination) => {
+    const confirmDelete = (destination, removeFn = removeDestination, isLoading = destActionLoading) => {
         toast(
             (t) => (
                 <div className="flex flex-col gap-3 font-sans w-full min-w-[250px]">
@@ -142,13 +144,13 @@ export default function AdminDashboard() {
                             Annuler
                         </button>
                         <button
-                            disabled={destActionLoading}
+                            disabled={isLoading}
                             onClick={async (e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 toast.dismiss(t.id);
                                 try {
-                                    await removeDestination(destination.id);
+                                    await removeFn(destination.id);
                                 } catch (error) {
                                     console.error('Delete error:', error);
                                 }
@@ -263,6 +265,7 @@ export default function AdminDashboard() {
 
     const tabs = [
         {id: 'destinations', label: 'Voyages Organisés', icon: Plane},
+        {id: 'omra', label: 'Omra', icon: MdMosque},
         {id: 'evisas', label: 'E-Visas', icon: FileText},
         {id: 'visa-applications', label: 'Demandes Visa', icon: FileText},
         {id: 'bookings', label: 'Réservations', icon: CreditCard},
@@ -372,6 +375,96 @@ export default function AdminDashboard() {
                                         <tr>
                                             <td colSpan="3" className="px-6 py-12 text-center text-gray-500">
                                                 Aucune destination trouvée.
+                                            </td>
+                                        </tr>
+                                    )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        } else if (activeTab === 'omra') {
+            return (
+                <div className="bg-white rounded-xl shadow-sm border border-emerald-100/50 overflow-hidden font-sans">
+                    <div className="px-6 py-5 border-b border-gray-100 flex flex-col md:flex-row md:justify-between md:items-center items-start gap-4 md:gap-0 bg-white">
+                        <div>
+                            <h3 className="text-lg font-semibold text-emerald-900 flex items-center gap-2">
+                                <MdMosque className="w-5 h-5 text-emerald-600"/>
+                                Programmes Omra
+                            </h3>
+                            <p className="text-sm text-gray-500 mt-1">Gérez les programmes Omra disponibles</p>
+                        </div>
+                        <button
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center justify-center gap-2"
+                        >
+                            <Plus size={18}/>
+                            Ajouter un programme
+                        </button>
+                    </div>
+                    <div className="p-0">
+                        {omraLoading ? (
+                            <PageLoader compact message="Chargement des programmes Omra..." />
+                        ) : (
+                            <div className="w-full overflow-x-auto scrollbar-hide">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-slate-50">
+                                    <tr>
+                                        <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Programme</th>
+                                        <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                                        <th scope="col" className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-100">
+                                    {omraDestinations?.length > 0 ? omraDestinations.map((dest) => (
+                                        <tr key={dest.id} className="hover:bg-emerald-50/50 transition-colors">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center">
+                                                    <div className="h-10 w-10 flex-shrink-0 bg-emerald-100/70 rounded-lg flex items-center justify-center">
+                                                        <MdMosque className="h-5 w-5 text-emerald-600"/>
+                                                    </div>
+                                                    <div className="ml-4">
+                                                        <div className="text-sm font-bold text-emerald-700">{dest.city || dest.name}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${dest.isActive !== false ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                                                    {dest.isActive !== false ? 'Actif' : 'Inactif'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <div className="flex items-center justify-end gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setEditingDestination(dest)}
+                                                        className="p-2 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded-lg transition-colors shadow-sm"
+                                                        title="Modifier"
+                                                    >
+                                                        <Pencil size={16}/>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        disabled={omraActionLoading}
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            confirmDelete(dest, removeOmraDestination, omraActionLoading);
+                                                        }}
+                                                        className="p-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                                                        title="Supprimer"
+                                                    >
+                                                        <Trash2 size={16}/>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )) : (
+                                        <tr>
+                                            <td colSpan="3" className="px-6 py-12 text-center text-gray-500">
+                                                Aucun programme Omra trouvé.
                                             </td>
                                         </tr>
                                     )}
@@ -1006,6 +1099,7 @@ export default function AdminDashboard() {
             <CreateDestinationModal
                 isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
+                defaultCategory={activeTab === 'omra' ? 'omra' : 'voyage_organise'}
             />
 
             {/* Edit Destination Modal */}

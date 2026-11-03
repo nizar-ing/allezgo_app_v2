@@ -119,6 +119,7 @@ export function normalizeDestination(raw) {
     return {
         ...raw,
         image_url:      raw.image_url,
+        category:       raw.category ?? 'voyage_organise',
         pricing:        normalizePricing(raw.pricing),
         flightDetails:  normalizeFlightDetails(raw.flightDetails),
         departureDates: normalizeDepartureDates(raw.departureDates),
