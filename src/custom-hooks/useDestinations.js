@@ -23,10 +23,11 @@ function useDestinationsCRUD(category) {
     queryKey: QUERY_KEY,
     queryFn: async ({ signal }) => {
       try {
-        const result = await AllezGoApi.Destinations.getAll({ params: { category }, signal });
+        // shortcut: no server-side category param until backend is deployed, filter client-side
+        const result = await AllezGoApi.Destinations.getAll({ signal });
         const raw = Array.isArray(result) ? result : (result?.data ?? []);
         const meta = Array.isArray(result) ? null : (result?.meta ?? null);
-        return { data: raw.map(normalizeDestination), meta };
+        return { data: raw.map(normalizeDestination).filter(d => d.category === category), meta };
       } catch (err) {
         if (isRequestCanceled(err)) return { data: [], meta: null };
         throw toApiError(err);
