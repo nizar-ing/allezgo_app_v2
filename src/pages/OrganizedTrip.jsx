@@ -68,8 +68,22 @@ function OrganizedTrip() {
         new Intl.DateTimeFormat('fr-DZ', { day: 'numeric', month: 'short', year: 'numeric' })
             .format(new Date(iso + 'T00:00:00'));
 
+    const jsonLd = {
+        '@context': 'https://schema.org',
+        '@type': 'TouristDestination',
+        name: destination.name,
+        description: destination.description || `Voyage organisé ${destination.name} avec AllezGoo`,
+        url: `https://allezgoo.com/voyages-organises/${destination.id}`,
+        touristType: { '@type': 'Audience', audienceType: 'touristes algériens' },
+    };
+
     return (
         <section className="min-h-screen w-full bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-50">
+            <title>{destination.name} — Voyage Organisé | AllezGoo</title>
+            <meta name="description" content={`Réservez le voyage organisé ${destination.name} avec AllezGoo. Dates de départ, hébergements et tarifs depuis l'Algérie.`} />
+            <meta property="og:title" content={`${destination.name} — AllezGoo`} />
+            <meta property="og:url" content={`https://allezgoo.com/voyages-organises/${destination.id}`} />
+            <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
             <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-10 sm:pb-12">
 
                 {/* Hero */}

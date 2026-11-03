@@ -69,8 +69,22 @@ function OmraDetail() {
         new Intl.DateTimeFormat('fr-DZ', { day: 'numeric', month: 'short', year: 'numeric' })
             .format(new Date(iso + 'T00:00:00'));
 
+    const jsonLd = {
+        '@context': 'https://schema.org',
+        '@type': 'TouristDestination',
+        name: destination.name,
+        description: destination.description || `Package Omra ${destination.name} avec AllezGoo`,
+        url: `https://allezgoo.com/omra/${destination.id}`,
+        touristType: { '@type': 'Audience', audienceType: 'pèlerins algériens' },
+    };
+
     return (
         <section className="min-h-screen w-full bg-gradient-to-br from-gray-50 via-emerald-50/30 to-gray-50">
+            <title>{destination.name} — Omra | AllezGoo</title>
+            <meta name="description" content={`Réservez votre package Omra ${destination.name} avec AllezGoo. Hébergements à La Mecque et Médine, départs depuis l'Algérie.`} />
+            <meta property="og:title" content={`${destination.name} — Omra | AllezGoo`} />
+            <meta property="og:url" content={`https://allezgoo.com/omra/${destination.id}`} />
+            <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
             <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-10 sm:pb-12">
 
                 {/* Hero */}

@@ -621,8 +621,15 @@ function SearchResultsPage() {
 
     if (isLoading) return <PageLoader section message="Recherche des hôtels disponibles..." />;
 
+    const locationLabel = selectionType === 'city' ? cityName : hotelName;
+    const pageTitle = locationLabel
+        ? `Hôtels à ${locationLabel} — AllezGoo`
+        : 'Recherche Hôtels — AllezGoo';
+
     return (
         <div className="min-h-screen w-full bg-gradient-to-br from-sky-50 via-blue-50 to-sky-100">
+            <title>{pageTitle}</title>
+            <meta name="description" content={locationLabel ? `Comparez et réservez des hôtels à ${locationLabel} au meilleur prix avec AllezGoo.` : 'Recherchez et comparez des hôtels avec AllezGoo.'} />
             {/* ── Hero Banner ─────────────────────────────────────────────────────── */}
             <div className="relative h-48 sm:h-56 md:h-64 lg:h-80 overflow-hidden mx-2 sm:mx-4 lg:mx-8 mt-2 sm:mt-4 rounded-xl sm:rounded-2xl">
                 <img

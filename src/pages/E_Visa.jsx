@@ -474,6 +474,10 @@ export default function EVisa() {
             className="min-h-screen w-11/12 mx-auto bg-gradient-to-r from-slate-300 via-sky-800 to-slate-300 p-3 sm:p-4 md:p-6 border-slate-600 shadow-[inset_-4px_-4px_8px_rgba(0,0,0,0.1),inset_4px_4px_8px_rgba(255,255,255,0.9),8px_8px_16px_rgba(0,0,0,0.2)]"
             aria-label="Demande de visa électronique"
         >
+            <title>E-Visa — AllezGoo | Demande de Visa en Ligne</title>
+            <meta name="description" content="Faites votre demande de visa en ligne avec AllezGoo : e-visas pour plusieurs destinations, traitement rapide, accompagnement personnalisé." />
+            <meta property="og:title" content="E-Visa — AllezGoo | Demande de Visa en Ligne" />
+            <meta property="og:url" content="https://allezgoo.com/e-visa" />
             <h1 className="text-2xl sm:text-3xl font-bold text-center mb-4 sm:mb-6 md:mb-8 text-white">
                 DEMANDE DE VISA
             </h1>

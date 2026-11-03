@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+
+Disallow: /admin
+Disallow: /profile
+Disallow: /booking/
+Disallow: /hotels-search
+Disallow: /e-visa/*/demande
+Disallow: /voyages-organises/*/reserver
+Disallow: /omra/*/reserver
+
+# Static sitemap (top-level routes only)
+Sitemap: https://allezgoo.com/sitemap.xml
+# Dynamic sitemap (all destinations, omra packages, and e-visa pages)
+Sitemap: https://api.allezgoo.com/sitemap.xml

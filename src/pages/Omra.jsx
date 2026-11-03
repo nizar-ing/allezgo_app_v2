@@ -79,6 +79,10 @@ function Omra() {
 
     return (
         <section className="relative w-full bg-gradient-to-br from-emerald-50 via-white to-teal-50 overflow-hidden min-h-screen">
+            <title>Omra — AllezGoo | Packages Omra depuis l'Algérie</title>
+            <meta name="description" content="Réservez votre Omra avec AllezGoo : packages complets depuis l'Algérie, hébergements à La Mecque et Médine, accompagnement spirituel." />
+            <meta property="og:title" content="Omra — AllezGoo" />
+            <meta property="og:url" content="https://allezgoo.com/omra" />
             <div className="relative z-10 py-8 px-4 sm:px-6 lg:px-8">
                 <div className="max-w-[1600px] mx-auto">
 

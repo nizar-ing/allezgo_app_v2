@@ -79,6 +79,10 @@ function OrganizedTrips() {
 
     return (
         <section className="relative w-full bg-gradient-to-br from-slate-50 via-white to-slate-100 overflow-hidden min-h-screen">
+            <title>Voyages Organisés — AllezGoo | Circuits Tunisie & Destinations</title>
+            <meta name="description" content="Découvrez nos voyages organisés au départ d'Algérie : circuits en Tunisie et destinations au meilleur prix avec AllezGoo." />
+            <meta property="og:title" content="Voyages Organisés — AllezGoo" />
+            <meta property="og:url" content="https://allezgoo.com/voyages-organises" />
             <div className="relative z-10 py-8 px-4 sm:px-6 lg:px-8">
                 <div className="max-w-[1600px] mx-auto">
 
