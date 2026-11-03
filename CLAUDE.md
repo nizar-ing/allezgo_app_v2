@@ -76,6 +76,9 @@ User → React Router (pages + suspense)
 | `/voyages-organises` | `OrganizedTrips` | List page — debounced name search + sort (price, duration, name) |
 | `/voyages-organises/:tripId` | `OrganizedTrip` | Detail — uses `useDestination(id)` from React Query |
 | `/voyages-organises/:tripId/reserver` | `VoyageOrganiseBooking` | VO booking form — departure date select, room quantities, client info, payment method select; POSTs via `AllezGoApi.VoBookings.create()` to `POST /api/vo-bookings` (BST-06b done); reads `?date=YYYY-MM-DD` to pre-select a departure date when navigated from trip detail date links |
+| `/omra` | `Omra` | Omra list page — same shape as `OrganizedTrips` but filtered to `category=omra` |
+| `/omra/:tripId` | `OmraDetail` | Detail page — same as `OrganizedTrip` with `holy_city` badge and `distance_to_haram` per accommodation |
+| `/omra/:tripId/reserver` | `OmraBooking` | Thin wrapper around `VoyageOrganiseBooking` with `basePath="/omra"` |
 | `/e-visa` | `E_Visa` | |
 | `/e-visa/:id/demande` | `VisaDemandePage` | Public visa application form — name/email/phone/travel date/travelers + optional document upload; shows `VISA-XXXXX` reference on success |
 | `/sign-in` | `SignInPage` | |
@@ -209,6 +212,7 @@ onSuccess: () => {
 - **Taux de change** (`FxRatesPanel`) — inline FX rate editor with history; pencil opens input, Enter saves.
 - **Mapping hôtels** (`HotelMappingPanel`) — pending match review queue; status + supplier filters; confirm/reject actions for pending rows.
 - **Demandes Visa** (`VisaApplicationsPanel`) — lists all visa applications; inline status + notes editing; auth-gated document download via `AllezGoApi.VisaApplications`.
+- **Omra** — same CRUD as Destinations tab but scoped to `category=omra`; `CreateDestinationModal`/`EditDestinationModal` gain a category selector and Omra-specific accommodation fields (`holy_city`, `distance_to_haram`).
 
 Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFIRMED triggers the iPro side; the AllezGo backend status is always updated first regardless.
 
@@ -306,7 +310,8 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 **`src/custom-hooks/useDestinations.js`, `useTestimonials.js`, `useUsers.js`**  
 - Full CRUD for admin with optimistic cache updates and toast feedback.
 - `useDestinations` (default export) — list of all destinations, normalized via `normalizeDestination`.
-- `useDestination(id)` (named export) — single destination by ID; used by `OrganizedTrip` detail page.
+- `useDestination(id)` (named export) — single destination by ID; used by `OrganizedTrip`/`OmraDetail` detail pages.
+- `useOmraDestinations()` (named export) — same as `useDestinations` but filters to `category=omra`. **Shortcut**: category filtering is client-side (post-normalizeDestination) until the backend migration is deployed to production; `normalizeDestination` defaults `category` to `'voyage_organise'` so existing records sort correctly.
 
 **`src/custom-hooks/useEVisas.js`**  
 - Full CRUD for e-visa records; query key `["eVisas"]`; uses `isRequestCanceled` guard on all queries.
