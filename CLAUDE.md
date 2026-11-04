@@ -341,6 +341,13 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 
 **`vite.config.js`**: path alias `@` → `src/`; React Babel plugin with React Compiler; Tailwind via `@tailwindcss/vite`; dev proxy for `/api/*`, `/carousel`, and `/uploads` → `https://api.allezgoo.com` (override with `API_TARGET=http://localhost:3000 npm run dev` to target a local backend — `API_TARGET` is a Node env var, not a `VITE_` prefix). `vite-plugin-prerender` runs a headless Puppeteer pass over `/`, `/voyages-organises`, `/omra`, `/e-visa` during `npm run build`; if the build hangs, it is a Chromium/Puppeteer issue in the environment.
 
+**SEO layer** (shipped as one commit, `15f0137`):
+- **React 19 document metadata** — `<title>` + `<meta>` hoisted to `<head>` on 7 pages (no extra library; React 19 handles hoisting natively). JSON-LD structured data: `TravelAgency` on `HomePage`, `TouristDestination` on `OrganizedTrip` and `OmraDetail`.
+- **`middleware.js`** — Vercel Edge middleware; intercepts bot/social-crawler requests and injects page-specific `og:` tags by calling the backend `GET /api/og-meta?path=...` endpoint.
+- **`vercel.json`** — SPA fallback rewrite: all non-asset paths → `index.html`.
+- **`public/sitemap.xml`** — static top-level routes only; dynamic per-destination and per-e-visa URLs are served by the backend `GET /sitemap.xml`.
+- **`public/robots.txt`** — disallows private routes (`/admin`, `/profile`, `/booking`); references both sitemaps.
+
 **`tailwind.config.js`**: content paths `index.html` + `src/**/*.{js,jsx}`.
 
 **`eslint.config.js`**: React Hooks plugin + React Refresh; `no-unused-vars` ignores uppercase identifiers.
