@@ -339,7 +339,7 @@ Booking statuses: `PENDING` | `CONFIRMED` | `REJECTED` | `CANCELLED`. Only CONFI
 
 ## Configuration
 
-**`vite.config.js`**: path alias `@` → `src/`; React Babel plugin with React Compiler; Tailwind via `@tailwindcss/vite`; dev proxy for `/api/*`, `/carousel`, and `/uploads` → `https://api.allezgoo.com`.
+**`vite.config.js`**: path alias `@` → `src/`; React Babel plugin with React Compiler; Tailwind via `@tailwindcss/vite`; dev proxy for `/api/*`, `/carousel`, and `/uploads` → `https://api.allezgoo.com` (override with `API_TARGET=http://localhost:3000 npm run dev` to target a local backend — `API_TARGET` is a Node env var, not a `VITE_` prefix). `vite-plugin-prerender` runs a headless Puppeteer pass over `/`, `/voyages-organises`, `/omra`, `/e-visa` during `npm run build`; if the build hangs, it is a Chromium/Puppeteer issue in the environment.
 
 **`tailwind.config.js`**: content paths `index.html` + `src/**/*.{js,jsx}`.
 
