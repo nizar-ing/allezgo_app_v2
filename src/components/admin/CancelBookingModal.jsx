@@ -2,28 +2,28 @@ import { useState } from "react";
 import { AlertTriangle, X, Loader2, CheckCircle2, BadgeDollarSign } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
-import apiClient from "../../services/ApiClient.js";
 import AllezGoApi from "../../services/allezgo-api/allezGoApi.js";
 
 export default function CancelBookingModal({ isOpen, booking, onClose }) {
     const [isPending, setIsPending] = useState(false);
     const [step, setStep] = useState(1);
     const [fees, setFees] = useState(null);
+    const [reason, setReason] = useState('');
     const queryClient = useQueryClient();
 
     if (!isOpen || !booking) return null;
 
-    const externalId = booking.externalId || booking.bookingData?.iProId || booking.bookingData?.externalId;
+    const isPendingBooking = booking.status === 'PENDING';
 
     const checkFees = async () => {
-        if (!externalId) {
+        if (!booking.externalId) {
             toast.error("ID Externe introuvable. Annulation impossible.");
             return;
         }
         try {
             setIsPending(true);
-            const response = await apiClient.cancelBooking(externalId, true);
-            setFees(response.Fees || "0.00");
+            const response = await AllezGoApi.client.post(`/api/bookings/${booking.id}/cancel`, { onlyFees: true });
+            setFees(response?.fees || "0.00");
             setStep(2);
         } catch (error) {
             toast.error(error.message || "Impossible de vérifier les frais.");
@@ -36,12 +36,11 @@ export default function CancelBookingModal({ isOpen, booking, onClose }) {
     const confirmCancellation = async () => {
         try {
             setIsPending(true);
-            await apiClient.cancelBooking(externalId, false);
-            await AllezGoApi.client.patch(`/api/bookings/${booking.id}`, { status: "CANCELLED" });
-
+            await AllezGoApi.client.post(`/api/bookings/${booking.id}/cancel`, { onlyFees: false, reason: reason.trim() || undefined });
             toast.success("Réservation annulée avec succès.");
             queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
             setStep(1);
+            setReason('');
             onClose();
         } catch (error) {
             toast.error(error.message || "L'annulation a échoué.");
@@ -65,10 +64,10 @@ export default function CancelBookingModal({ isOpen, booking, onClose }) {
 
                 <div className="p-6">
                     <p className="text-sm text-slate-600 mb-6 text-center leading-relaxed">
-                        Vous êtes sur le point d'annuler la réservation <strong className="text-slate-900">{booking.reference || booking.id}</strong>. Cette action est irréversible dans le système iPro.
+                        Vous êtes sur le point d'annuler la réservation <strong className="text-slate-900">{booking.reference || booking.id}</strong>. Cette action est irréversible{isPendingBooking ? '.' : ' dans le système iPro.'}
                     </p>
 
-                    {step === 2 && (
+                    {step === 2 && fees !== null && (
                         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-center gap-4">
                             <BadgeDollarSign className="text-amber-500" size={32} />
                             <div>
@@ -78,8 +77,18 @@ export default function CancelBookingModal({ isOpen, booking, onClose }) {
                         </div>
                     )}
 
+                    {(step === 2 || isPendingBooking) && (
+                        <textarea
+                            value={reason}
+                            onChange={(e) => setReason(e.target.value)}
+                            placeholder="Motif d'annulation (optionnel)"
+                            rows={2}
+                            className="w-full mb-4 px-3 py-2 text-sm border border-slate-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-rose-300"
+                        />
+                    )}
+
                     <div className="flex flex-col gap-3">
-                        {step === 1 ? (
+                        {step === 1 && !isPendingBooking ? (
                             <button onClick={checkFees} disabled={isPending} className="w-full flex justify-center items-center gap-2 py-3 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl disabled:opacity-50">
                                 {isPending ? <Loader2 className="animate-spin" size={18} /> : <AlertTriangle size={18} />}
                                 Évaluer les frais d'annulation

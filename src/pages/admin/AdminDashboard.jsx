@@ -851,18 +851,32 @@ export default function AdminDashboard() {
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right sticky right-0 z-10 bg-white border-l border-gray-100 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-sky-50/50 transition-colors">
                                                     <div className="flex justify-end gap-2">
                                                         {booking.status === 'PENDING' && (
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.preventDefault();
-                                                                    e.stopPropagation();
-                                                                    setSelectedBooking(booking);
-                                                                    setIsVerifyModalOpen(true);
-                                                                }}
-                                                                className="p-2 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg transition-colors shadow-sm"
-                                                                title="Vérifier"
-                                                            >
-                                                                <Eye size={18}/>
-                                                            </button>
+                                                            <>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        setSelectedBooking(booking);
+                                                                        setIsVerifyModalOpen(true);
+                                                                    }}
+                                                                    className="p-2 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg transition-colors shadow-sm"
+                                                                    title="Vérifier"
+                                                                >
+                                                                    <Eye size={18}/>
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        setSelectedBooking(booking);
+                                                                        setIsCancelModalOpen(true);
+                                                                    }}
+                                                                    className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
+                                                                    title="Annuler Réservation"
+                                                                >
+                                                                    <XCircle size={16}/>
+                                                                </button>
+                                                            </>
                                                         )}
                                                         {(booking.status === 'CANCELLED' || booking.status === 'REJECTED') && (
                                                             <button
