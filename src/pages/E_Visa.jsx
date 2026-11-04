@@ -112,6 +112,9 @@ const CountryButton = memo(function CountryButton({ index, country, flagUrl, isS
         onSelect(index);
     }, [index, onSelect]);
 
+    const initials = country.slice(0, 2).toUpperCase();
+    const fallbackSrc = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect fill='%23e2e8f0' width='40' height='40' rx='6'/><text fill='%2364748b' font-family='sans-serif' font-size='14' font-weight='bold' x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle'>${initials}</text></svg>`;
+
     return (
         <button
             onClick={handleClick}
@@ -124,13 +127,14 @@ const CountryButton = memo(function CountryButton({ index, country, flagUrl, isS
             }`}
         >
             <img
-                src={flagUrl || '/placeholder-flag.png'}
+                src={flagUrl || fallbackSrc}
                 alt={`Drapeau de ${country}`}
                 width={40}
                 height={40}
                 loading="lazy"
                 decoding="async"
                 fetchpriority="low"
+                onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = fallbackSrc; }}
                 className="rounded-md shrink-0 w-8 h-8 sm:w-10 sm:h-10 object-cover"
             />
             <span className="font-semibold truncate flex-1 text-sm sm:text-base text-left">{country}</span>
@@ -248,13 +252,14 @@ const MemoizedHeavyContent = memo(function MemoizedHeavyContent({
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
                         <img
-                            src={selectedCountry.flagUrl || '/placeholder-flag.png'}
+                            src={selectedCountry.flagUrl || `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><rect fill='%23e2e8f0' width='80' height='80' rx='10'/><text fill='%2364748b' font-family='sans-serif' font-size='26' font-weight='bold' x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle'>${selectedCountry.country.slice(0, 2).toUpperCase()}</text></svg>`}
                             alt={`Drapeau de ${selectedCountry.country}`}
                             width={80}
                             height={80}
                             loading="eager"
                             decoding="async"
                             fetchpriority="high"
+                            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><rect fill='%23e2e8f0' width='80' height='80' rx='10'/><text fill='%2364748b' font-family='sans-serif' font-size='26' font-weight='bold' x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle'>${selectedCountry.country.slice(0, 2).toUpperCase()}</text></svg>`; }}
                             className="w-12 h-12 sm:w-16 sm:h-16 lg:w-28 lg:h-28 rounded-lg shadow-lg border-2 border-white/20 shrink-0 object-cover"
                         />
                         <div className="flex-1 min-w-0">
