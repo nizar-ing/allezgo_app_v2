@@ -201,7 +201,7 @@ onSuccess: () => {
 
 ### Admin Dashboard
 `AdminDashboard` is a single-page admin SPA with sidebar navigation. Tabs:
-- **Réservations** — booking list with status + supplier filters; "Fournisseur" and "Économie" columns; PENDING → CONFIRMED (triggers iPro `HotelBooking` POST) or REJECTED or CANCELLED. `VerifyBookingModal` handles payment confirmation, shows `BookingOfferComparison` data (quoted vs. confirmed price, outcome badge), and handles 409 conflicts: `ALREADY_CONFIRMING` (banner), `PRICE_CHANGED` (shows diff + confirm-with-alternative form), `OFFER_UNAVAILABLE` (banner); `VoucherModal` generates the client PDF voucher; `CancelBookingModal` handles cancellation.
+- **Réservations** — booking list with status + supplier filters; "Fournisseur" and "Économie" columns; PENDING → CONFIRMED (triggers iPro `HotelBooking` POST) or REJECTED or CANCELLED. `VerifyBookingModal` handles payment confirmation, shows `BookingOfferComparison` data (quoted vs. confirmed price, outcome badge), and handles 409 conflicts: `ALREADY_CONFIRMING` (banner), `PRICE_CHANGED` (shows diff + confirm-with-alternative form), `OFFER_UNAVAILABLE` (banner); `VoucherModal` generates the client PDF voucher; `CancelBookingModal` handles cancellation (shown for `CONFIRMED` and `PENDING`; captures an optional reason string POSTed to `POST /api/bookings/:id/cancel`).
 - **Destinations** — organized trip CRUD (`useDestinations`).
 - **Témoignages** — testimonial CRUD (`useTestimonials`).
 - **Utilisateurs** — user CRUD (`useUsers`).
