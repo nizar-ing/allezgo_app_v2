@@ -10,6 +10,8 @@ const require = createRequire(import.meta.url)
 const vitePrerender = require('vite-plugin-prerender')
 const { PuppeteerRenderer } = require('vite-plugin-prerender')
 
+const apiTarget = process.env.API_TARGET ?? 'https://api.allezgoo.com'
+
 export default defineConfig({
     resolve: {
         alias: {
@@ -31,21 +33,9 @@ export default defineConfig({
     ],
     server: {
         proxy: {
-            '/api': {
-                target: 'https://api.allezgoo.com',
-                changeOrigin: true,
-                secure: false,
-            },
-            '/carousel': {
-                target: 'https://api.allezgoo.com',
-                changeOrigin: true,
-                secure: false,
-            },
-            '/uploads': {
-                target: 'https://api.allezgoo.com',
-                changeOrigin: true,
-                secure: false,
-            }
+            '/api': { target: apiTarget, changeOrigin: true, secure: false },
+            '/carousel': { target: apiTarget, changeOrigin: true, secure: false },
+            '/uploads': { target: apiTarget, changeOrigin: true, secure: false },
         }
     }
 })
