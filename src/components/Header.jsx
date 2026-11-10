@@ -41,7 +41,7 @@ const HOTELS_DATA = [
     {
         name: "Tunisie",
         icon: "🇹🇳",
-        flag_url: "/images/flags/flag-tunisia.jpg",
+        flag_url: "/images/flags/tn.webp",
         cities: [
             "Sousse", "Hammamet", "Monastir", "Tabarka", "Tunis", "Djerba",
             "Nabeul", "Mahdia", "Gammarth", "Tozeur", "Bizerte", "Gabes",
@@ -51,7 +51,7 @@ const HOTELS_DATA = [
     {
         name: "Algérie",
         icon: "🇩🇿",
-        flag_url: "/images/flags/flag-algeria.jpg",
+        flag_url: "/images/flags/dz.webp",
         cities: [
             "Alger", "Annaba", "Constantine", "Skikda", "Oran", "Mostaganem",
             "Ain Timouchent", "Sétif", "Tebssa", "Béjaïa", "Tizi ouzou",
