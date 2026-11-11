@@ -12,6 +12,7 @@ import toast from "react-hot-toast";
 import apiClient from "../services/ApiClient";
 import DateRangePicker from "../components/booking/DateRangePicker.jsx";
 import GuestRoomSelector from "../components/booking/GuestRoomSelector.jsx";
+import PageLoader from "../ui/PageLoader.jsx";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const getDefaultCheckIn = () => {
@@ -179,8 +180,6 @@ function HotelDetails() {
     const [activeBoardingTab, setActiveBoardingTab] = useState(null);
     const [roomsByPax,        setRoomsByPax]        = useState(() => preloadedPricing?.paxGroups ?? []);
     const [selectedRoomTypes, setSelectedRoomTypes] = useState({});
-    const [currentToken,      setCurrentToken]      = useState(preloadedPricing?.token || null);
-    const [currentSource,     setCurrentSource]     = useState(preloadedPricing?.source || null);
 
     const checkInDate  = useMemo(() => toDateString(range.from), [range.from]);
     const checkOutDate = useMemo(() => toDateString(range.to),   [range.to]);
@@ -344,16 +343,11 @@ function HotelDetails() {
         if (range.from >= range.to)        { toast.error("La date de départ doit être après la date d'arrivée"); return; }
         setIsSearchingRooms(true); setHasSearched(false); setSelectedRoomTypes({});
         try {
-            // ✅ TARGET FIX: Inject guestNationality and currency for Tunisian inventory to unlock Maghreb rates.
-            const isTunisia = hotelData?.City?.Country?.Name?.toLowerCase().includes('tunisie');
-
+            // Market params injected server-side by the adapter
             const response = await apiClient.searchRoomAvailability({
                 hotelId:  Number(hotelId),
-                cityId:   hotelData?.City?.Id,
                 checkIn:  checkInDate,
                 checkOut: checkOutDate,
-                guestNationality: isTunisia ? 'DZ' : undefined,
-                currency: isTunisia ? 'DZD' : undefined,
                 rooms:    rooms.map((r) => ({
                     adults:    r.adults,
                     children:  r.children.length,
@@ -365,8 +359,6 @@ function HotelDetails() {
             setRoomsByPax(response.roomsByPax ?? []);
             setActiveBoardingTab(fetchedRooms.length > 0 ? fetchedRooms[0].boardingCode : null);
             setHasSearched(true);
-            setCurrentToken(response.token || null);
-            setCurrentSource(response.source || null);
             if (fetchedRooms.length > 0)
                 toast.success(`${fetchedRooms.length} option${fetchedRooms.length > 1 ? "s" : ""} disponible${fetchedRooms.length > 1 ? "s" : ""} !`);
             else
@@ -413,13 +405,9 @@ function HotelDetails() {
                 Option: sel?.Option ?? hotelData?.Option ?? [],
                 _token:  sel?._token,
                 _source: sel?._source,
+                offerId: sel?.offerId ?? null,
             };
         });
-
-        // Use the selected room's provider token/source so the stored iproPayload
-        // points to the correct supplier (prevents Code 421 on admin confirmation).
-        const providerToken  = selectedRoomsList[0]?._token  || currentToken  || hotelData?.Token;
-        const providerSource = selectedRoomsList[0]?._source || currentSource;
 
         const bookingData = {
             hotelId:      Number(hotelId),
@@ -428,21 +416,17 @@ function HotelDetails() {
             checkOut:     checkOutDate,
             nights,
             boardingType: activeBoardingTab,
-            Source:       providerSource,
-            source:       providerSource,
             rooms:        selectedRoomsList,
             totalPrice:   computedTotalPrice,
             currency:     "DZD",
-            Token:        providerToken,
-            token:        providerToken,
             selectedRooms: selectedRoomsList,
-            Option: hotelData?.Option ?? [],
-            hotel:        { ...hotelData, paxGroups: roomsByPax, token: providerToken, Token: hotelData?.Token || providerToken }
+            offerIds:     selectedRoomsList.map(r => r.offerId).filter(Boolean),
+            hotel:        { ...hotelData, paxGroups: roomsByPax }
         };
         navigate(`/booking/${hotelId}`, { state: bookingData });
         toast.success("Redirection vers la réservation...");
     }, [allSelected, computedTotalPrice, hasStopReservation, effectiveRoomsByPax, selectedRoomTypes, activeBoardingTab,
-        rooms, hotelId, hotelData, checkInDate, checkOutDate, navigate, nights, currentToken, currentSource, roomsByPax]);
+        rooms, hotelId, hotelData, checkInDate, checkOutDate, navigate, nights, roomsByPax]);
 
     // ── Guards ────────────────────────────────────────────────────────────────
     if (!hotelId) return (
@@ -456,20 +440,7 @@ function HotelDetails() {
         </div>
     );
 
-    if (isLoading) return (
-        <div className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-slate-100 flex items-center justify-center">
-            <div className="flex flex-col items-center gap-4">
-                <div className="relative w-14 h-14">
-                    <div className="absolute inset-0 rounded-full border-4 border-sky-100" />
-                    <div className="absolute inset-0 rounded-full border-4 border-t-sky-600 animate-spin" />
-                </div>
-                <div className="text-center">
-                    <p className="text-gray-700 font-bold text-base">Chargement de l'hôtel</p>
-                    <p className="text-gray-400 text-sm mt-0.5">Veuillez patienter...</p>
-                </div>
-            </div>
-        </div>
-    );
+    if (isLoading) return <PageLoader section message="Chargement de l'hôtel..." />;
 
     if (isError || !hotelData) return (
         <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4">

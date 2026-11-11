@@ -529,6 +529,7 @@ function SearchResultsPage() {
                     source: hotel.Source,
                     selectedRooms: roomsList,
                     searchParams: { checkIn, checkOut, rooms },
+                    offerIds: roomsList.map(r => r.offerId).filter(Boolean),
                 },
             });
             return;

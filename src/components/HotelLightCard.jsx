@@ -9,6 +9,9 @@ import {
 import toast from 'react-hot-toast';
 import apiClient from '../services/ApiClient';
 
+// shortcut: badge stays hidden until Q6 answer confirms BestPriceAcrossSuppliers field is live
+const SHOW_BEST_PRICE_BADGE = false;
+
 // ── Utilities ──────────────────────────────────────────────────────────────────
 const formatPrice = (price) => {
     if (!price) return '0';
@@ -425,14 +428,12 @@ function HotelLightCard({
             rooms: roomsData,
             totalPrice: room.price,
             currency: room.currency || hotel.currency || "DZD",
-            Token: room?._raw?.Token || hotel?.Token || currentToken,
-            token: currentToken,
             selectedRooms: roomsData,
-            Option: hotel?.Option ?? [],
-            hotel: { ...hotel, paxGroups, token: currentToken, Token: hotel?.Token || currentToken }
+            offerIds: [room.offerId].filter(Boolean),
+            hotel: { ...hotel, paxGroups }
         };
         navigate(`/booking/${Id}`, { state: bookingData });
-    }, [onBook, hotel, navigate, Id, Name, searchParams, nights, currentToken, paxGroups]);
+    }, [onBook, hotel, navigate, Id, Name, searchParams, nights, paxGroups]);
 
     const handleBookAll = useCallback(() => {
         if (!effectiveRoomsByPax || effectiveRoomsByPax.length === 0) return;
@@ -461,6 +462,7 @@ function HotelLightCard({
                     Option: room.Option ?? hotel?.Option ?? [],
                     _token:  room._token,
                     _source: room._source,
+                    offerId: room.offerId ?? null,
                 };
             })
             .filter(Boolean);
@@ -475,8 +477,6 @@ function HotelLightCard({
             return;
         }
 
-        const providerToken  = selectedRoomsList[0]?._token  || hotel?.Token || currentToken;
-        const providerSource = selectedRoomsList[0]?._source || hotel?.Source;
         const bookingData = {
             hotelId: Number(Id),
             hotelName: Name,
@@ -487,16 +487,12 @@ function HotelLightCard({
             rooms: selectedRoomsList,
             totalPrice: computedTotalPrice,
             currency: hotel.currency || pricing?.currency || "DZD",
-            Token:  providerToken,
-            token:  providerToken,
-            Source: providerSource,
-            source: providerSource,
             selectedRooms: selectedRoomsList,
-            Option: hotel?.Option ?? [],
-            hotel: { ...hotel, paxGroups, token: providerToken, Token: hotel?.Token || providerToken }
+            offerIds: selectedRoomsList.map(r => r.offerId).filter(Boolean),
+            hotel: { ...hotel, paxGroups }
         };
         navigate(`/booking/${Id}`, { state: bookingData });
-    }, [effectiveRoomsByPax, selectedRooms, selectedBoarding, onBook, hotel, navigate, Id, Name, searchParams, nights, computedTotalPrice, currentToken, paxGroups, pricing?.currency]);
+    }, [effectiveRoomsByPax, selectedRooms, selectedBoarding, onBook, hotel, navigate, Id, Name, searchParams, nights, computedTotalPrice, paxGroups, pricing?.currency]);
 
     const handleViewDetail = useCallback(() => {
         if (onViewDetail) {
@@ -552,13 +548,19 @@ function HotelLightCard({
                         <Heart size={15} className={isFavorite ? 'fill-white text-white' : 'text-gray-500'} />
                     </button>
 
-                    {/* Discount badge */}
-                    {pricing?.discountPercent != null && (
-                        <div
-                            className="absolute top-3 left-3 bg-rose-500 text-white text-[11px] font-extrabold px-2.5 py-1 rounded-full shadow-md border border-rose-400/30 flex items-center gap-1">
-                            <Tag size={10} className="shrink-0" /> -{pricing.discountPercent}%
-                        </div>
-                    )}
+                    {/* Discount / best-price badges — stacked top-left */}
+                    <div className="absolute top-3 left-3 flex flex-col gap-1">
+                        {pricing?.discountPercent != null && (
+                            <div className="bg-rose-500 text-white text-[11px] font-extrabold px-2.5 py-1 rounded-full shadow-md border border-rose-400/30 flex items-center gap-1">
+                                <Tag size={10} className="shrink-0" /> -{pricing.discountPercent}%
+                            </div>
+                        )}
+                        {SHOW_BEST_PRICE_BADGE && pricing?.bestPriceAcrossSuppliers && (
+                            <div className="bg-emerald-500 text-white text-[11px] font-extrabold px-2.5 py-1 rounded-full shadow-md border border-emerald-400/30 flex items-center gap-1">
+                                <CheckCircle2 size={10} className="shrink-0" /> Meilleur prix
+                            </div>
+                        )}
+                    </div>
 
                     {/* Mobile-only floating price badge */}
                     {derivedMinPrice && (
