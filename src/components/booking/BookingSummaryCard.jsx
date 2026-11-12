@@ -1,8 +1,5 @@
 // src/components/booking/BookingSummaryCard.jsx
-import {
-    Hotel, MapPin, Calendar, Moon, BedDouble,
-    Users, Utensils, Tag, Star,
-} from "lucide-react";
+import { MapPin, Printer } from "lucide-react";
 
 const BOARDING_LABELS = {
     RO: "Chambre Seule",
@@ -13,19 +10,32 @@ const BOARDING_LABELS = {
     SC: "Self Catering",
 };
 
-// eslint-disable-next-line no-unused-vars
-function Row({ icon: Icon, label, value }) {
+// Receipt bottom edge — zigzag perforation, computed once at module load
+// Mirrors the technique in ui/receipt-printer/ReceiptPrinter.tsx
+const TOOTH_COUNT  = 24;
+const TOOTH_DEPTH  = 5;
+const toothPoints  = Array.from({ length: TOOTH_COUNT * 2 }, (_, i) => {
+    const x = 100 - ((i + 1) * 100) / (TOOTH_COUNT * 2);
+    const y = i % 2 === 0 ? "100%" : `calc(100% - ${TOOTH_DEPTH}px)`;
+    return `${x}% ${y}`;
+}).join(", ");
+const RECEIPT_CLIP = `polygon(0 0, 100% 0, 100% calc(100% - ${TOOTH_DEPTH}px), ${toothPoints})`;
+
+function ReceiptRow({ label, value }) {
     return (
-        <div className="flex items-start justify-between gap-3 py-2.5 border-b border-gray-50 last:border-0">
-            <div className="flex items-center gap-2 shrink-0">
-                <Icon size={13} className="text-sky-400 shrink-0" />
-                <span className="text-xs text-gray-400 font-semibold">{label}</span>
-            </div>
-            <span className="text-xs font-extrabold text-gray-700 text-right leading-snug">
+        <div className="flex items-baseline justify-between gap-2 py-[3px]">
+            <span className="font-mono text-[9px] font-semibold text-zinc-400 uppercase tracking-[0.18em] shrink-0">
+                {label}
+            </span>
+            <span className="font-mono text-[11px] font-bold text-zinc-700 text-right leading-snug">
                 {value}
             </span>
         </div>
     );
+}
+
+function ReceiptDivider() {
+    return <div className="border-t border-dashed border-zinc-200 my-3" />;
 }
 
 export default function BookingSummaryCard({ bookingState }) {
@@ -38,7 +48,7 @@ export default function BookingSummaryCard({ bookingState }) {
         checkOut,
         nights,
         boardingType,
-        rooms = [],
+        rooms    = [],
         totalPrice,
         currency = "DZD",
     } = bookingState;
@@ -53,108 +63,184 @@ export default function BookingSummaryCard({ bookingState }) {
 
     return (
         <div className="sticky top-[110px]">
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-lg overflow-hidden">
 
-                <div className="bg-gradient-to-br from-sky-600 via-sky-700 to-blue-800 px-5 pt-5 pb-8">
-                    <div className="flex items-start gap-2.5">
-                        <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0 mt-0.5">
-                            <Hotel size={18} className="text-white" />
+            {/* ── Printer machine body ─────────────────────────────────── */}
+            <div className="relative bg-gradient-to-b from-zinc-700 via-zinc-800 to-zinc-900 rounded-2xl pt-4 px-4 pb-5 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.55),0_8px_16px_-6px_rgba(0,0,0,0.3)] border border-zinc-600/40 overflow-hidden">
+
+                {/* Plastic sheen overlay */}
+                <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(ellipse_80%_40%_at_50%_0%,rgba(255,255,255,0.09)_0%,transparent_100%)]"
+                />
+
+                {/* Machine header row */}
+                <div className="relative flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-zinc-600/50 flex items-center justify-center border border-zinc-500/30 shadow-inner">
+                            <Printer size={13} className="text-zinc-300" />
                         </div>
-                        <div className="min-w-0">
-                            <h3 className="text-sm font-extrabold text-white leading-tight truncate">
-                                {hotelName ?? "Hôtel"}
-                            </h3>
-                            {(city || country) && (
-                                <p className="text-sky-300 text-xs font-medium mt-0.5 flex items-center gap-1">
-                                    <MapPin size={10} />
-                                    {city}{country ? `, ${country}` : ""}
-                                </p>
-                            )}
-                            {stars > 0 && (
-                                <div className="flex items-center gap-0.5 mt-1.5">
-                                    {Array(stars).fill(null).map((_, i) => (
-                                        <Star key={i} size={11} className="fill-amber-300 text-amber-300" />
-                                    ))}
-                                </div>
-                            )}
+                        <span className="text-[11px] font-extrabold tracking-[0.2em] uppercase text-zinc-300">
+                            Allez<span className="text-sky-400">Go</span>
+                        </span>
+                    </div>
+                    <span className="font-mono text-[8px] tracking-[0.18em] uppercase text-emerald-400 bg-emerald-900/25 border border-emerald-700/35 rounded-full px-2.5 py-1">
+                        En cours
+                    </span>
+                </div>
+
+                {/* LCD screen */}
+                <div className="relative bg-zinc-950 rounded-xl px-4 py-4 border border-zinc-700/60 shadow-[inset_0_2px_10px_rgba(0,0,0,0.65),inset_0_0_28px_rgba(0,0,0,0.25)] overflow-hidden">
+                    {/* CRT scanline texture */}
+                    <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 rounded-xl bg-[repeating-linear-gradient(0deg,transparent,transparent_2px,rgba(0,0,0,0.07)_2px,rgba(0,0,0,0.07)_4px)]"
+                    />
+                    {/* Screen inner glow */}
+                    <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 rounded-xl shadow-[inset_0_0_28px_4px_rgba(0,0,0,0.45)]"
+                    />
+
+                    <div className="relative z-10">
+                        <p className="font-mono text-[8px] text-emerald-600/80 uppercase tracking-[0.28em] mb-2">
+                            Réservation · Hôtel
+                        </p>
+                        <p className="font-mono text-[13px] text-white font-bold leading-tight truncate">
+                            {hotelName ?? "Hôtel"}
+                        </p>
+                        {(city || country) && (
+                            <p className="font-mono text-[10px] text-zinc-400 mt-0.5 flex items-center gap-1">
+                                <MapPin size={8} className="text-zinc-500 shrink-0" />
+                                {city}{country ? `, ${country}` : ""}
+                            </p>
+                        )}
+                        {stars > 0 && (
+                            <p className="font-mono text-[11px] text-amber-400 mt-1.5 leading-none">
+                                {"★".repeat(stars)}
+                                <span className="text-zinc-700">{"★".repeat(Math.max(0, 5 - stars))}</span>
+                            </p>
+                        )}
+
+                        <div className="border-t border-zinc-800 mt-3 pt-2.5 flex items-center justify-between">
+                            <span className="font-mono text-[8px] text-zinc-500 uppercase tracking-[0.2em]">
+                                Total
+                            </span>
+                            <span className="font-mono text-[15px] font-extrabold text-emerald-400 tracking-tight leading-none">
+                                {new Intl.NumberFormat("fr-DZ").format(totalPrice)}
+                                <span className="text-[9px] text-emerald-600/80 ml-1.5 font-semibold">{currency}</span>
+                            </span>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-t-2xl -mt-4 relative z-10 px-5 pt-5 pb-5">
-                    <div className="mb-4">
-                        {checkIn && checkOut && (
-                            <Row icon={Calendar}  label="Dates"    value={`${checkIn} → ${checkOut}`} />
-                        )}
-                        {nights > 0 && (
-                            <Row icon={Moon}      label="Durée"    value={`${nights} nuit${nights > 1 ? "s" : ""}`} />
-                        )}
-                        {rooms.length > 0 && (
-                            <Row icon={BedDouble} label="Chambres" value={`${rooms.length} chambre${rooms.length > 1 ? "s" : ""}`} />
-                        )}
-                        {totalAdults > 0 && (
-                            <Row
-                                icon={Users}
-                                label="Voyageurs"
-                                value={`${totalAdults} adulte${totalAdults > 1 ? "s" : ""}${totalChildren > 0 ? ` · ${totalChildren} enfant${totalChildren > 1 ? "s" : ""}` : ""}`}
-                            />
-                        )}
-                        {boardingType && (
-                            <Row icon={Utensils} label="Pension" value={boardLabel} />
-                        )}
+                {/* Paper feed slot */}
+                <div
+                    aria-hidden="true"
+                    className="mt-4 mx-3 h-2 rounded-sm bg-zinc-950 border border-zinc-700/70 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)]"
+                />
+            </div>
+
+            {/* ── Thermal receipt paper emerging from the slot ─────────── */}
+            <div className="relative z-10 -mt-1.5 mx-3">
+                <article
+                    style={{ clipPath: RECEIPT_CLIP }}
+                    className="bg-[#fafaf7] px-5 pt-6 pb-14 shadow-[0_10px_28px_-6px_rgba(0,0,0,0.22),0_4px_10px_-4px_rgba(0,0,0,0.12)]"
+                >
+                    {/* Receipt title */}
+                    <div className="text-center mb-4">
+                        <p className="font-mono text-[9px] text-zinc-500 font-semibold uppercase tracking-[0.25em]">
+                            — Récapitulatif de réservation —
+                        </p>
                     </div>
 
+                    {/* Booking details rows */}
+                    {checkIn && checkOut && (
+                        <>
+                            <ReceiptRow label="Check-in"  value={checkIn}  />
+                            <ReceiptRow label="Check-out" value={checkOut} />
+                        </>
+                    )}
+                    {nights > 0 && (
+                        <ReceiptRow label="Durée" value={`${nights} nuit${nights > 1 ? "s" : ""}`} />
+                    )}
                     {rooms.length > 0 && (
-                        <div className="flex flex-col gap-1.5 mb-4">
-                            <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-1">
-                                Types de chambre
+                        <ReceiptRow label="Chambres" value={`${rooms.length} chambre${rooms.length > 1 ? "s" : ""}`} />
+                    )}
+                    {totalAdults > 0 && (
+                        <ReceiptRow
+                            label="Voyageurs"
+                            value={`${totalAdults} adulte${totalAdults > 1 ? "s" : ""}${totalChildren > 0 ? ` · ${totalChildren} enf.` : ""}`}
+                        />
+                    )}
+                    {boardingType && (
+                        <ReceiptRow label="Pension" value={boardLabel} />
+                    )}
+
+                    {/* Room breakdown */}
+                    {rooms.length > 0 && (
+                        <>
+                            <ReceiptDivider />
+                            <p className="font-mono text-[8px] text-zinc-400 uppercase tracking-[0.22em] mb-2">
+                                Détail chambres
                             </p>
                             {rooms.map((room, i) => {
-                                const label = room.roomType ?? room.name ?? `Chambre ${i + 1}`;
+                                const label     = room.roomType ?? room.name ?? `Chambre ${i + 1}`;
                                 // ✅ STAY TOTAL: Use room price directly without math logic.
                                 const roomTotal = room.price ?? room.total ?? 0;
                                 return (
                                     <div
                                         key={i}
-                                        className="flex items-center justify-between gap-2 bg-sky-50 border border-sky-100 rounded-xl px-3 py-2"
+                                        className="flex items-baseline justify-between gap-2 py-[3px]"
                                     >
-                                        <div className="flex items-center gap-2 min-w-0">
-                                            <Tag size={11} className="text-sky-400 shrink-0" />
-                                            <span className="text-xs font-bold text-sky-700 truncate">
-                                                {label}
-                                            </span>
-                                        </div>
+                                        <span className="font-mono text-[10px] text-zinc-500 truncate min-w-0">
+                                            {label}
+                                        </span>
                                         {roomTotal > 0 && (
-                                            <span className="text-xs font-extrabold text-sky-600 shrink-0">
-                                                {new Intl.NumberFormat("fr-DZ").format(roomTotal)} {currency}
+                                            <span className="font-mono text-[10px] font-bold text-zinc-700 shrink-0">
+                                                {new Intl.NumberFormat("fr-DZ").format(roomTotal)}
                                             </span>
                                         )}
                                     </div>
                                 );
                             })}
-                        </div>
+                        </>
                     )}
 
-                    <div className="border-t border-gray-100 my-4" />
+                    <ReceiptDivider />
 
-                    <div className="bg-gradient-to-br from-sky-50 to-blue-50 border border-sky-200 rounded-2xl p-4 text-center">
-                        <p className="text-[10px] text-sky-500 uppercase tracking-widest font-extrabold mb-1.5">
-                            Total du séjour
-                        </p>
-                        <p className="text-2xl font-extrabold text-sky-700 leading-none">
-                            {/* ✅ SOURCE OF TRUTH: totalPrice read directly from props with ZERO multiplication. */}
-                            {new Intl.NumberFormat("fr-DZ").format(totalPrice)}
-                            <span className="text-sm font-semibold text-sky-400 ml-1.5">{currency}</span>
-                        </p>
-                        {/* ✅ PER-NIGHT Breakdown: The ONLY allowed math is division for display ONLY if nights > 1 */}
+                    {/* Total */}
+                    <div>
+                        <div className="flex items-baseline justify-between gap-2">
+                            <span className="font-mono text-[9px] text-zinc-500 uppercase tracking-[0.2em] font-bold">
+                                Total du séjour
+                            </span>
+                            <span className="font-mono text-base font-extrabold text-zinc-900 leading-none">
+                                {/* ✅ SOURCE OF TRUTH: totalPrice read directly from props with ZERO multiplication. */}
+                                {new Intl.NumberFormat("fr-DZ").format(totalPrice)}
+                                <span className="font-mono text-[10px] text-zinc-400 ml-1 font-semibold">{currency}</span>
+                            </span>
+                        </div>
+                        {/* ✅ PER-NIGHT: division for display only, never stored */}
                         {nights > 1 && totalPrice > 0 && (
-                            <p className="text-[11px] text-sky-400 mt-1.5 font-medium">
+                            <p className="font-mono text-[9px] text-zinc-400 text-right mt-1">
                                 ≈ {new Intl.NumberFormat("fr-DZ").format(Math.round(totalPrice / nights))} {currency} / nuit
                             </p>
                         )}
                     </div>
-                </div>
+
+                    {/* Footer */}
+                    <div className="mt-6 text-center">
+                        <div className="border-t border-dashed border-zinc-200 mb-3" />
+                        <p className="font-mono text-[11px] text-zinc-500 font-semibold uppercase tracking-[0.25em]">
+                            Merci de votre confiance
+                        </p>
+                        <p className="font-mono text-[11px] text-zinc-400 font-bold tracking-widest mt-0.5">
+                            allezgoo.com
+                        </p>
+                    </div>
+                </article>
             </div>
+
         </div>
     );
 }
