@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { User, CreditCard, CheckCircle2, ChevronLeft, AlertCircle } from "lucide-react";
+import { User, CreditCard, CheckCircle2, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 import GuestInfoForm from "../components/booking/GuestInfoForm.jsx";
 import BookingSummaryCard from "../components/booking/BookingSummaryCard.jsx";
 import { useBooking } from "../custom-hooks/useBooking.js";
@@ -150,6 +150,21 @@ export default function BookingPage() {
                     </div>
                     <BookingSummaryCard bookingState={bookingState} />
                 </div>
+
+                {/* Mobile-only submit button — sits below the summary card on small screens */}
+                {currentStep === 1 && (
+                    <button
+                        type="submit"
+                        form="guest-info-form"
+                        disabled={isPending}
+                        className="lg:hidden mt-4 w-full flex items-center justify-center gap-2.5 py-4 bg-linear-to-r from-orange-500 to-orange-700 text-white font-extrabold rounded-2xl shadow-lg disabled:opacity-70 transition-all active:scale-[0.99]"
+                    >
+                        {isPending
+                            ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            : <>Confirmer la Réservation <ChevronRight size={18} /></>
+                        }
+                    </button>
+                )}
             </div>
         </div>
     );

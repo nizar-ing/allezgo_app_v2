@@ -309,7 +309,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
     const errCount = Object.keys(errors).length;
 
     return (
-        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
+        <form id="guest-info-form" onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
             {/* 1. Contact Section */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                 <SectionHeader number="1" title="Informations Client" subtitle="Contact Principal pour la confirmation" />
@@ -406,7 +406,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
                     </div>
                 </div>
             )}
-            <button type="submit" disabled={isPending} className="w-full flex items-center justify-center gap-2.5 py-4 bg-linear-to-r from-orange-500 to-orange-700 text-white font-extrabold rounded-2xl shadow-lg disabled:opacity-70 transition-all hover:scale-[1.01] active:scale-[0.99]">
+            <button type="submit" disabled={isPending} className="w-full hidden lg:flex items-center justify-center gap-2.5 py-4 bg-linear-to-r from-orange-500 to-orange-700 text-white font-extrabold rounded-2xl shadow-lg disabled:opacity-70 transition-all hover:scale-[1.01] active:scale-[0.99]">
                 {isPending ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>Confirmer la Réservation <ChevronRight size={18} /></>}
             </button>
         </form>
