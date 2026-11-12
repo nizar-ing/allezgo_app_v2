@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi2';
 
 /**
@@ -45,8 +45,19 @@ function HotelCarousel({
         return () => window.removeEventListener('resize', updateCardsPerView);
     }, []);
 
-    // Calculate max scroll index
-    const maxIndex = Math.max(0, items.length - cardsPerView);
+    // Group items into fixed pages so off-screen pages don't inflate track height
+    const pages = useMemo(() => {
+        const result = [];
+        for (let i = 0; i < items.length; i += cardsPerView) {
+            result.push(items.slice(i, i + cardsPerView));
+        }
+        return result;
+    }, [items, cardsPerView]);
+
+    const maxIndex = Math.max(0, pages.length - 1);
+
+    // Reset to page 0 on breakpoint change to avoid out-of-bounds index
+    useEffect(() => { setCurrentIndex(0); }, [cardsPerView]);
 
     // Auto-play
     useEffect(() => {
@@ -194,44 +205,32 @@ function HotelCarousel({
             aria-label="Carrousel d'hôtels"
             aria-live={autoPlay ? "off" : "polite"}
         >
-            {/* Carousel Track */}
-            <div className="relative w-full overflow-hidden px-1 py-4">
-                <div
-                    className="grid transition-transform duration-500 ease-out"
-                    style={{
-                        gridTemplateColumns: `repeat(${items.length}, 100%)`,
-                        gap: '0',
-                        transform: `translateX(-${currentIndex * 100}%)`,
-                    }}
-                    onTouchStart={onTouchStart}
-                    onTouchMove={onTouchMove}
-                    onTouchEnd={onTouchEnd}
-                >
-                    {items.map((item, index) => (
-                        <div
-                            key={item.id || index}
-                            className="w-full px-2 sm:px-3"
-                            aria-hidden={
-                                index < currentIndex || index >= currentIndex + cardsPerView
-                            }
-                        >
-                            {/* Grid for visible cards within each slide */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
-                                {items.slice(index, index + cardsPerView).map((slideItem, slideIndex) => (
-                                    <div
-                                        key={slideItem.id || slideIndex}
-                                        className="w-full"
-                                        style={{
-                                            display: index + slideIndex < items.length ? 'block' : 'none'
-                                        }}
-                                    >
-                                        {renderItem(slideItem)}
-                                    </div>
-                                ))}
-                            </div>
+            {/* Carousel Track — active page is in-flow; hidden pages are absolute so they don't inflate track height */}
+            <div
+                className="relative w-full px-1 py-3"
+                onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
+                onTouchEnd={onTouchEnd}
+            >
+                {pages.map((page, pageIndex) => (
+                    <div
+                        key={pageIndex}
+                        className={`transition-opacity duration-500 ease-out ${
+                            pageIndex === currentIndex
+                                ? 'opacity-100'
+                                : 'opacity-0 absolute inset-x-0 top-0 pointer-events-none'
+                        }`}
+                        aria-hidden={pageIndex !== currentIndex}
+                    >
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6 px-2 sm:px-3">
+                            {page.map((item) => (
+                                <div key={item.id} className="w-full">
+                                    {renderItem(item)}
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
+                    </div>
+                ))}
             </div>
 
             {/* Premium Navigation Arrows */}

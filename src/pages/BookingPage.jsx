@@ -83,6 +83,8 @@ export default function BookingPage() {
             setCurrentStep(3);
             window.scrollTo({ top: 0, behavior: "smooth" });
         },
+        // 410 OFFER_EXPIRED: navigate back to room selection so the user re-picks fresh rooms
+        onOfferExpired: () => navigate(`/hotel/${bookingState.hotelId}`),
     });
 
     const handleBack = () => {
@@ -99,6 +101,17 @@ export default function BookingPage() {
             <AlertCircle size={32} className="text-red-400" />
             <h2 className="text-xl font-bold text-gray-700">Données de réservation manquantes</h2>
             <button onClick={() => navigate("/")} className="px-6 py-2.5 bg-sky-600 text-white rounded-xl font-semibold">Retour à l'accueil</button>
+        </div>
+    );
+
+    if (!bookingState?.offerIds?.length) return (
+        <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4 px-4">
+            <AlertCircle size={32} className="text-amber-400" />
+            <h2 className="text-xl font-bold text-gray-700 text-center">Offre expirée ou indisponible</h2>
+            <p className="text-gray-500 text-sm text-center max-w-sm">Veuillez relancer la recherche pour obtenir les derniers prix disponibles.</p>
+            <button onClick={() => navigate(-1)} className="px-6 py-2.5 bg-sky-600 text-white rounded-xl font-semibold">
+                Relancer la recherche
+            </button>
         </div>
     );
 
@@ -124,7 +137,14 @@ export default function BookingPage() {
                                 <CheckCircle2 size={30} className="text-green-500 mx-auto mb-4" />
                                 <p className="text-gray-700 font-extrabold text-lg">Réservation Confirmée !</p>
                                 <p className="text-sky-600 font-bold text-sm">Référence: {bookingRef}</p>
-                                <button onClick={() => navigate('/')} className="mt-8 px-8 py-3 bg-gray-100 text-gray-700 font-bold rounded-xl">Retour à l'accueil</button>
+                                <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+                                    <button onClick={() => navigate('/profile')} className="px-8 py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl transition-colors">
+                                        Voir mes réservations
+                                    </button>
+                                    <button onClick={() => navigate('/')} className="px-8 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-colors">
+                                        Retour à l'accueil
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>

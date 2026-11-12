@@ -14,7 +14,7 @@ import apiClient from '../services/ApiClient';
 import HotelsFiltering from '../components/HotelsFiltering.jsx';
 import HotelLightCard from '../components/HotelLightCard.jsx';
 import DateRoomsPickerBanner from '../components/DateRoomsPickerBanner.jsx';
-import Loader from '../ui/Loader.jsx';
+import PageLoader from '../ui/PageLoader.jsx';
 import { normalizeHotelForCard } from '../utils/normalizeHotel';
 
 const COUNTRY_BANNERS = {
@@ -479,11 +479,7 @@ function HotelsPerCityPage() {
                 <div className="relative h-48 sm:h-56 md:h-64 lg:h-80 overflow-hidden bg-gray-200 animate-pulse mx-2 sm:mx-4 lg:mx-8 mt-2 sm:mt-4 rounded-xl sm:rounded-2xl">
                     <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-black/10 to-transparent" />
                 </div>
-                <Loader
-                    message={`Chargement des hôtels ${cityInfo?.Name ?? ''}...`}
-                    submessage="Récupération des détails complets..."
-                    fullHeight={true}
-                />
+                <PageLoader section message={`Chargement des hôtels ${cityInfo?.Name ?? ''}...`} />
             </div>
         );
     }
@@ -742,16 +738,7 @@ function HotelsPerCityPage() {
 
             {/* Pricing loading overlay */}
             {isLoadingPricing && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-                    <div className="bg-white rounded-3xl p-8 shadow-2xl max-w-md mx-4">
-                        <Loader
-                            message="Recherche des prix et disponibilités..."
-                            submessage={`Pour ${sortedHotels.length} hôtels sur ${nights} nuit${nights > 1 ? 's' : ''}`}
-                            size="medium"
-                            fullHeight={false}
-                        />
-                    </div>
-                </div>
+                <PageLoader overlay message="Recherche des prix et disponibilités..." />
             )}
 
             {/* DayPicker custom styles */}

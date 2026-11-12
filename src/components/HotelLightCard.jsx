@@ -502,12 +502,51 @@ function HotelLightCard({
         navigate(detailUrl, { state: { hotel: { ...hotel, paxGroups, token: currentToken }, searchParams } });
     }, [onViewDetail, navigate, Id, detailUrl, hotel, paxGroups, currentToken, searchParams]);
 
+    const handleMouseMove = useCallback((e) => {
+        const card = cardRef.current;
+        if (!card) return;
+        const rect = card.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width - 0.5;
+        const y = (e.clientY - rect.top) / rect.height - 0.5;
+        card.style.transition = 'box-shadow 0.12s ease';
+        card.style.transform = `perspective(1200px) rotateY(${x * 6}deg) rotateX(${-y * 4}deg) translateZ(8px)`;
+        card.style.boxShadow = `${x * -8}px ${y * -6 + 20}px 48px -8px rgba(14,165,233,0.22), 0 12px 32px -8px rgba(0,0,0,0.1), 3px 5px 0 1px rgba(203,213,225,0.7)`;
+        const shine = card.querySelector('[data-shine]');
+        if (shine) {
+            shine.style.opacity = '1';
+            shine.style.background = `radial-gradient(circle at ${(x + 0.5) * 100}% ${(y + 0.5) * 100}%, rgba(255,255,255,0.2) 0%, transparent 60%)`;
+        }
+    }, []);
+
+    const handleMouseLeave = useCallback(() => {
+        const card = cardRef.current;
+        if (!card) return;
+        card.style.transition = 'transform 0.65s cubic-bezier(0.23,1,0.32,1), box-shadow 0.4s ease';
+        card.style.transform = 'perspective(1200px) rotateY(0deg) rotateX(0deg) translateZ(0px)';
+        card.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.05), 0 10px 25px -5px rgba(0,0,0,0.07), 3px 5px 0 1px rgba(203,213,225,0.65)';
+        const shine = card.querySelector('[data-shine]');
+        if (shine) shine.style.opacity = '0';
+    }, []);
+
     // ── Render ─────────────────────────────────────────────────────────────────
     return (
         <div
             ref={cardRef}
-            className="group bg-white rounded-3xl border border-gray-100 shadow-md hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300 overflow-hidden"
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+            className="group relative bg-white rounded-3xl overflow-hidden"
+            style={{
+                border: '1px solid rgba(226,232,240,0.9)',
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 10px 25px -5px rgba(0,0,0,0.07), 3px 5px 0 1px rgba(203,213,225,0.65)',
+                willChange: 'transform',
+            }}
         >
+            {/* 3D tilt shine overlay */}
+            <div
+                data-shine
+                className="absolute inset-0 z-20 rounded-3xl pointer-events-none opacity-0"
+                style={{ transition: 'opacity 0.25s ease' }}
+            />
             <div className="flex flex-col sm:flex-row min-h-[220px] sm:min-h-[210px]">
 
                 {/* ── Image ── */}

@@ -35,16 +35,9 @@ export default function useSettings() {
     gcTime: 1000 * 60 * 10,
   });
 
-  // Apply synchronously during render so cached settings propagate before any
-  // search query fires (guards the race where useEffect runs too late).
-  if (settings?.benefit_marge !== undefined) {
-    apiClient.setBenefitRate(settings.benefit_marge / 100);
-  }
-
   useEffect(() => {
     if (settings?.benefit_marge !== undefined) {
-      apiClient.setBenefitRate(settings.benefit_marge / 100);
-      // Evict any results cached before this rate was known (e.g. with the 0 default).
+      // Evict cached search results so next fetch reflects the updated server-side markup.
       apiClient.clearCache();
     }
   }, [settings?.benefit_marge]);
@@ -60,9 +53,6 @@ export default function useSettings() {
     onSuccess: async (updated) => {
       const newSettings = updated?.data || updated;
       queryClient.setQueryData(QUERY_KEY, newSettings);
-      if (newSettings?.benefit_marge !== undefined) {
-        apiClient.setBenefitRate(newSettings.benefit_marge / 100);
-      }
       apiClient.clearCache();
       queryClient.invalidateQueries({ queryKey: ["hotelSearch"] });
       await queryClient.refetchQueries({ queryKey: QUERY_KEY });

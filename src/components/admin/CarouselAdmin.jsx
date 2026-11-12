@@ -2,7 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { Plus, Trash2, ArrowUp, ArrowDown, Image as ImageIcon, Video, AlertCircle, Loader2 } from 'lucide-react';
 import useCarousel from '../../custom-hooks/useCarousel.js';
-import Loader from '../../ui/Loader.jsx';
+import PageLoader from '../../ui/PageLoader.jsx';
 import toast from 'react-hot-toast';
 
 const API_BASE = "https://api.allezgoo.com";
@@ -96,11 +96,7 @@ export default function CarouselAdmin() {
     const isVideo = (media) => media.mimeType && media.mimeType.startsWith('video/');
 
     if (loading) {
-        return (
-            <div className="py-12">
-                <Loader variant="minimal" fullHeight={false} message="Chargement du carrousel..." />
-            </div>
-        );
+        return <PageLoader compact message="Chargement du carrousel..." />;
     }
 
     return (

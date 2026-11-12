@@ -1,13 +1,13 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import useAuth from '../custom-hooks/useAuth.js';
-import Loader from '../ui/Loader.jsx';
+import PageLoader from '../ui/PageLoader.jsx';
 
 export default function ProtectedRoute({ children, allowedRoles }) {
   const { isAuthenticated, user, loading } = useAuth();
 
   if (loading) {
-    return <Loader />;
+    return <PageLoader />;
   }
 
   if (!isAuthenticated) {

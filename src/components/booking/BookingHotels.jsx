@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useQuery } from '@tanstack/react-query';
-import Button from "../../ui/Button.jsx";
+import { Button3D } from "../../ui/Button_3d.tsx";
 import LocationSearch from './LocationSearch';
 import DateRangePicker from './DateRangePicker';
 import GuestRoomSelector from './GuestRoomSelector';
@@ -242,20 +242,18 @@ function BookingHotels({
                                     </div>
                                 </div>
 
-                                <Button
+                                <Button3D
                                     onClick={handleSearch}
                                     disabled={isPending}
-                                    variant="primary"
-                                    className="w-full lg:w-auto rounded-xl font-bold hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                                    variant="tactile"
+                                    className="w-full lg:w-auto rounded-xl"
                                 >
-                                    <span className="flex justify-center items-center gap-2 px-4">
-                                        {isPending
-                                            ? <Loader2 size={20} className="animate-spin" />
-                                            : <Search size={20} />
-                                        }
-                                        {isPending ? 'Recherche...' : 'Rechercher'}
-                                    </span>
-                                </Button>
+                                    {isPending
+                                        ? <Loader2 size={20} className="animate-spin" />
+                                        : <Search size={20} />
+                                    }
+                                    {isPending ? 'Recherche...' : 'Rechercher'}
+                                </Button3D>
 
                             </div>
                         </div>

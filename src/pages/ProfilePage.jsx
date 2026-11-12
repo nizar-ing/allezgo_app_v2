@@ -1,217 +1,371 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "../services/ApiClient.js";
+import { AllezGoApi } from "../services/allezgo-api/allezGoApi.js";
 import {
-    User, Mail, Phone, Shield, CalendarDays, Hotel,
+    User, Mail, Phone, Shield,
     Home, Landmark, CreditCard,
     CheckCircle2, Clock4, XCircle, BanIcon,
-    ArrowRight, Loader2, AlertCircle, Luggage,
-    RefreshCw, FileText, X, TrendingUp, MapPin
+    ArrowRight, Loader2, AlertCircle,
+    RefreshCw, FileText, X, MapPin, Compass
 } from "lucide-react";
 import useAuth from "../custom-hooks/useAuth.js";
 import useMyBookings from "../custom-hooks/useMyBookings.js";
 import VoucherModal from "../components/admin/VoucherModal";
 
-// ─── Status Config ─────────────────────────────────────────────────────────────
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const T = {
+    ivory:       '#FAF6EF',
+    navy:        '#0D1B2A',
+    terracotta:  '#C05621',
+    parchment:   '#F5EDE0',
+    border:      '#E8DDD0',
+    warmGray:    '#9B8F82',
+    darkText:    '#1C1917',
+};
+
+// ─── Injected Styles ──────────────────────────────────────────────────────────
+const PG_STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600&family=Jost:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+
+  .pg-page  { font-family: 'Jost', system-ui, sans-serif; }
+  .pg-serif { font-family: 'Cormorant Garamond', Georgia, serif; }
+  .pg-mono  { font-family: 'DM Mono', 'Courier New', monospace; }
+
+  @keyframes pgFadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pgReveal {
+    from { opacity: 0; transform: translateX(-12px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes pgOrb {
+    0%, 100% { transform: scale(1) translate(0, 0);       opacity: 0.12; }
+    40%      { transform: scale(1.08) translate(12px, -8px); opacity: 0.18; }
+    70%      { transform: scale(0.94) translate(-6px, 10px); opacity: 0.09; }
+  }
+
+  .pg-fade-up { animation: pgFadeUp  0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .pg-reveal  { animation: pgReveal  0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .pg-orb     { animation: pgOrb 9s ease-in-out infinite; }
+
+  .pg-boarding {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: #FFFFFF;
+    border: 1px solid #E8DDD0;
+    border-radius: 18px;
+    box-shadow: 0 2px 16px rgba(13,27,42,0.07), 0 1px 3px rgba(13,27,42,0.04);
+    transition: box-shadow 0.35s ease, transform 0.35s ease;
+  }
+  .pg-boarding:hover {
+    box-shadow: 0 10px 36px rgba(13,27,42,0.13), 0 3px 10px rgba(13,27,42,0.07);
+    transform: translateY(-4px);
+  }
+
+  .pg-shine-wrap { position: relative; overflow: hidden; }
+  .pg-shine-wrap::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 38%, rgba(255,255,255,0.07) 50%, transparent 62%);
+    transform: translateX(-110%);
+    transition: transform 0.75s ease;
+    pointer-events: none;
+  }
+  .pg-boarding:hover .pg-shine-wrap::after { transform: translateX(110%); }
+
+  .pg-field-last { border-bottom: none !important; }
+`;
+
+// ─── Status Config ────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
     PENDING: {
-        label: "En attente",
-        icon: Clock4,
-        bar: "bg-amber-400",
-        badge: "bg-amber-50 border-amber-200 text-amber-700",
-        footer: "bg-amber-50/60 border-amber-100",
-        shadow: "shadow-amber-100/60",
+        label:  'En attente',
+        icon:   Clock4,
+        color:  '#B45309',
+        bg:     'rgba(180,83,9,0.07)',
+        border: 'rgba(180,83,9,0.2)',
+        bar:    '#F59E0B',
     },
     CONFIRMED: {
-        label: "Confirmée",
-        icon: CheckCircle2,
-        bar: "bg-emerald-500",
-        badge: "bg-emerald-50 border-emerald-200 text-emerald-700",
-        footer: "bg-emerald-50/60 border-emerald-100",
-        shadow: "shadow-emerald-100/60",
+        label:  'Confirmée',
+        icon:   CheckCircle2,
+        color:  '#047857',
+        bg:     'rgba(4,120,87,0.07)',
+        border: 'rgba(4,120,87,0.2)',
+        bar:    '#10B981',
     },
     REJECTED: {
-        label: "Rejetée",
-        icon: XCircle,
-        bar: "bg-rose-500",
-        badge: "bg-rose-50 border-rose-200 text-rose-600",
-        footer: "bg-rose-50/60 border-rose-100",
-        shadow: "shadow-rose-100/60",
+        label:  'Rejetée',
+        icon:   XCircle,
+        color:  '#B91C1C',
+        bg:     'rgba(185,28,28,0.07)',
+        border: 'rgba(185,28,28,0.2)',
+        bar:    '#EF4444',
     },
     CANCELLED: {
-        label: "Annulée",
-        icon: BanIcon,
-        bar: "bg-slate-400",
-        badge: "bg-slate-50 border-slate-200 text-slate-500",
-        footer: "bg-slate-50/60 border-slate-100",
-        shadow: "shadow-slate-100/60",
+        label:  'Annulée',
+        icon:   BanIcon,
+        color:  '#64748B',
+        bg:     'rgba(100,116,139,0.06)',
+        border: 'rgba(100,116,139,0.18)',
+        bar:    '#94A3B8',
     },
 };
 
-// ─── Payment Method Badge ─────────────────────────────────────────────────────
+// ─── Payment Badge ────────────────────────────────────────────────────────────
 const PAYMENT_BADGE = {
-    AGENCE: { label: "Agence", Icon: Home, cls: "bg-sky-50 text-sky-600 border-sky-200" },
-    VIREMENT: { label: "Virement", Icon: Landmark, cls: "bg-violet-50 text-violet-600 border-violet-200" },
-    ONLINE: { label: "En ligne", Icon: CreditCard, cls: "bg-teal-50 text-teal-600 border-teal-200" },
+    AGENCE:   { label: 'Agence',   Icon: Home,       color: '#0369A1', bg: 'rgba(3,105,161,0.09)'   },
+    VIREMENT: { label: 'Virement', Icon: Landmark,   color: '#6D28D9', bg: 'rgba(109,40,217,0.09)'  },
+    ONLINE:   { label: 'En ligne', Icon: CreditCard, color: '#0D9488', bg: 'rgba(13,148,136,0.09)'  },
 };
 
 // ─── Resolved Hotel Name ──────────────────────────────────────────────────────
-function ResolvedHotelName({ hotelId, fallbackName }) {
+function ResolvedHotelName({ hotelId, fallbackName, dark }) {
     const isNumeric = !isNaN(fallbackName) || !isNaN(hotelId);
-    const targetId = hotelId || fallbackName;
+    const targetId  = hotelId || fallbackName;
     const { data: resolvedName, isLoading } = useQuery({
-        queryKey: ["hotel-name-resolve", targetId],
-        enabled: !!targetId && isNumeric,
+        queryKey:  ['hotel-name-resolve', targetId],
+        enabled:   !!targetId && isNumeric,
         staleTime: Infinity,
         queryFn: async () => {
             try {
                 const detail = await apiClient.getHotel(targetId);
                 return detail?.Name || detail?.HotelName || detail?.name || fallbackName;
-            } catch {
-                return fallbackName;
-            }
+            } catch { return fallbackName; }
         },
     });
-
     if (!isNumeric) return <>{fallbackName}</>;
-    if (isLoading) return (
-        <span className="inline-block w-28 h-3.5 bg-slate-200 rounded animate-pulse" />
+    if (isLoading)  return (
+        <span style={{
+            display: 'inline-block', width: 110, height: 14, verticalAlign: 'middle',
+            background: dark ? 'rgba(255,255,255,0.12)' : 'rgba(13,27,42,0.08)',
+            borderRadius: 4, animation: 'pulse 1.5s ease-in-out infinite',
+        }} />
     );
     return <>{resolvedName || fallbackName}</>;
 }
 
-// ─── Travel Card ──────────────────────────────────────────────────────────────
-function TravelCard({ booking, onViewReceipt, onViewVoucher }) {
-    const statusKey = booking.status ?? "PENDING";
-    const cfg = STATUS_CONFIG[statusKey] ?? STATUS_CONFIG.PENDING;
+// ─── Travel Card — Boarding Pass ──────────────────────────────────────────────
+function TravelCard({ booking, onViewReceipt, onViewVoucher, animDelay }) {
+    const statusKey  = booking.status ?? 'PENDING';
+    const cfg        = STATUS_CONFIG[statusKey] ?? STATUS_CONFIG.PENDING;
     const StatusIcon = cfg.icon;
-    const payment = PAYMENT_BADGE[booking.paymentMethod];
-    const price = new Intl.NumberFormat("fr-DZ").format(booking.clientPrice ?? 0);
+    const payment    = PAYMENT_BADGE[booking.paymentMethod];
+    const price      = new Intl.NumberFormat('fr-DZ').format(booking.clientPrice ?? 0);
 
-    const formatDate = (d) => {
-        if (!d) return "—";
-        try {
-            return new Intl.DateTimeFormat("fr-DZ", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(d));
-        } catch { return d; }
+    const fmt = (d) => {
+        if (!d) return '—';
+        try { return new Intl.DateTimeFormat('fr-DZ', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(d)); }
+        catch { return d; }
     };
 
     return (
-        <div className={`group relative bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-lg ${cfg.shadow} overflow-hidden flex flex-col transition-all duration-300 hover:-translate-y-0.5`}>
+        <div className="pg-boarding pg-fade-up" style={{ animationDelay: `${animDelay}s` }}>
 
-            {/* Status bar — left edge */}
-            <div className={`absolute inset-y-0 left-0 w-1 ${cfg.bar} rounded-l-2xl`} />
+            {/* Status accent bar — left edge */}
+            <div style={{
+                position: 'absolute', left: 0, top: 0, bottom: 0, width: 3,
+                background: cfg.bar, borderRadius: '18px 0 0 18px',
+            }} />
 
-            {/* Card body */}
-            <div className="pl-5 pr-5 pt-5 pb-4 flex flex-col gap-4 flex-1">
-
-                {/* Top row: reference + payment */}
-                <div className="flex items-start justify-between gap-2">
-                    <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Référence</p>
-                        <span className="text-sm font-black text-slate-700 tracking-wider font-mono">{booking.reference ?? `#${booking.id}`}</span>
-                    </div>
+            {/* ── Dark top section ── */}
+            <div className="pg-shine-wrap" style={{ background: T.navy, padding: '20px 20px 18px 24px' }}>
+                {/* Reference + Payment row */}
+                <div className="flex items-center justify-between gap-2 mb-3">
+                    <span className="pg-mono" style={{
+                        fontSize: 12, fontWeight: 500, color: T.terracotta, letterSpacing: '0.09em',
+                    }}>
+                        {booking.reference ?? `#${booking.id}`}
+                    </span>
                     {payment && (
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-bold ${payment.cls} shrink-0`}>
-                            <payment.Icon size={10} />
+                        <span className="flex items-center gap-1" style={{
+                            fontSize: 9, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase',
+                            color: 'rgba(255,255,255,0.65)',
+                            background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: 6, padding: '3px 7px',
+                        }}>
+                            <payment.Icon size={8} />
                             {payment.label}
                         </span>
                     )}
                 </div>
 
-                {/* Hotel name — prominent */}
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0 group-hover:bg-sky-50 group-hover:border-sky-100 transition-colors">
-                        <Hotel size={18} className="text-slate-400 group-hover:text-sky-500 transition-colors" />
-                    </div>
-                    <div className="min-w-0">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Hôtel</p>
-                        <p className="text-sm font-bold text-slate-800 leading-tight truncate">
-                            <ResolvedHotelName hotelId={booking.hotelId} fallbackName={booking.hotelName || String(booking.hotelId) || "N/A"} />
-                        </p>
-                    </div>
-                </div>
+                {/* Hotel name */}
+                <p className="pg-serif" style={{
+                    fontSize: 'clamp(17px, 3vw, 22px)', fontWeight: 600, lineHeight: 1.15, letterSpacing: '-0.01em',
+                    color: '#FFFFFF', marginBottom: 9,
+                }}>
+                    <ResolvedHotelName dark hotelId={booking.hotelId} fallbackName={booking.hotelName || String(booking.hotelId) || 'N/A'} />
+                </p>
 
+                {/* Stub */}
+                <div className="flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9 }}>
+                    <MapPin size={8} />
+                    <span className="pg-mono" style={{ letterSpacing: '0.1em' }}>ALLEZGOO VOYAGES</span>
+                </div>
+            </div>
+
+            {/* ── Perforation divider ── */}
+            <div style={{ position: 'relative', height: 0, margin: '0 -1px', zIndex: 10 }}>
+                <div style={{
+                    position: 'absolute', left: -11, top: -11, width: 22, height: 22,
+                    borderRadius: '50%', background: T.ivory, border: `1px solid ${T.border}`,
+                }} />
+                <div style={{
+                    position: 'absolute', left: 22, right: 22, top: -0.5,
+                    borderTop: `1.5px dashed ${T.border}`,
+                }} />
+                <div style={{
+                    position: 'absolute', right: -11, top: -11, width: 22, height: 22,
+                    borderRadius: '50%', background: T.ivory, border: `1px solid ${T.border}`,
+                }} />
+            </div>
+
+            {/* ── Light bottom section ── */}
+            <div style={{ padding: '22px 20px 0 24px', flex: 1, background: '#FDFAF7' }}>
                 {/* Dates */}
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-4 mb-5">
                     {[
-                        { label: "Arrivée", value: formatDate(booking.checkIn) },
-                        { label: "Départ", value: formatDate(booking.checkOut) },
+                        { label: 'ARRIVÉE', value: fmt(booking.checkIn)  },
+                        { label: 'DÉPART',  value: fmt(booking.checkOut) },
                     ].map(({ label, value }) => (
-                        <div key={label} className="bg-slate-50/80 rounded-xl px-3 py-2.5 border border-slate-100">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5 flex items-center gap-1">
-                                <CalendarDays size={9} /> {label}
+                        <div key={label}>
+                            <p className="pg-mono" style={{
+                                fontSize: 8, fontWeight: 500, color: T.warmGray,
+                                letterSpacing: '0.12em', marginBottom: 6,
+                            }}>
+                                {label}
                             </p>
-                            <p className="text-xs font-bold text-slate-700">{value}</p>
+                            <p className="pg-serif" style={{ fontSize: 17, fontWeight: 600, color: T.darkText, lineHeight: 1 }}>
+                                {value}
+                            </p>
                         </div>
                     ))}
                 </div>
-            </div>
 
-            {/* Footer */}
-            <div className={`px-5 py-3.5 ${cfg.footer} border-t`}>
-                <div className="flex items-center justify-between gap-2">
+                {/* Price + Status row */}
+                <div style={{
+                    borderTop: `1px solid ${T.border}`, paddingTop: 16, paddingBottom: 16,
+                    display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8,
+                }}>
                     <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-0.5">Montant total</p>
-                        <p className="text-base font-black text-slate-800">
-                            {price} <span className="text-xs font-semibold text-slate-400">DZD</span>
+                        <p className="pg-mono" style={{ fontSize: 8, fontWeight: 500, color: T.warmGray, letterSpacing: '0.1em', marginBottom: 4 }}>
+                            MONTANT
+                        </p>
+                        <p className="pg-serif" style={{ fontSize: 'clamp(20px, 3.5vw, 28px)', fontWeight: 600, color: T.darkText, lineHeight: 1 }}>
+                            {price}&nbsp;
+                            <span style={{ fontSize: 'clamp(10px, 1.5vw, 13px)', fontWeight: 500, color: T.warmGray, fontFamily: "'Jost', sans-serif" }}>DZD</span>
                         </p>
                     </div>
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold ${cfg.badge}`}>
-                        <StatusIcon size={12} />
+                    <span className="flex items-center gap-1.5" style={{
+                        padding: '6px 12px', borderRadius: 8,
+                        border: `1.5px solid ${cfg.border}`, background: cfg.bg,
+                        color: cfg.color, fontSize: 11, fontWeight: 700,
+                        fontFamily: "'Jost', sans-serif", letterSpacing: '0.05em',
+                        textTransform: 'uppercase', whiteSpace: 'nowrap',
+                    }}>
+                        <StatusIcon size={11} />
                         {cfg.label}
                     </span>
                 </div>
-
-                {booking.receiptFilename && (
-                    <button
-                        onClick={() => onViewReceipt(booking.receiptFilename)}
-                        className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-800 text-xs font-bold rounded-xl transition-colors border border-slate-200"
-                    >
-                        <FileText size={13} /> Voir le reçu
-                    </button>
-                )}
-                {booking.status === "CONFIRMED" && (
-                    <button
-                        onClick={() => onViewVoucher(booking)}
-                        className="mt-2 w-full relative overflow-hidden flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white text-xs font-bold rounded-xl transition-all duration-300 shadow-sm hover:shadow-emerald-200 hover:shadow-md active:scale-[0.98] group"
-                    >
-                        <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-                        <FileText size={13} />
-                        Voir le Voucher
-                    </button>
-                )}
             </div>
+
+            {/* ── Action buttons ── */}
+            {(booking.receiptFilename || booking.status === 'CONFIRMED') && (
+                <div style={{ padding: '0 20px 18px 24px', background: '#FDFAF7', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {booking.receiptFilename && (
+                        <button
+                            onClick={() => onViewReceipt(booking.receiptFilename)}
+                            className="flex items-center justify-center gap-1.5 w-full transition-colors"
+                            style={{
+                                padding: '9px 0', background: 'transparent',
+                                border: `1px solid ${T.border}`, borderRadius: 10, cursor: 'pointer',
+                                color: T.darkText, fontSize: 11, fontWeight: 600,
+                                fontFamily: "'Jost', sans-serif", letterSpacing: '0.04em',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(13,27,42,0.04)'; e.currentTarget.style.borderColor = '#C0B0A0'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = T.border; }}
+                        >
+                            <FileText size={11} /> Voir le reçu
+                        </button>
+                    )}
+                    {booking.status === 'CONFIRMED' && (
+                        <button
+                            onClick={() => onViewVoucher(booking)}
+                            className="flex items-center justify-center gap-1.5 w-full"
+                            style={{
+                                padding: '10px 0',
+                                background: 'linear-gradient(135deg, #047857 0%, #059669 100%)',
+                                border: 'none', borderRadius: 10, cursor: 'pointer',
+                                color: '#FFFFFF', fontSize: 11, fontWeight: 700,
+                                fontFamily: "'Jost', sans-serif", letterSpacing: '0.05em',
+                                boxShadow: '0 2px 10px rgba(4,120,87,0.28)',
+                                transition: 'filter 0.2s, box-shadow 0.2s',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.filter = 'brightness(1.1)'; e.currentTarget.style.boxShadow = '0 4px 18px rgba(4,120,87,0.38)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.filter = 'brightness(1)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(4,120,87,0.28)'; }}
+                        >
+                            <FileText size={11} /> Voir le Voucher
+                        </button>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
 
 // ─── Profile Field ────────────────────────────────────────────────────────────
-function ProfileField({ icon: Icon, label, value }) {
+function ProfileField({ icon: Icon, label, value, last }) {
     return (
-        <div className="flex items-center gap-3.5 py-3.5 border-b border-slate-100 last:border-0">
-            <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
-                <Icon className="h-4 w-4 text-slate-500" />
+        <div
+            className={`flex items-center gap-3.5 py-4 ${last ? 'pg-field-last' : ''}`}
+            style={{ borderBottom: `1px solid ${T.border}` }}
+        >
+            <div style={{
+                width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                background: 'rgba(13,27,42,0.04)', border: `1px solid ${T.border}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+                <Icon size={15} style={{ color: T.navy }} />
             </div>
             <div className="min-w-0">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">{label}</p>
-                <p className="text-sm font-semibold text-slate-800 mt-0.5 truncate">{value}</p>
+                <p className="pg-mono" style={{
+                    fontSize: 9, fontWeight: 500, color: T.warmGray,
+                    letterSpacing: '0.1em', textTransform: 'uppercase', lineHeight: 1, marginBottom: 4,
+                }}>
+                    {label}
+                </p>
+                <p className="pg-sans" style={{
+                    fontSize: 'clamp(13px, 2vw, 15px)', fontWeight: 600, color: T.darkText,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                    {value}
+                </p>
             </div>
         </div>
     );
 }
 
-// ─── Stat Chip ────────────────────────────────────────────────────────────────
-function StatChip({ label, value, accent }) {
+// ─── Stat Card ────────────────────────────────────────────────────────────────
+function StatCard({ value, label, accent, delay }) {
     return (
-        <div className={`flex items-center gap-3 px-5 py-3 bg-white rounded-2xl border ${accent.border} shadow-sm`}>
-            <div className={`w-9 h-9 rounded-xl ${accent.iconBg} flex items-center justify-center shrink-0`}>
-                <accent.Icon size={16} className={accent.iconColor} />
-            </div>
-            <div>
-                <p className={`text-xl font-black ${accent.text} leading-none`}>{value}</p>
-                <p className="text-[11px] font-semibold text-slate-400 mt-0.5">{label}</p>
-            </div>
+        <div className="pg-reveal flex flex-col items-center sm:items-start gap-1 px-3 sm:px-5 lg:px-6 py-3.5 sm:py-4 lg:py-5" style={{
+            background: '#FFFFFF', border: `1px solid ${T.border}`,
+            borderLeft: `3px solid ${accent}`, borderRadius: 13,
+            animationDelay: delay,
+        }}>
+            <p className="pg-serif" style={{ fontSize: 'clamp(28px, 4.5vw, 44px)', fontWeight: 600, color: T.darkText, lineHeight: 0.9 }}>
+                {value}
+            </p>
+            <p className="pg-mono" style={{ fontSize: 'clamp(7px, 1.5vw, 9px)', fontWeight: 500, color: T.warmGray, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 5 }}>
+                {label}
+            </p>
         </div>
     );
 }
@@ -221,130 +375,174 @@ export default function ProfilePage() {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { bookings, isLoading, isError, refetch, isFetching } = useMyBookings();
+
     const [selectedReceipt, setSelectedReceipt] = useState(null);
     const [selectedVoucher, setSelectedVoucher] = useState(null);
+    const [receiptBlobUrl,  setReceiptBlobUrl]  = useState(null);
+    const [receiptLoading,  setReceiptLoading]  = useState(false);
 
-    const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "—";
-    const initials = [user?.firstName?.[0], user?.lastName?.[0]].filter(Boolean).join("").toUpperCase() || "?";
+    const openReceipt = useCallback(async (filename) => {
+        setSelectedReceipt(filename);
+        setReceiptBlobUrl(null);
+        setReceiptLoading(true);
+        try {
+            const blob = await AllezGoApi.client.get(`/api/bookings/my/receipt/${filename}`, { responseType: 'blob' });
+            setReceiptBlobUrl(URL.createObjectURL(blob));
+        } catch { setReceiptBlobUrl(null); }
+        finally   { setReceiptLoading(false); }
+    }, []);
 
-    const confirmed = bookings.filter(b => b.status === "CONFIRMED").length;
-    const pending = bookings.filter(b => b.status === "PENDING").length;
+    const closeReceipt = useCallback(() => {
+        setSelectedReceipt(null);
+        if (receiptBlobUrl) { URL.revokeObjectURL(receiptBlobUrl); setReceiptBlobUrl(null); }
+    }, [receiptBlobUrl]);
+
+    const fullName  = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || '—';
+    const initials  = [user?.firstName?.[0], user?.lastName?.[0]].filter(Boolean).join('').toUpperCase() || '?';
+    const confirmed = bookings.filter(b => b.status === 'CONFIRMED').length;
+    const pending   = bookings.filter(b => b.status === 'PENDING').length;
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="pg-page min-h-screen" style={{ background: T.ivory }}>
+            <style>{PG_STYLES}</style>
 
-            {/* ── Hero Banner ────────────────────────────────────────────────── */}
-            <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden">
-                {/* Geometric grid pattern */}
-                <div
-                    className="absolute inset-0 opacity-[0.04]"
-                    style={{
-                        backgroundImage: `linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)`,
-                        backgroundSize: "40px 40px",
-                    }}
-                />
-                {/* Warm glow orbs */}
-                <div className="absolute top-0 right-1/4 w-72 h-72 rounded-full bg-orange-500/10 blur-3xl pointer-events-none" />
-                <div className="absolute -bottom-20 left-1/3 w-56 h-56 rounded-full bg-sky-500/10 blur-3xl pointer-events-none" />
+            {/* ── Hero ──────────────────────────────────────────────────────────── */}
+            <div className="relative overflow-hidden" style={{ background: T.navy }}>
+                {/* Grid pattern */}
+                <div style={{
+                    position: 'absolute', inset: 0, opacity: 0.035,
+                    backgroundImage: `linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)`,
+                    backgroundSize: '38px 38px',
+                }} />
+                {/* Terracotta orb */}
+                <div className="pg-orb" style={{
+                    position: 'absolute', top: -80, right: '18%',
+                    width: 320, height: 320, borderRadius: '50%',
+                    background: T.terracotta, filter: 'blur(90px)',
+                    opacity: 0.12, pointerEvents: 'none',
+                }} />
+                {/* Teal orb */}
+                <div style={{
+                    position: 'absolute', bottom: -80, left: '12%',
+                    width: 220, height: 220, borderRadius: '50%',
+                    background: '#1AACB0', filter: 'blur(80px)',
+                    opacity: 0.07, pointerEvents: 'none',
+                }} />
 
-                <div className="relative max-w-5xl mx-auto px-6 py-12 flex flex-col sm:flex-row items-center sm:items-end gap-6">
-                    {/* Avatar */}
-                    <div className="relative shrink-0">
-                        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-orange-400 to-amber-600 flex items-center justify-center shadow-2xl shadow-orange-900/40">
-                            <span className="text-2xl font-black text-white tracking-tight">{initials}</span>
-                        </div>
-                        <div className={`absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-lg flex items-center justify-center border-2 border-slate-900 text-[9px] font-black
-                            ${user?.role === "admin" ? "bg-violet-500 text-white" : "bg-emerald-500 text-white"}`}>
-                            {user?.role === "admin" ? "A" : "C"}
-                        </div>
-                    </div>
+                <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+                    <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5 sm:gap-8">
 
-                    <div className="text-center sm:text-left">
-                        <div className="flex items-center gap-2 justify-center sm:justify-start mb-1">
-                            <MapPin size={12} className="text-orange-400" />
-                            <span className="text-orange-400/80 text-xs font-semibold tracking-wide uppercase">AllezGoo Voyages</span>
+                        {/* Wax-seal avatar */}
+                        <div className="pg-fade-up relative shrink-0" style={{ animationDelay: '0s' }}>
+                            <div style={{
+                                width: 82, height: 82, borderRadius: '50%',
+                                background: `radial-gradient(140deg, #D4691C 0%, #8B3A16 100%)`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                boxShadow: `0 0 0 4px rgba(192,86,33,0.22), 0 0 0 9px rgba(192,86,33,0.07), 0 10px 36px rgba(0,0,0,0.45)`,
+                            }}>
+                                <span className="pg-serif" style={{ fontSize: 28, fontWeight: 600, fontStyle: 'italic', color: '#FFFFFF', lineHeight: 1 }}>
+                                    {initials}
+                                </span>
+                            </div>
+                            <div style={{
+                                position: 'absolute', bottom: 1, right: 1,
+                                width: 22, height: 22, borderRadius: '50%',
+                                background: user?.role === 'admin' ? '#7C3AED' : '#10B981',
+                                border: `2.5px solid ${T.navy}`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                                <Shield size={9} style={{ color: '#fff' }} />
+                            </div>
                         </div>
-                        <h1 className="text-3xl font-black text-white tracking-tight leading-none">{fullName}</h1>
-                        <p className="text-slate-400 text-sm mt-1.5">{user?.email}</p>
-                        <span className={`mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold
-                            ${user?.role === "admin"
-                                ? "bg-violet-500/20 border border-violet-400/30 text-violet-300"
-                                : "bg-emerald-500/20 border border-emerald-400/30 text-emerald-300"
-                            }`}>
-                            <Shield size={10} />
-                            {user?.role === "admin" ? "Administrateur" : "Voyageur"}
-                        </span>
+
+                        {/* Name + meta */}
+                        <div className="pg-fade-up text-center sm:text-left" style={{ animationDelay: '0.09s' }}>
+                            <p className="pg-mono" style={{
+                                fontSize: 9, fontWeight: 500, color: T.terracotta,
+                                letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 7,
+                            }}>
+                                Espace Voyageur · AllezGoo
+                            </p>
+                            <h1 className="pg-serif" style={{
+                                fontSize: 'clamp(26px, 5vw, 42px)', fontWeight: 600,
+                                color: '#FFFFFF', letterSpacing: '-0.02em', lineHeight: 1, marginBottom: 7,
+                            }}>
+                                {fullName}
+                            </h1>
+                            <p className="pg-sans" style={{ fontSize: 13, fontWeight: 300, color: 'rgba(255,255,255,0.42)', marginBottom: 11 }}>
+                                {user?.email}
+                            </p>
+                            <span className="pg-mono inline-flex items-center gap-1.5" style={{
+                                fontSize: 9, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase',
+                                padding: '4px 11px', borderRadius: 20,
+                                background: user?.role === 'admin' ? 'rgba(124,58,237,0.14)' : 'rgba(16,185,129,0.12)',
+                                border: user?.role === 'admin' ? '1px solid rgba(124,58,237,0.28)' : '1px solid rgba(16,185,129,0.24)',
+                                color:  user?.role === 'admin' ? '#A78BFA' : '#6EE7B7',
+                            }}>
+                                <Shield size={8} />
+                                {user?.role === 'admin' ? 'Administrateur' : 'Voyageur'}
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* ── Stats bar ──────────────────────────────────────────────────── */}
+            {/* ── Stats bar ─────────────────────────────────────────────────────── */}
             {!isLoading && (
-                <div className="max-w-5xl mx-auto px-6 -mt-5 mb-6 relative z-10">
-                    <div className="grid grid-cols-3 gap-3">
-                        <StatChip
-                            label="Total réservations"
-                            value={bookings.length}
-                            accent={{
-                                Icon: Luggage,
-                                border: "border-slate-200",
-                                iconBg: "bg-slate-100",
-                                iconColor: "text-slate-500",
-                                text: "text-slate-800",
-                            }}
-                        />
-                        <StatChip
-                            label="Confirmées"
-                            value={confirmed}
-                            accent={{
-                                Icon: CheckCircle2,
-                                border: "border-emerald-100",
-                                iconBg: "bg-emerald-50",
-                                iconColor: "text-emerald-500",
-                                text: "text-emerald-700",
-                            }}
-                        />
-                        <StatChip
-                            label="En attente"
-                            value={pending}
-                            accent={{
-                                Icon: Clock4,
-                                border: "border-amber-100",
-                                iconBg: "bg-amber-50",
-                                iconColor: "text-amber-500",
-                                text: "text-amber-700",
-                            }}
-                        />
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 -mt-4 mb-5 relative z-10">
+                    <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+                        <StatCard value={bookings.length} label="Réservations" accent={T.terracotta} delay="0.12s" />
+                        <StatCard value={confirmed}       label="Confirmées"   accent="#10B981"       delay="0.17s" />
+                        <StatCard value={pending}         label="En attente"   accent="#F59E0B"       delay="0.22s" />
                     </div>
                 </div>
             )}
 
-            {/* ── Content grid ───────────────────────────────────────────────── */}
-            <div className="max-w-5xl mx-auto px-6 pb-12 grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            {/* ── Content grid ──────────────────────────────────────────────────── */}
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-10 sm:pb-16 grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 items-start">
 
-                {/* ── Left: Profile card ── */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-                        <User size={15} className="text-slate-500" />
-                        <h2 className="text-sm font-bold text-slate-700">Mes Informations</h2>
+                {/* ── Profile card ── */}
+                <div className="pg-reveal" style={{
+                    background: '#FFFFFF', border: `1px solid ${T.border}`,
+                    borderRadius: 16, overflow: 'hidden', animationDelay: '0.15s',
+                }}>
+                    {/* Passport-style header */}
+                    <div style={{ background: T.navy, padding: '14px 18px 13px' }}>
+                        <p className="pg-mono" style={{
+                            fontSize: 8, color: 'rgba(255,255,255,0.38)',
+                            letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 3,
+                        }}>
+                            Passeport Voyageur
+                        </p>
+                        <p className="pg-serif" style={{ fontSize: 19, fontWeight: 600, color: '#FFFFFF', lineHeight: 1 }}>
+                            Mes Informations
+                        </p>
                     </div>
-                    <div className="px-5 pb-2">
-                        <ProfileField icon={User} label="Nom complet" value={fullName} />
-                        <ProfileField icon={Mail} label="Adresse e-mail" value={user?.email ?? "—"} />
-                        <ProfileField icon={Phone} label="Téléphone" value={user?.phone ?? "—"} />
-                        <ProfileField icon={Shield} label="Statut" value={user?.role === "admin" ? "Administrateur" : "Voyageur"} />
+                    {/* Fields */}
+                    <div style={{ padding: '2px 18px 6px' }}>
+                        <ProfileField icon={User}   label="Nom complet"   value={fullName}                                              />
+                        <ProfileField icon={Mail}   label="Adresse e-mail" value={user?.email ?? '—'}                                   />
+                        <ProfileField icon={Phone}  label="Téléphone"     value={user?.phone ?? '—'}                                    />
+                        <ProfileField icon={Shield} label="Statut"        value={user?.role === 'admin' ? 'Administrateur' : 'Voyageur'} last />
                     </div>
                 </div>
 
-                {/* ── Right: Bookings ── */}
-                <div className="lg:col-span-2 flex flex-col gap-4">
+                {/* ── Bookings panel ── */}
+                <div className="md:col-span-2 flex flex-col gap-4">
 
                     {/* Section header */}
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <h2 className="text-sm font-bold text-slate-700">Mes Réservations</h2>
+                        <div className="flex items-center gap-3">
+                            <h2 className="pg-serif" style={{ fontSize: 'clamp(20px, 3vw, 28px)', fontWeight: 600, color: T.darkText, letterSpacing: '-0.01em' }}>
+                                Mes Réservations
+                            </h2>
                             {!isLoading && bookings.length > 0 && (
-                                <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-full">
+                                <span className="pg-mono" style={{
+                                    fontSize: 10, fontWeight: 500, color: T.warmGray,
+                                    padding: '2px 9px', borderRadius: 20,
+                                    background: 'rgba(155,143,130,0.1)', border: `1px solid ${T.border}`,
+                                    letterSpacing: '0.05em',
+                                }}>
                                     {bookings.length}
                                 </span>
                             )}
@@ -352,101 +550,202 @@ export default function ProfilePage() {
                         <button
                             onClick={() => refetch()}
                             disabled={isFetching}
-                            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-40"
+                            style={{
+                                width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+                                background: 'transparent', border: `1px solid ${T.border}`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                cursor: 'pointer', color: T.warmGray, transition: 'all 0.2s',
+                                opacity: isFetching ? 0.5 : 1,
+                            }}
                             title="Rafraîchir"
+                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(13,27,42,0.04)'; e.currentTarget.style.color = T.darkText; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = T.warmGray; }}
                         >
-                            <RefreshCw size={15} className={isFetching ? "animate-spin text-slate-600" : ""} />
+                            <RefreshCw size={13} className={isFetching ? 'animate-spin' : ''} />
                         </button>
                     </div>
 
                     {/* Loading */}
                     {isLoading && (
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 flex flex-col items-center gap-3">
-                            <Loader2 size={24} className="animate-spin text-slate-400" />
-                            <p className="text-sm font-medium text-slate-400">Chargement de vos réservations…</p>
+                        <div style={{
+                            background: '#FFFFFF', border: `1px solid ${T.border}`,
+                            borderRadius: 16, padding: '52px 0',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+                        }}>
+                            <Loader2 size={22} className="animate-spin" style={{ color: T.warmGray }} />
+                            <p className="pg-mono" style={{ fontSize: 10, color: T.warmGray, letterSpacing: '0.08em' }}>
+                                Chargement des réservations…
+                            </p>
                         </div>
                     )}
 
-                    {/* Error */}
-                    {isError && !isLoading && (
-                        <div className="bg-white rounded-2xl border border-rose-200 shadow-sm p-8 flex flex-col items-center gap-3">
-                            <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center">
-                                <AlertCircle size={22} className="text-rose-400" />
+                    {/* Error — only when cached bookings exist but refresh failed */}
+                    {isError && !isLoading && bookings.length > 0 && (
+                        <div style={{
+                            background: '#FFFFFF', border: '1px solid rgba(239,68,68,0.18)',
+                            borderRadius: 16, padding: '36px 24px',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+                        }}>
+                            <div style={{
+                                width: 44, height: 44, borderRadius: 12,
+                                background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.14)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                                <AlertCircle size={20} style={{ color: '#EF4444' }} />
                             </div>
-                            <p className="text-sm font-semibold text-slate-700">Impossible de charger vos réservations.</p>
-                            <p className="text-xs text-slate-400">Veuillez réessayer dans quelques instants.</p>
+                            <p className="pg-sans" style={{ fontSize: 13, fontWeight: 600, color: T.darkText }}>Impossible de charger vos réservations.</p>
+                            <p className="pg-sans" style={{ fontSize: 11, color: T.warmGray }}>Veuillez réessayer dans quelques instants.</p>
                             <button
                                 onClick={() => refetch()}
-                                className="mt-1 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-colors"
+                                style={{
+                                    marginTop: 4, padding: '8px 22px',
+                                    background: 'rgba(13,27,42,0.05)', border: `1px solid ${T.border}`,
+                                    borderRadius: 9, cursor: 'pointer',
+                                    color: T.darkText, fontSize: 11, fontWeight: 700,
+                                    fontFamily: "'Jost', sans-serif", letterSpacing: '0.04em',
+                                    transition: 'background 0.2s',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(13,27,42,0.09)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(13,27,42,0.05)'; }}
                             >
                                 Réessayer
                             </button>
                         </div>
                     )}
 
-                    {/* Empty state */}
-                    {!isLoading && !isError && bookings.length === 0 && (
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 flex flex-col items-center gap-5">
-                            <div className="relative">
-                                <div className="w-20 h-20 rounded-3xl bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center">
-                                    <Luggage size={32} className="text-slate-300" />
+                    {/* Empty state — shown whenever bookings.length === 0 */}
+                    {!isLoading && bookings.length === 0 && (
+                        <div style={{
+                            background: '#FFFFFF', border: `1px solid ${T.border}`,
+                            borderRadius: 16, padding: '52px 24px',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, textAlign: 'center',
+                        }}>
+                            {/* Compass icon */}
+                            <div style={{ position: 'relative' }}>
+                                <div style={{
+                                    width: 72, height: 72, borderRadius: '50%',
+                                    background: 'rgba(13,27,42,0.03)', border: `2px dashed ${T.border}`,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}>
+                                    <Compass size={30} style={{ color: T.border }} />
                                 </div>
-                                <div className="absolute -top-2 -right-2 w-7 h-7 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center">
-                                    <TrendingUp size={12} className="text-orange-400" />
+                                <div style={{
+                                    position: 'absolute', top: -5, right: -5,
+                                    width: 22, height: 22, borderRadius: '50%',
+                                    background: '#FFF7ED', border: '1px solid rgba(192,86,33,0.18)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}>
+                                    <MapPin size={10} style={{ color: T.terracotta }} />
                                 </div>
                             </div>
-                            <div className="text-center">
-                                <p className="text-base font-bold text-slate-700">Aucun voyage prévu</p>
-                                <p className="text-sm text-slate-400 mt-1 max-w-xs">Planifiez votre prochain séjour et retrouvez toutes vos réservations ici.</p>
+
+                            <div>
+                                <p className="pg-serif" style={{ fontSize: 21, fontWeight: 600, color: T.darkText, marginBottom: 7 }}>
+                                    Aucun voyage prévu
+                                </p>
+                                <p className="pg-sans" style={{ fontSize: 13, fontWeight: 400, color: T.warmGray, maxWidth: 270 }}>
+                                    Planifiez votre prochain séjour et retrouvez toutes vos réservations ici.
+                                </p>
                             </div>
+
                             <button
-                                onClick={() => navigate("/")}
-                                className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-xl transition-colors shadow-sm"
+                                onClick={() => navigate('/')}
+                                className="inline-flex items-center gap-2"
+                                style={{
+                                    padding: '11px 26px',
+                                    background: T.navy, border: 'none', borderRadius: 11,
+                                    cursor: 'pointer', color: '#FFFFFF', fontSize: 12, fontWeight: 700,
+                                    fontFamily: "'Jost', sans-serif", letterSpacing: '0.06em', textTransform: 'uppercase',
+                                    boxShadow: '0 4px 18px rgba(13,27,42,0.2)',
+                                    transition: 'filter 0.2s, box-shadow 0.2s',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.filter = 'brightness(1.18)'; e.currentTarget.style.boxShadow = '0 6px 26px rgba(13,27,42,0.3)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.filter = 'brightness(1)'; e.currentTarget.style.boxShadow = '0 4px 18px rgba(13,27,42,0.2)'; }}
                             >
-                                Explorer les hôtels <ArrowRight size={14} />
+                                Explorer les hôtels <ArrowRight size={13} />
                             </button>
+
+                            {isError && (
+                                <button
+                                    onClick={() => refetch()}
+                                    style={{
+                                        background: 'none', border: 'none', cursor: 'pointer',
+                                        fontSize: 11, color: T.warmGray, textDecoration: 'underline',
+                                        fontFamily: "'Jost', sans-serif", transition: 'color 0.2s',
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.color = '#0369A1'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.color = T.warmGray; }}
+                                >
+                                    Réessayer le chargement
+                                </button>
+                            )}
                         </div>
                     )}
 
-                    {/* Travel Cards Grid */}
-                    {!isLoading && !isError && bookings.length > 0 && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {bookings.map((booking) => (
-                                <TravelCard key={booking.id} booking={booking} onViewReceipt={setSelectedReceipt} onViewVoucher={setSelectedVoucher} />
+                    {/* Boarding pass cards grid */}
+                    {!isLoading && bookings.length > 0 && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                            {bookings.map((booking, i) => (
+                                <TravelCard
+                                    key={booking.id}
+                                    booking={booking}
+                                    onViewReceipt={openReceipt}
+                                    onViewVoucher={setSelectedVoucher}
+                                    animDelay={i * 0.07}
+                                />
                             ))}
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* ── Receipt Viewer Modal ────────────────────────────────────────── */}
+            {/* ── Receipt Modal ──────────────────────────────────────────────────── */}
             {selectedReceipt && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-                    onClick={() => setSelectedReceipt(null)}
+                    className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+                    style={{ background: 'rgba(13,27,42,0.78)', backdropFilter: 'blur(6px)' }}
+                    onClick={closeReceipt}
                 >
                     <div
-                        className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+                        className="relative rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-2xl w-full max-h-[92vh] sm:max-h-[90vh] overflow-hidden flex flex-col"
+                        style={{ background: '#FFFFFF' }}
                         onClick={e => e.stopPropagation()}
                     >
-                        <div className="flex justify-between items-center p-4 border-b border-slate-100">
-                            <h3 className="font-bold text-base text-slate-800 flex items-center gap-2">
-                                <FileText size={18} className="text-slate-500" />
+                        <div className="flex justify-between items-center px-4 py-3 sm:p-4" style={{ borderBottom: `1px solid ${T.border}` }}>
+                            <h3 className="pg-sans font-bold text-sm sm:text-base flex items-center gap-2" style={{ color: T.darkText }}>
+                                <FileText size={14} style={{ color: T.warmGray }} />
                                 Reçu de Paiement
                             </h3>
                             <button
-                                onClick={() => setSelectedReceipt(null)}
-                                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-500 transition-colors"
+                                onClick={closeReceipt}
+                                style={{
+                                    width: 30, height: 30, borderRadius: '50%',
+                                    background: 'transparent', border: 'none', cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    color: T.warmGray, transition: 'background 0.2s',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(13,27,42,0.06)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                             >
-                                <X size={18} />
+                                <X size={16} />
                             </button>
                         </div>
-                        <div className="p-4 overflow-auto bg-slate-50 flex justify-center">
-                            <img
-                                src={`${import.meta.env.VITE_API_BASE_URL || "https://api.allezgoo.com"}/api/bookings/receipt/${selectedReceipt}`}
-                                alt="Reçu de paiement"
-                                className="max-w-full h-auto rounded-lg shadow-sm"
-                            />
+                        <div className="p-3 sm:p-4 overflow-auto flex justify-center" style={{ background: T.ivory }}>
+                            {receiptLoading && (
+                                <div className="flex items-center gap-2 py-10" style={{ color: T.warmGray }}>
+                                    <Loader2 size={18} className="animate-spin" />
+                                    <span className="pg-mono" style={{ fontSize: 11, letterSpacing: '0.08em' }}>Chargement…</span>
+                                </div>
+                            )}
+                            {!receiptLoading && receiptBlobUrl && (
+                                <img src={receiptBlobUrl} alt="Reçu de paiement" className="max-w-full h-auto rounded-xl shadow-sm" />
+                            )}
+                            {!receiptLoading && !receiptBlobUrl && (
+                                <div className="flex flex-col items-center gap-2 py-10" style={{ color: T.warmGray }}>
+                                    <AlertCircle size={18} />
+                                    <span className="pg-mono" style={{ fontSize: 11, letterSpacing: '0.08em' }}>Impossible de charger le reçu.</span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

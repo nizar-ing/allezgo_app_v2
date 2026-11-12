@@ -7,9 +7,9 @@ import {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const PAYMENT_METHODS = [
-    { id: "agency", label: "Paiement à l'agence", icon: Home },
-    { id: "home", label: "Paiement par virement bancaire", icon: Landmark },
-    { id: "online", label: "Paiement en ligne", icon: CreditCard },
+    { id: "AGENCE",   label: "Paiement à l'agence",          icon: Home     },
+    { id: "VIREMENT", label: "Paiement par virement bancaire", icon: Landmark },
+    { id: "ONLINE",   label: "Paiement en ligne",              icon: CreditCard },
 ];
 
 const BANK_ACCOUNTS = [
@@ -99,7 +99,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
                 })),
             };
         }),
-        paymentMethod: "agency",
+        paymentMethod: "AGENCE",
         selectedBank: null,
         receiptFile: null,
     }));
@@ -190,7 +190,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
             });
         });
 
-        if (formData.paymentMethod === 'home') {
+        if (formData.paymentMethod === 'VIREMENT') {
             if (!formData.selectedBank) errs["payment.selectedBank"] = "Veuillez sélectionner un compte";
             if (!formData.receiptFile) errs["payment.receiptFile"] = "Preuve de paiement requise";
         }
@@ -236,22 +236,32 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
             });
         });
 
+        // Group passengers by room so useBooking can send rooms[i].travellers
+        let pIdx = 0;
+        const roomPassengers = formData.rooms.map((room) => {
+            const count = room.adults.length + room.children.length;
+            const travellers = passengers.slice(pIdx, pIdx + count);
+            pIdx += count;
+            return { travellers };
+        });
+
         onSubmit({
             bookingState: {
                 ...bookingState,
                 passengers,
+                roomPassengers,
                 clientName: formData.contact.fullName,
                 clientEmail: formData.contact.email,
             },
             paymentMethod: formData.paymentMethod,
-            receiptFile: formData.paymentMethod === 'home' ? formData.receiptFile : null,
+            receiptFile: formData.paymentMethod === 'VIREMENT' ? formData.receiptFile : null,
             clientPhone: formData.contact.phone,
         });
     }, [validate, formData, onSubmit, bookingState]);
 
     const renderPaymentDetails = () => {
         switch (formData.paymentMethod) {
-            case 'agency':
+            case 'AGENCE':
                 return (
                     <div className="mt-4 p-5 bg-sky-50 border border-sky-200 rounded-xl">
                         <h4 className="text-sm font-bold text-sky-800 mb-3">Rendez-vous à notre agence</h4>
@@ -261,7 +271,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
                         </div>
                     </div>
                 );
-            case 'home':
+            case 'VIREMENT':
                 return (
                     <div className="mt-4 p-5 bg-gray-50 border border-dashed border-gray-200 rounded-xl">
                         <h4 className="text-sm font-bold text-gray-800 mb-4">Comptes bancaires</h4>
@@ -284,7 +294,7 @@ export default function GuestInfoForm({ bookingState, onSubmit, isPending }) {
                         </Field>
                     </div>
                 );
-            case 'online':
+            case 'ONLINE':
                 return (
                     <div className="mt-4 p-5 bg-gray-50 border border-dashed border-gray-200 rounded-xl flex items-center justify-center gap-2.5">
                         <AlertCircle size={18} className="text-gray-400" />

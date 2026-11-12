@@ -2,8 +2,10 @@ import React from 'react';
 import { X, Printer, Users, Hotel, Calendar, CreditCard, Phone } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '../../services/ApiClient';
+import useSettings from '../../custom-hooks/useSettings.js';
 
 export default function VoucherModal({ isOpen, onClose, booking }) {
+  const { settings } = useSettings();
   const { data: fetchedHotel, isLoading: isHotelLoading } = useQuery({
     queryKey: ['hotel', booking?.hotelId],
     queryFn: async () => {
@@ -251,7 +253,7 @@ export default function VoucherModal({ isOpen, onClose, booking }) {
               <div>
                 <p className="font-bold text-slate-800 text-sm">AllezGo</p>
                 <p>Cité El Moustakbel Ain Beida OEB</p>
-                <p>Tel: +213 770 93 25 63 / +213 670 23 02 35 | Email: contact@allezgoo.com</p>
+                <p>Tel: {settings?.contact_phone || '+213 770 93 25 63'} / +213 670 23 02 35 | Email: {settings?.contact_email || 'info@allezgoo.com'}</p>
               </div>
               <div className="text-right">
                 <p className="text-xl font-black text-sky-600 italic">Bon Séjour !</p>

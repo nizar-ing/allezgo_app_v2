@@ -12,7 +12,7 @@ import {
 import useAdminBookings from '../../custom-hooks/useAdminBookings.js';
 import { useBusinessAnalytics } from '../../custom-hooks/useBusinessAnalytics.js';
 import KpiCard from '../../components/admin/analytics/KpiCard.jsx';
-import Loader from '../../ui/Loader.jsx';
+import PageLoader from '../../ui/PageLoader.jsx';
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 
@@ -79,13 +79,7 @@ export default function BusinessStats() {
         isEmpty,
     } = useBusinessAnalytics(bookings, selectedYear);
 
-    if (loading) {
-        return (
-            <div className="py-12">
-                <Loader variant="minimal" message="Calcul des statistiques..." />
-            </div>
-        );
-    }
+    if (loading) return <PageLoader compact message="Calcul des statistiques..." />;
 
     if (isEmpty) {
         return (

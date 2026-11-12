@@ -400,7 +400,14 @@ export default function VerifyBookingModal({isOpen, booking, onClose}) {
             toast.dismiss("ipro-action");
             const code = error?.data?.message;
             if (error?.status === 409 && CONFLICT_MESSAGES[code]) {
-                setConflictCode(code);
+                if (code === 'PRICE_CHANGED') {
+                    // Booking IS confirmed at supplier — refresh list, close, toast
+                    queryClient.invalidateQueries({queryKey: ["admin-bookings"]});
+                    toast.success("Réservation confirmée — le fournisseur a appliqué un prix différent. Consultez le comparatif.");
+                    onClose();
+                } else {
+                    setConflictCode(code);
+                }
             } else {
                 toast.error(error?.message || "Erreur lors de l'action sur la réservation.");
             }

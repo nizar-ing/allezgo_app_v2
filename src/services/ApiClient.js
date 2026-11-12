@@ -1,27 +1,17 @@
 // src/services/ApiClient.js
 import axios from 'axios';
 
-// ==================== CONSTANTS ====================
-const TUNISIAN_CITY_IDS = [34, 35, 36, 37, 38]; // 34 is Sousse
+// All iPro calls now go through the AllezGo backend, which injects credentials server-side.
+const BACKEND_BASE = (import.meta.env.VITE_API_BASE_URL || 'https://api.allezgoo.com').replace(/\/+$/, '');
 
 const CONFIG = {
-    BASE_URL: 'https://admin.ipro-booking.com/api/hotel',
+    BASE_URL: `${BACKEND_BASE}/api/hotels`,
     TIMEOUT: { DEFAULT: 60000, SEARCH: 120000 },
     BATCH: { DEFAULT_SIZE: 5, DEFAULT_DELAY: 100 },
     LIMITS: { MAX_HOTELS_PER_SEARCH: 300 },
     RETRY: { MAX_ATTEMPTS: 3, BASE_DELAY: 1000, MAX_DELAY: 5000 },
     CACHE: { TTL: 5 * 60 * 1000, ENABLED: true },
 };
-
-// ==================== CREDENTIALS ====================
-const CREDENTIALS = {
-    Login: import.meta.env.VITE_API_LOGIN,
-    Password: import.meta.env.VITE_API_PASSWORD,
-};
-
-if (!CREDENTIALS.Login || !CREDENTIALS.Password) {
-    throw new Error('FATAL: API credentials (VITE_API_LOGIN, VITE_API_PASSWORD) are not configured in .env file.');
-}
 
 // ==================== CUSTOM ERROR ====================
 class ApiError extends Error {
@@ -106,10 +96,8 @@ class ApiClient {
             headers: { 'Content-Type': 'application/json' },
             timeout: CONFIG.TIMEOUT.DEFAULT,
         });
-        this.credentials = CREDENTIALS;
         this.cache = new CacheManager(CONFIG.CACHE.TTL);
         this.cancelTokens = new Map();
-        this.benefitRate = 0;
         this.setupInterceptors();
     }
 
@@ -141,6 +129,8 @@ class ApiClient {
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             try { return await requestFn(); } catch (error) {
                 lastError = error;
+                // Never retry client errors — the request is definitively bad
+                if (error?.status >= 400 && error?.status < 500) break;
                 if (attempt === maxAttempts) break;
                 const delay = Math.min(CONFIG.RETRY.BASE_DELAY * Math.pow(2, attempt - 1), CONFIG.RETRY.MAX_DELAY);
                 await new Promise(resolve => setTimeout(resolve, delay));
@@ -164,45 +154,13 @@ class ApiClient {
         this.cancelTokens.clear();
     }
 
-    createRequestBody(additionalData = {}) {
-        return { Credential: this.credentials, ...additionalData };
-    }
-
-    _applyAgencyMarkup(data) {
-        if (!data) return data;
-        const applyToHotel = (hotel) => {
-            const boarding = hotel.Price?.Boarding || hotel.Boarding;
-            if (!boarding) return;
-            boarding.forEach(b => {
-                b.Pax?.forEach(p => {
-                    p.Rooms?.forEach(r => {
-                        const markup = (val) => {
-                            const num = parseFloat(val);
-                            if (isNaN(num)) return val;
-                            return Number((num * (1 + this.benefitRate)).toFixed(2));
-                        };
-                        r.Price = markup(r.Price);
-                        r.BasePrice = markup(r.BasePrice);
-                        r.PriceWithAffiliateMarkup = markup(r.PriceWithAffiliateMarkup);
-                        r.View?.forEach(v => {
-                            v.Price = markup(v.Price);
-                            v.PriceWithAffiliateMarkup = markup(v.PriceWithAffiliateMarkup);
-                        });
-                    });
-                });
-            });
-        };
-        if (data.HotelSearch) data.HotelSearch.forEach(applyToHotel);
-        else if (data.HotelDetail) applyToHotel(data.HotelDetail);
-        else applyToHotel(data);
-        return data;
-    }
+    // ==================== LIST METHODS ====================
 
     async listCountry() {
         const cacheKey = 'countries';
         if (this.cache.has(cacheKey)) return this.cache.get(cacheKey);
         const data = await this.retryRequest(async () => {
-            const response = await this.client.post('/ListCountry', this.createRequestBody());
+            const response = await this.client.post('/list/countries', {});
             return response.data.ListCountry || [];
         });
         this.cache.set(cacheKey, data);
@@ -213,7 +171,7 @@ class ApiClient {
         const cacheKey = 'cities';
         if (this.cache.has(cacheKey)) return this.cache.get(cacheKey);
         const data = await this.retryRequest(async () => {
-            const response = await this.client.post('/ListCity', this.createRequestBody());
+            const response = await this.client.post('/list/cities', {});
             return response.data.ListCity || [];
         });
         this.cache.set(cacheKey, data);
@@ -224,7 +182,7 @@ class ApiClient {
         const cacheKey = 'categories';
         if (this.cache.has(cacheKey)) return this.cache.get(cacheKey);
         const data = await this.retryRequest(async () => {
-            const response = await this.client.post('/ListCategorie', this.createRequestBody());
+            const response = await this.client.post('/list/categories', {});
             return response.data.ListCategorie || [];
         });
         this.cache.set(cacheKey, data);
@@ -235,7 +193,7 @@ class ApiClient {
         const cacheKey = 'tags';
         if (this.cache.has(cacheKey)) return this.cache.get(cacheKey);
         const data = await this.retryRequest(async () => {
-            const response = await this.client.post('/ListTag', this.createRequestBody());
+            const response = await this.client.post('/list/tags', {});
             return response.data.ListTag || [];
         });
         this.cache.set(cacheKey, data);
@@ -246,7 +204,7 @@ class ApiClient {
         const cacheKey = 'boarding';
         if (this.cache.has(cacheKey)) return this.cache.get(cacheKey);
         const data = await this.retryRequest(async () => {
-            const response = await this.client.post('/ListBoarding', this.createRequestBody());
+            const response = await this.client.post('/list/boarding', {});
             return response.data.ListBoarding || [];
         });
         this.cache.set(cacheKey, data);
@@ -257,7 +215,7 @@ class ApiClient {
         const cacheKey = 'currencies';
         if (this.cache.has(cacheKey)) return this.cache.get(cacheKey);
         const data = await this.retryRequest(async () => {
-            const response = await this.client.post('/ListCurrency', this.createRequestBody());
+            const response = await this.client.post('/list/currencies', {});
             return { currencies: response.data.ListCurrency || [], countResults: response.data.CountResults || 0 };
         });
         this.cache.set(cacheKey, data);
@@ -268,7 +226,7 @@ class ApiClient {
         const cacheKey = cityId ? `hotels_city_${cityId}` : 'hotels_all';
         if (this.cache.has(cacheKey)) return this.cache.get(cacheKey);
         const data = await this.retryRequest(async () => {
-            const response = await this.client.post('/ListHotel', cityId ? this.createRequestBody({ City: cityId }) : this.createRequestBody());
+            const response = await this.client.post('/list/hotels', cityId ? { cityId } : {});
             return response.data.ListHotel || [];
         });
         this.cache.set(cacheKey, data);
@@ -280,9 +238,9 @@ class ApiClient {
         const cacheKey = `hotel_${hotelId}`;
         if (this.cache.has(cacheKey)) return this.cache.get(cacheKey);
         const data = await this.retryRequest(async () => {
-            const response = await this.client.post('/HotelDetail', this.createRequestBody({ Hotel: hotelId }));
+            const response = await this.client.post('/detail', { hotelId });
             if (!response.data.HotelDetail) throw new ApiError(this.messages.HOTEL_NOT_FOUND(hotelId), 404);
-            return this._applyAgencyMarkup(response.data.HotelDetail);
+            return response.data.HotelDetail; // markup already applied server-side
         });
         this.cache.set(cacheKey, data);
         return data;
@@ -305,6 +263,8 @@ class ApiClient {
         }
         return hotelsMap;
     }
+
+    // ==================== SEARCH TRANSFORMATION ====================
 
     // ✅ Engine de Statut Intégré
     _transformHotelSearchResponse(response, requestedRooms) {
@@ -347,6 +307,7 @@ class ApiClient {
                                     stopReservation: room.StopReservation === true || room.StopReservation === "true" || !!(room.StopSales?.Title?.trim()),
                                     stopSalesTitle: room.StopSales?.Title?.trim() || null,
                                     onRequest: room.OnRequest === true || room.OnRequest === "true",
+                                    offerId: room.OfferId ?? room.offerId ?? null,
                                     _raw: room,
                                 });
                             }
@@ -449,16 +410,13 @@ class ApiClient {
                 Child: Array.isArray(room.child) ? room.child : (room.childAges || [])
             }));
 
-            const isTunisianCity = TUNISIAN_CITY_IDS.includes(Number(searchParams.cityId));
-
             // ✅ DUAL-MODE: City geo-targeting vs. explicit Hotel IDs
             const useCityStrategy = !!searchParams.cityId && !searchParams.hotels?.length;
 
+            // Market params (GuestNationality, Currency) are injected server-side by the adapter
             const bookingDetails = {
                 CheckIn: searchParams.checkIn,
                 CheckOut: searchParams.checkOut,
-                GuestNationality: isTunisianCity ? 'DZ' : searchParams.guestNationality,
-                Currency: isTunisianCity ? 'DZD' : searchParams.currency,
             };
 
             if (useCityStrategy) {
@@ -479,16 +437,16 @@ class ApiClient {
                 : (searchParams.filters || {});
 
             const response = await this.retryRequest(async () => {
-                return await this.client.post('/HotelSearch', this.createRequestBody({
+                return await this.client.post('/search', {
                     SearchDetails: {
                         BookingDetails: bookingDetails,
                         Filters: filters,
                         Rooms: roomsForRequest,
                     },
-                }), { timeout: CONFIG.TIMEOUT.SEARCH, cancelToken: cancelToken.token });
+                }, { timeout: CONFIG.TIMEOUT.SEARCH, cancelToken: cancelToken.token });
             });
 
-            this._applyAgencyMarkup(response.data);
+            // Markup is applied server-side — transform only
             const transformedData = this._transformHotelSearchResponse(response.data, roomsForRequest);
             return {
                 hotelSearch: response.data.HotelSearch || [],
@@ -504,33 +462,28 @@ class ApiClient {
     async searchRoomAvailability(params = {}) {
         const cancelToken = this.createCancelToken('roomAvailability');
         try {
-            const isTunisianCity = TUNISIAN_CITY_IDS.includes(Number(params.cityId));
-
+            // Market params are injected server-side by the adapter
             const response = await this.retryRequest(async () => {
-                return await this.client.post('/HotelSearch', this.createRequestBody({
+                return await this.client.post('/availability', {
                     SearchDetails: {
                         BookingDetails: {
                             CheckIn: params.checkIn,
                             CheckOut: params.checkOut,
                             Hotels: [params.hotelId],
-                            // ✅ MODIFIER: Support for Maghreb rates (force DZ/DZD for Tunisian cities)
-                            GuestNationality: isTunisianCity ? 'DZ' : params.guestNationality,
-                            Currency: isTunisianCity ? 'DZD' : params.currency,
                         },
                         // ✅ FIX CRITIQUE: OnlyAvailable passe à FALSE pour ne pas bloquer les "Sur demande"
                         Filters: { OnlyAvailable: false },
                         Rooms: params.rooms.map(r => ({ Adult: r.adults || 2, Child: r.childAges || [] }))
                     },
-                }), { timeout: CONFIG.TIMEOUT.SEARCH, cancelToken: cancelToken.token });
+                }, { timeout: CONFIG.TIMEOUT.SEARCH, cancelToken: cancelToken.token });
             });
 
-            this._applyAgencyMarkup(response.data);
+            // Markup is applied server-side
             const allProviders = response.data.HotelSearch || [];
             if (!allProviders.length) return { rooms: [], roomsByPax: [] };
 
             const primary = allProviders[0];
             // Collect rooms from ALL providers, each tagged with its provider's token/source
-            // so the caller can select the correct provider when refreshing a token.
             const allRooms = allProviders.flatMap(h =>
                 this._processRoomResults(h, params.boardingType).map(r => ({
                     ...r,
@@ -539,7 +492,6 @@ class ApiClient {
                 }))
             );
 
-            // Build roomsByPax from allRooms so every pax slot shows rooms across ALL providers.
             const roomsByPax = (params.rooms || []).map((req, idx) => ({
                 paxIndex: idx,
                 adults: req.adults || req.adult || 2,
@@ -582,6 +534,7 @@ class ApiClient {
                         stopReservation: r.StopReservation === true || r.StopReservation === "true" || !!(r.StopSales?.Title?.trim()),
                         stopSalesTitle: r.StopSales?.Title?.trim() || null,
                         onRequest: r.OnRequest === true || r.OnRequest === "true",
+                        offerId: r.OfferId ?? r.offerId ?? null,
                         _raw: r,
                     });
                 });
@@ -620,125 +573,6 @@ class ApiClient {
             City: { ...listData.City, ...detailData.City },
             _enhanced: true, _mergedAt: new Date().toISOString(),
         };
-    }
-
-
-// ==================== BOOKING MUTATIONS ====================
-    async createBooking(hotelBookingPayload) {
-        try {
-            // 🛑 1. THE UNWRAPPER: Defend against Double-Nesting (Matryoshka Bug)
-            // If the payload is wrapped in an outer { HotelBooking: {...} }, extract the pure data.
-            const rawBookingData = hotelBookingPayload.HotelBooking ? hotelBookingPayload.HotelBooking : hotelBookingPayload;
-
-            // 🛑 2. DEEP CLONE: Break the React Query Cache Freeze
-            // This creates a brand new, mutable object in memory
-            const mutablePayload = JSON.parse(JSON.stringify(rawBookingData));
-
-            const tunisianCityIds = [34, 35, 36, 37, 38];
-            const cityId = Number(mutablePayload.City || mutablePayload.cityId);
-
-            // 🛑 3. THE VIP PASSPORT: Inject Maghreb Contract Rules
-            if (tunisianCityIds.includes(cityId)) {
-                // Root level injection
-                mutablePayload.GuestNationality = "DZ";
-                mutablePayload.Currency = "DZD";
-
-                // Passenger level injection (Strict iPro validation)
-                if (Array.isArray(mutablePayload.Rooms)) {
-                    mutablePayload.Rooms.forEach(room => {
-                        if (room.Pax && Array.isArray(room.Pax.Adult)) {
-                            room.Pax.Adult.forEach(adult => { adult.Nationality = "DZ"; });
-                        }
-                        if (room.Pax && Array.isArray(room.Pax.Child)) {
-                            room.Pax.Child.forEach(child => { child.Nationality = "DZ"; });
-                        }
-                    });
-                }
-            }
-
-            // 🛑 4. STRICT SINGLE WRAPPING
-            const requestPayload = {
-                Credential: {
-                    Login: CREDENTIALS.Login,
-                    Password: CREDENTIALS.Password
-                },
-                // Pass the unwrapped, deeply cloned, and properly mutated object
-                HotelBooking: mutablePayload
-            };
-
-            if (import.meta.env.DEV) {
-                console.log("🚀 FINAL BULLETPROOF PAYLOAD:", JSON.stringify(requestPayload, null, 2));
-            }
-
-            // Execute API Call
-            const response = await axios.post(`${CONFIG.BASE_URL}/BookingCreation`, requestPayload, {
-                timeout: CONFIG.TIMEOUT.DEFAULT
-            });
-
-            // 🛑 5. ERROR HANDLING
-            // 1. Intercept iPro internal logical errors (200 OK but with ErrorMessage object)
-            if (response.data?.ErrorMessage && !Array.isArray(response.data.ErrorMessage) && response.data.ErrorMessage.Code) {
-                console.error("🔴 iPro API Error:", response.data.ErrorMessage);
-                throw new ApiError(response.data.ErrorMessage.Description || 'Erreur API iPro', response.data.ErrorMessage.Code);
-            }
-
-            // Extract the ID safely whether it's at the root, inside an object, or an array
-            const responseData = response.data;
-            const validId = responseData?.Id || responseData?.BookingCreation?.Id || responseData?.BookingCreation?.[0]?.Id;
-
-            if (!validId) {
-                console.error("🔴 iPro Unrecognized Response:", responseData);
-                throw new ApiError('Format de réponse iPro invalide ou ID manquant.', response.status);
-            }
-
-            return responseData; // Return the full data back to the caller
-        } catch (error) {
-            // Prevent masking our custom ApiErrors
-            if (error.name === 'ApiError' || error instanceof ApiError) {
-                throw error;
-            }
-            throw new ApiError('Error executing BookingCreation mutation', error.response?.status || 500, error);
-        }
-    }
-
-    async cancelBooking(bookingId, onlyFees = false) {
-        try {
-            const requestPayload = {
-                Credential: {
-                    Login: CREDENTIALS.Login,
-                    Password: CREDENTIALS.Password
-                },
-                OnlyCancellationFees: onlyFees,
-                Booking: parseInt(bookingId, 10)
-            };
-
-            const response = await axios.post(`${CONFIG.BASE_URL}/BookingCancellation`, requestPayload, {
-                timeout: CONFIG.TIMEOUT.DEFAULT
-            });
-
-            const data = response.data;
-
-            // iPro returns an Object for errors, and an empty Array [] for success.
-            if (data?.ErrorMessage && !Array.isArray(data.ErrorMessage)) {
-                throw new ApiError(`Erreur iPro: ${data.ErrorMessage.Description}`, data.ErrorMessage.Code);
-            }
-
-            if (!data?.BookingCancellation) {
-                throw new ApiError('Format de réponse invalide pour l\'annulation.', response.status);
-            }
-
-            return data.BookingCancellation;
-        } catch (error) {
-            if (error.name === 'ApiError' || error instanceof ApiError) throw error;
-            throw new ApiError('Erreur d\'exécution de l\'annulation', error.response?.status, error);
-        }
-    }
-
-    setBenefitRate(rate) {
-        const parsed = Number(rate);
-        if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
-            this.benefitRate = parsed;
-        }
     }
 
     clearCache() { this.cache.clear(); }

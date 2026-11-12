@@ -1,5 +1,6 @@
 // src/components/HotelCard.jsx
 import { memo, useMemo } from "react";
+import hotelPlaceholder from "../assets/hotel_placeholder.webp";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
     MapPin, Star, Images, Eye, Sparkles,
@@ -9,7 +10,7 @@ import {
 } from "lucide-react";
 
 // ── Fallback image (module-level constant) ────────────────────────────────────
-const FALLBACK_IMAGE = "https://loremflickr.com/600/400/hotel,luxury?lock=42";
+const FALLBACK_IMAGE = hotelPlaceholder;
 
 // ── Module-level icon/style maps ──────────────────────────────────────────────
 
@@ -284,14 +285,14 @@ const HotelCard = memo(function HotelCard({ hotel, searchParams: searchParamsPro
                         <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Thèmes</h4>
                         <div className="flex flex-wrap gap-2">
                             {topThemes.map((theme, index) => {
-                                const { Icon: ThemeIcon, iconColor, gradient, bg, border } = getThemeStyle(theme);
+                                const { Icon: ThemeIcon, iconColor, bg, border } = getThemeStyle(theme);
                                 return (
                                     <div
                                         key={index}
                                         className={`group/theme relative inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-br ${bg} border-2 ${border} rounded-full text-xs font-bold shadow-sm hover:shadow-md transition-all duration-300 cursor-default overflow-hidden`}
                                     >
                                         <ThemeIcon className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${iconColor} flex-shrink-0`} />
-                                        <span className={`text-transparent bg-gradient-to-r ${gradient} bg-clip-text`}>
+                                        <span className={`font-bold ${iconColor}`}>
                                             {theme}
                                         </span>
                                     </div>

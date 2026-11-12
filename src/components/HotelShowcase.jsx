@@ -1,9 +1,9 @@
 // src/components/HotelShowcase.jsx
 import { useMemo } from "react";
-import { Crown, DollarSign, Users, Utensils, Hotel, Sparkles } from "lucide-react";
+import { Crown, Users, Utensils, Hotel, Sparkles } from "lucide-react";
 import HotelCard from "./HotelCard.jsx";
 import HotelCarousel from "../ui/HotelCarrousel.jsx";
-import HotelShowcaseSkeleton from "./HotelShowcaseSkeleton.jsx";
+import PageLoader from "../ui/PageLoader.jsx";
 import { useHotelsEnhanced } from "../custom-hooks/useHotelQueries.js";
 
 // ── Module-level helpers ──────────────────────────────────────────────────────
@@ -16,29 +16,23 @@ const SECTION_CONFIG = [
         title: "Hôtels de Luxe",
         subtitle: "Les meilleures adresses 4 et 5 étoiles",
         Icon: Crown,
-        iconClass: "text-yellow-500",
-        bgBadge: "bg-yellow-500",
-        bgBadgeHover: "bg-yellow-600",
+        iconClass: "text-amber-600",
+        iconBg: "bg-amber-50 border-amber-200",
+        barFrom: "#F59E0B",
+        barTo: "#D97706",
+        badgeGradient: "from-amber-500 to-yellow-500",
         dataKey: "luxuryHotels",
-    },
-    {
-        key: "budget",
-        title: "Bon Rapport Qualité/Prix",
-        subtitle: "Des séjours confortables à prix accessibles",
-        Icon: DollarSign,
-        iconClass: "text-green-500",
-        bgBadge: "bg-green-500",
-        bgBadgeHover: "bg-green-600",
-        dataKey: "budgetHotels",
     },
     {
         key: "family",
         title: "Hôtels Familiaux",
         subtitle: "Idéal pour les vacances en famille",
         Icon: Users,
-        iconClass: "text-blue-500",
-        bgBadge: "bg-sky-600",
-        bgBadgeHover: "bg-sky-700",
+        iconClass: "text-sky-600",
+        iconBg: "bg-sky-50 border-sky-200",
+        barFrom: "#0EA5E9",
+        barTo: "#0284C7",
+        badgeGradient: "from-sky-500 to-blue-600",
         dataKey: "familyHotels",
     },
     {
@@ -46,9 +40,11 @@ const SECTION_CONFIG = [
         title: "All Inclusive",
         subtitle: "Tout compris pour des vacances sans souci",
         Icon: Utensils,
-        iconClass: "text-orange-500",
-        bgBadge: "bg-orange-500",
-        bgBadgeHover: "bg-orange-600",
+        iconClass: "text-orange-600",
+        iconBg: "bg-orange-50 border-orange-200",
+        barFrom: "#F97316",
+        barTo: "#EA580C",
+        badgeGradient: "from-orange-500 to-red-500",
         dataKey: "allInclusiveHotels",
     },
 ];
@@ -104,7 +100,7 @@ function HotelShowcase({ cityId = null, className = "" }) {
 
     // ── Loading ───────────────────────────────────────────────────────────────
     if (isLoading) {
-        return <HotelShowcaseSkeleton className={className} />;
+        return <PageLoader section />;
     }
 
     // ── Error ─────────────────────────────────────────────────────────────────
@@ -133,41 +129,33 @@ function HotelShowcase({ cityId = null, className = "" }) {
 
     // ── Render ────────────────────────────────────────────────────────────────
     return (
-        <section className={`w-full py-8 ${className}`}>
+        <section className={`w-full py-6 bg-gradient-to-b from-slate-50/70 via-white to-white ${className}`}>
 
-            {/* ✅ max-w-screen-2xl — wider than previous max-w-7xl */}
-            <div className="max-w-screen-2xl mx-auto text-center mb-16 px-4">
+            <div className="max-w-screen-2xl mx-auto text-center mb-6 px-4">
 
                 {/* Eyebrow badge */}
-                <div className="inline-flex items-center gap-2 bg-sky-100 border border-sky-200 text-sky-700 text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full mb-5 shadow-sm">
-                    <Sparkles size={13} />
+                <div className="inline-flex items-center gap-2.5 bg-sky-50 border border-sky-200 text-sky-700 text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full mb-3 shadow-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
                     Sélection Exclusive
-                    <Sparkles size={13} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
                 </div>
 
-                {/* Gradient headline */}
-                <h2 className="text-3xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-sky-600 to-sky-700 mb-4 leading-tight tracking-tight">
+                <h2 className="text-3xl md:text-5xl font-extrabold text-sky-700 mb-3 leading-tight tracking-tight">
                     Nos Collections d'Hôtels
                 </h2>
 
                 {/* Underline accent */}
-                <div className="flex items-center justify-center gap-2 mb-5">
+                <div className="flex items-center justify-center gap-2">
                     <div className="h-px w-16 bg-gradient-to-r from-transparent to-sky-400" />
                     <div className="w-2 h-2 rounded-full bg-sky-500" />
                     <div className="h-1 w-10 rounded-full bg-gradient-to-r from-sky-400 to-blue-500" />
                     <div className="w-2 h-2 rounded-full bg-sky-500" />
                     <div className="h-px w-16 bg-gradient-to-l from-transparent to-sky-400" />
                 </div>
-
-                <p className="text-gray-600 text-base md:text-lg max-w-xl mx-auto leading-relaxed">
-                    Découvrez notre sélection d'hôtels soigneusement choisis
-                    <span className="text-sky-700 font-semibold"> pour chaque type de voyageur</span>
-                </p>
             </div>
 
-            {/* ✅ max-w-screen-2xl — wider than previous max-w-7xl */}
-            <div className="max-w-screen-2xl mx-auto space-y-20 px-4 md:px-8 lg:px-12">
-                {SECTION_CONFIG.map(({ key, title, subtitle, Icon, iconClass, bgBadge, bgBadgeHover, dataKey }) => {
+            <div className="max-w-screen-2xl mx-auto space-y-10 px-4 md:px-8 lg:px-12">
+                {SECTION_CONFIG.map(({ key, title, subtitle, Icon, iconClass, iconBg, barFrom, barTo, badgeGradient, dataKey }) => {
                     const sectionHotels = hotelCategories[dataKey];
                     if (!sectionHotels?.length) return null;
 
@@ -175,11 +163,11 @@ function HotelShowcase({ cityId = null, className = "" }) {
                         <div key={key} className="relative">
 
                             {/* Section Header */}
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-                                <div className="flex items-center gap-4">
-                                    {/* Icon bubble */}
-                                    <div className="p-3 rounded-2xl shadow-md bg-white border-2 border-gray-100">
-                                        <Icon size={26} className={iconClass} />
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+                                <div className="flex items-center gap-3">
+                                    {/* Category-colored icon bubble */}
+                                    <div className={`p-3 rounded-2xl border-2 shadow-sm ${iconBg}`}>
+                                        <Icon size={24} className={iconClass} />
                                     </div>
                                     <div>
                                         <h3 className="text-xl md:text-2xl font-extrabold text-gray-900 leading-tight">
@@ -189,18 +177,17 @@ function HotelShowcase({ cityId = null, className = "" }) {
                                     </div>
                                 </div>
 
-                                {/* Count badge */}
-                                <span className={`inline-flex items-center gap-1.5 text-xs font-bold text-white
-                                 ${bgBadge} hover:${bgBadgeHover} transition-colors px-4 lg:px-6 py-2 rounded-full self-start sm:self-auto`}>
+                                {/* Gradient count badge */}
+                                <span className={`inline-flex items-center gap-1.5 text-xs font-bold text-white bg-gradient-to-r ${badgeGradient} px-4 py-2 rounded-full self-start sm:self-auto shadow-sm`}>
                                     {sectionHotels.length} hôtel{sectionHotels.length > 1 ? "s" : ""}
                                 </span>
                             </div>
 
-                            {/* Divider accent */}
-                            <div className="flex items-center gap-3 mb-6">
+                            {/* Category-colored accent bar */}
+                            <div className="flex items-center gap-3 mb-4">
                                 <div
-                                    className={`h-1 w-12 rounded-full ${iconClass} opacity-60`}
-                                    style={{ backgroundColor: "currentColor" }}
+                                    className="h-1 w-14 rounded-full flex-shrink-0"
+                                    style={{ background: `linear-gradient(to right, ${barFrom}, ${barTo})` }}
                                 />
                                 <div className="h-px flex-1 bg-gradient-to-r from-gray-200 to-transparent" />
                             </div>

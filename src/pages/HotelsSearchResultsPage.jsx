@@ -3,7 +3,7 @@ import { useLayoutEffect, useMemo, useCallback } from "react";
 import { useLocation, useNavigate, useSearchParams, Navigate } from "react-router-dom";
 import { Calendar, Users, Moon, ArrowLeft, AlertTriangle } from "lucide-react";
 import HotelsListView from "../ui/HotelsListView.jsx";
-import Loader         from "../ui/Loader.jsx";
+import PageLoader from "../ui/PageLoader.jsx";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import apiClient      from "../services/ApiClient";
 import { normalizeHotelForCard } from "../utils/normalizeHotel";
@@ -257,7 +257,7 @@ function HotelsSearchResultsPage() {
     const { searchId = null, countResults = 0, searchCriteria = null } = searchData ?? {};
 
     if (isLoadingDetails || isLoadingSearch) return (
-        <Loader message="Chargement des résultats..." submessage="Cette opération peut prendre quelques instants" size="large" variant="gradient" fullHeight={true} />
+        <PageLoader section message="Recherche des meilleures offres..." />
     );
 
     const hasError     = isErrorDetails || isError || dataLoadError;
@@ -276,7 +276,7 @@ function HotelsSearchResultsPage() {
         </div>
     );
 
-    if (!searchData) return <Loader message="Préparation des données..." size="medium" variant="gradient" fullHeight={true} />;
+    if (!searchData) return <PageLoader section message="Préparation des résultats..." />;
 
     return (
         <HotelsListView

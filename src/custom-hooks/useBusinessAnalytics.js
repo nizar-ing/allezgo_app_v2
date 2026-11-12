@@ -31,6 +31,14 @@ function monthLabel(d) {
     return `${FR_MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+// clientPrice already includes the markup, so margin = price × r / (1 + r) for legacy rows.
+// For Phase 5+ bookings, use the stored marginDzd directly.
+function bookingMargin(b, benefitRate) {
+    if (b.marginDzd != null) return Number(b.marginDzd);
+    const price = Number(b.clientPrice) || 0;
+    return benefitRate > 0 ? price * benefitRate / (1 + benefitRate) : 0;
+}
+
 export function useBusinessAnalytics(bookings, selectedYear) {
     const { settings } = useSettings();
     const benefitRate = settings?.benefit_marge !== undefined
@@ -55,12 +63,26 @@ export function useBusinessAnalytics(bookings, selectedYear) {
 
     const kpis = useMemo(() => {
         const phones = new Set();
-        let revenue = 0, confirmed = 0, pending = 0, rejected = 0, cancelled = 0;
+        let revenue = 0, totalMargin = 0, confirmed = 0, pending = 0, rejected = 0, cancelled = 0;
+        let marginSumPct = 0, marginPctCount = 0;
+        const supplierWins = {};
+        let confirmedWithSupplier = 0, confirmedAlt = 0;
 
         filtered.forEach(b => {
             const s = b.status?.toUpperCase();
-            if (s === 'CONFIRMED') { revenue += Number(b.clientPrice) || 0; confirmed++; }
-            else if (s === 'PENDING') pending++;
+            if (s === 'CONFIRMED') {
+                const p = Number(b.clientPrice) || 0;
+                const m = bookingMargin(b, benefitRate);
+                revenue += p;
+                totalMargin += m;
+                confirmed++;
+                if (p > 0) { marginSumPct += m / p * 100; marginPctCount++; }
+                if (b.supplier) {
+                    supplierWins[b.supplier] = (supplierWins[b.supplier] ?? 0) + 1;
+                    confirmedWithSupplier++;
+                    if (b.supplier !== 'ipro') confirmedAlt++;
+                }
+            } else if (s === 'PENDING') pending++;
             else if (s === 'REJECTED') rejected++;
             else if (s === 'CANCELLED') cancelled++;
             if (b.clientPhone) phones.add(b.clientPhone);
@@ -69,7 +91,7 @@ export function useBusinessAnalytics(bookings, selectedYear) {
         const total = filtered.length;
         return {
             totalRevenue: revenue,
-            totalBenefit: revenue * benefitRate,
+            totalBenefit: totalMargin,
             confirmedCount: confirmed,
             pendingCount: pending,
             rejectedCount: rejected,
@@ -78,6 +100,10 @@ export function useBusinessAnalytics(bookings, selectedYear) {
             uniqueClients: phones.size,
             conversionRate: total > 0 ? (confirmed / total) * 100 : 0,
             avgBookingValue: confirmed > 0 ? revenue / confirmed : 0,
+            // New Phase 7 KPIs
+            supplierWins,
+            avgSavingsPct: marginPctCount > 0 ? marginSumPct / marginPctCount : 0,
+            shareWithAlternative: confirmedWithSupplier > 0 ? (confirmedAlt / confirmedWithSupplier) * 100 : 0,
         };
     }, [filtered, benefitRate]);
 
@@ -91,9 +117,8 @@ export function useBusinessAnalytics(bookings, selectedYear) {
             const e = map.get(key);
             e.count++;
             if (b.status?.toUpperCase() === 'CONFIRMED') {
-                const p = Number(b.clientPrice) || 0;
-                e.revenue += p;
-                e.benefit += p * benefitRate;
+                e.revenue += Number(b.clientPrice) || 0;
+                e.benefit += bookingMargin(b, benefitRate);
             }
         });
         return [...map.entries()]
@@ -153,9 +178,8 @@ export function useBusinessAnalytics(bookings, selectedYear) {
             const yr = String(d.getFullYear());
             if (!map.has(yr)) map.set(yr, { annee: yr, revenue: 0, benefit: 0 });
             const e = map.get(yr);
-            const p = Number(b.clientPrice) || 0;
-            e.revenue += p;
-            e.benefit += p * benefitRate;
+            e.revenue += Number(b.clientPrice) || 0;
+            e.benefit += bookingMargin(b, benefitRate);
         });
         return [...map.entries()]
             .sort(([a], [b]) => a.localeCompare(b))

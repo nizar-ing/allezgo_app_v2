@@ -1,6 +1,13 @@
 // src/components/booking/BookingSummaryCard.jsx
 import { MapPin, Printer } from "lucide-react";
 
+const RECEIPT_EMERGE_CSS = `
+@keyframes receipt-emerge {
+  from { clip-path: inset(0 0 100% 0); }
+  to   { clip-path: inset(0 0 0% 0); }
+}
+`;
+
 const BOARDING_LABELS = {
     RO: "Chambre Seule",
     BB: "Bed & Breakfast",
@@ -62,6 +69,8 @@ export default function BookingSummaryCard({ bookingState }) {
     const totalChildren = rooms.reduce((acc, r) => acc + (r.children ?? 0), 0);
 
     return (
+        <>
+        <style>{RECEIPT_EMERGE_CSS}</style>
         <div className="sticky top-[110px]">
 
             {/* ── Printer machine body ─────────────────────────────────── */}
@@ -141,7 +150,10 @@ export default function BookingSummaryCard({ bookingState }) {
             </div>
 
             {/* ── Thermal receipt paper emerging from the slot ─────────── */}
-            <div className="relative z-10 -mt-1.5 mx-3">
+            <div
+                className="relative z-10 -mt-1.5 mx-3"
+                style={{ animation: 'receipt-emerge 2.5s steps(50, end) 0.5s both' }}
+            >
                 <article
                     style={{ clipPath: RECEIPT_CLIP }}
                     className="bg-[#fafaf7] px-5 pt-6 pb-14 shadow-[0_10px_28px_-6px_rgba(0,0,0,0.22),0_4px_10px_-4px_rgba(0,0,0,0.12)]"
@@ -242,5 +254,6 @@ export default function BookingSummaryCard({ bookingState }) {
             </div>
 
         </div>
+        </>
     );
 }

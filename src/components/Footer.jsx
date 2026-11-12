@@ -17,6 +17,7 @@ import {
     Clock,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import useSettings from '../custom-hooks/useSettings.js';
 
 const footerLinks = {
     destinations: ['Hotels En Algérie', 'Hotels En Tunisie', 'Hotels dans le reste du monde'],
@@ -38,6 +39,10 @@ const paymentMethods = ['Dhahabia', 'BaridiMob', 'Visa', 'Mastercard'];
 const CURRENT_YEAR = new Date().getFullYear();
 
 function Footer() {
+    const { settings } = useSettings();
+    const phone = settings?.contact_phone || '+213 770 93 25 63';
+    const email = settings?.contact_email || 'info@allezgoo.com';
+
     return (
         <footer className="relative bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white">
             {/* Decorative top border */}
@@ -54,8 +59,8 @@ function Footer() {
                                 style={{ filter: 'drop-shadow(0 4px 6px rgba(249, 115, 22, 0.4))' }}
                             />
                             <h2 className="text-2xl font-bold">
-                                <span className="bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">Allez</span>
-                                <span className="bg-gradient-to-r from-orange-500 to-orange-600 bg-clip-text text-transparent">GO</span>
+                                <span className="text-blue-400">Allez</span>
+                                <span className="text-orange-500">GO</span>
                             </h2>
                         </div>
 
@@ -144,19 +149,19 @@ function Footer() {
                             <li className="flex items-center gap-2 text-sm">
                                 <Phone className="w-4 h-4 text-orange-500 flex-shrink-0" />
                                 <a
-                                    href="tel:+213770932563"
+                                    href={`tel:${phone.replace(/\s/g, '')}`}
                                     className="text-gray-300 hover:text-orange-400 transition-colors"
                                 >
-                                    +213 770 93 25 63
+                                    {phone}
                                 </a>
                             </li>
                             <li className="flex items-center gap-2 text-sm">
                                 <Mail className="w-4 h-4 text-orange-500 flex-shrink-0" />
                                 <a
-                                    href="mailto:contact@allezgo.dz"
+                                    href={`mailto:${email}`}
                                     className="text-gray-300 hover:text-orange-400 transition-colors"
                                 >
-                                    contact@allezgo.dz
+                                    {email}
                                 </a>
                             </li>
                             <li className="flex items-start gap-2 text-sm">
@@ -222,12 +227,38 @@ function Footer() {
                             </Link>
                         </div>
                     </div>
-                    <div className="text-center mt-6">
-                        <p className="text-xs text-white font-mono flex items-center justify-center gap-1">
-                            Designed by <FaHeart className="text-red-500 animate-pulse" />NIZAR ILAHI<FaHeart className="text-red-500 animate-pulse" />
+                    <div className="text-center mt-6 pt-4 border-t border-white/5">
+                        <p className="font-mono text-xs tracking-widest uppercase flex items-center justify-center gap-2 flex-wrap">
+                            <span
+                                className="text-white/20 select-none"
+                                style={{ textShadow: '0 1px 0 rgba(130,170,255,0.2), 0 2px 4px rgba(0,0,0,0.55)' }}
+                            >&lt;</span>
+                            <span
+                                className="text-gray-400"
+                                style={{ textShadow: '0 1px 0 rgba(255,255,255,0.07), 1px 2px 0 rgba(20,50,120,0.45), 1px 3px 6px rgba(0,0,0,0.5)' }}
+                            >Crafted with</span>
+                            <FaHeart
+                                className="text-red-500 animate-pulse text-[11px]"
+                                style={{ filter: 'drop-shadow(0 1px 0 rgba(160,0,0,0.85)) drop-shadow(0 2px 5px rgba(0,0,0,0.45))' }}
+                            />
+                            <span
+                                className="text-gray-400"
+                                style={{ textShadow: '0 1px 0 rgba(255,255,255,0.07), 1px 2px 0 rgba(20,50,120,0.45), 1px 3px 6px rgba(0,0,0,0.5)' }}
+                            >by</span>
+                            <span
+                                className="bg-gradient-to-r from-blue-400 to-orange-400 bg-clip-text text-transparent font-semibold tracking-[0.15em]"
+                                style={{ filter: 'drop-shadow(0 1px 0 rgba(15,40,110,0.95)) drop-shadow(0 2px 0 rgba(8,20,70,0.7)) drop-shadow(0 3px 8px rgba(0,0,0,0.55))' }}
+                            >NIZAR ILAHI</span>
+                            <span
+                                className="text-white/20 select-none"
+                                style={{ textShadow: '0 1px 0 rgba(130,170,255,0.2), 0 2px 4px rgba(0,0,0,0.55)' }}
+                            >/&gt;</span>
                         </p>
-                        <p className="text-xs text-white font-mono flex items-center justify-center gap-1">
-                            2MCoding©2026. All rights reserved
+                        <p
+                            className="font-mono text-[11px] tracking-[0.18em] text-white/30 mt-1.5"
+                            style={{ textShadow: '0 1px 0 rgba(255,255,255,0.04), 0 2px 0 rgba(20,40,100,0.32), 0 3px 6px rgba(0,0,0,0.45)' }}
+                        >
+                            2MCoding © 2026 — All rights reserved
                         </p>
                     </div>
                 </div>

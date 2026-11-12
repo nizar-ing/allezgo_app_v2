@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { AllezGoApi } from '../services/allezgo-api/allezGoApi.js';
-import apiClient from '../services/ApiClient.js';
 
 export function useAdminBookings() {
     const queryClient = useQueryClient();
@@ -14,25 +13,8 @@ export function useAdminBookings() {
     });
 
     const updateBookingStatus = useMutation({
-        mutationFn: async ({ id, status, iproPayload }) => {
-            // 1. Mettre à jour le statut dans le backend AllezGo
-            const response = await AllezGoApi.Bookings.updateStatus(id, status);
-
-            // 2. Si approuvé, déclencher le POST vers l'API iPro Booking
-            if (status === 'CONFIRMED' && iproPayload) {
-                try {
-                    // Création de la requête vers iPro en injectant les identifiants
-                    await apiClient.client.post('/HotelBooking', apiClient.createRequestBody(
-                        typeof iproPayload === 'string' ? JSON.parse(iproPayload) : iproPayload
-                    ));
-                } catch (error) {
-                    console.error("Erreur API iPro Booking:", error);
-                    // On avertit l'utilisateur sans faire échouer la mutation car le statut est déjà à jour en base
-                    toast.error("Virement approuvé, mais la transmission à iPro a échoué.");
-                }
-            }
-
-            return response;
+        mutationFn: async ({ id, status }) => {
+            return await AllezGoApi.Bookings.updateStatus(id, status);
         },
         onSuccess: (data, variables) => {
             // Invalidations du cache pour rafraîchir l'interface

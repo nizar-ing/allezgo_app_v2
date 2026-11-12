@@ -3,6 +3,7 @@ import {Outlet} from "react-router-dom";
 import Header from "../components/Header.jsx";
 import Footer from "../components/Footer.jsx";
 import SocialFloatingWidget from "../components/SocialFloatingWidget.jsx";
+import WhatsAppFloatingButton from "../components/WhatsAppFloatingButton.jsx";
 import useSettings from "../custom-hooks/useSettings.js";
 
 function Layout() {
@@ -15,6 +16,7 @@ function Layout() {
             </main>
             <Footer/>
             <SocialFloatingWidget />
+            <WhatsAppFloatingButton />
         </div>
     );
 }
